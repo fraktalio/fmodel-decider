@@ -1,0 +1,6 @@
+{
+  "kiroAgent.configureMCP": "Disabled",
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.unstable": false
+}

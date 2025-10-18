@@ -1,0 +1,16 @@
+{
+  "name": "@fraktalio/fmodel-decider",
+  "version": "0.1.0",
+  "exports": "./mod.ts",
+  "tasks": {
+    "dev": "deno test --watch"
+  },
+  "license": "Apache License, Version 2.0",
+  "imports": {
+    "@std/assert": "jsr:@std/assert@1"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.window", "es2022"],
+    "strict": true
+  }
+}
