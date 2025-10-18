@@ -37,8 +37,13 @@ Both `DcbDecider` and `AggregateDecider` support event-sourced computation, but
 they differ in event type symmetry, which defines their expressive power and use
 cases:
 
-- `DcbDecider` supports more powerful event-sourced computation in a heterogeneous event context. It can consume one event type and emit another.
-- `AggregateDecider` is limited to consume and emit same event type(s).
+
+- `DcbDecider` enables flexible, event-sourced computation in heterogeneous event contexts.
+It can consume one event type and emit another, making it ideal for dynamic models that span multiple concepts — effectively operating across a **Dynamic Consistency Boundary (DCB)**.
+
+- `AggregateDecider` operates within a homogeneous event domain, where it consumes and emits the same event type.
+This symmetry allows it to also support state-stored computation, which is characteristic of **aggregate roots and other stateful domain entities**.
+
 
 | Concept                           | `DcbDecider`                                                     | `AggregateDecider`                                                                   |
 | --------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
