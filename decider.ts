@@ -789,7 +789,7 @@ export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
  * - **Event Sourcing**: Derive current state from historical events using `computeNewEvents`
  * - **Decision Making**: Transform commands and derived state into new events
  * - **State Evolution**: Apply events to state to maintain consistency
- * - **Functional Composition**: Inherit all transformation and combination operations from `Decider`
+ * - **Functional Composition**: Delegate all transformation and combination operations to `Decider`
  *
  * @typeParam C - Command type representing the intent or instruction to be processed
  * @typeParam S - State type (both input and output) representing the consistent state structure throughout the decider lifecycle
@@ -1226,7 +1226,6 @@ export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
  * - **Use AggregateDecider** when you need both event-sourced and state-stored computation flexibility
  * - **Use AggregateDecider** when event and state types should be consistent throughout the system
  * - **Use DcbDecider** when you only need event-sourced computation or different event types
- * - **Use Decider** when you need maximum type flexibility for cross-boundary scenarios
  *
  * **Domain Aggregate Pattern:**
  * `AggregateDecider` is specifically designed for **Domain-Driven Design aggregates** where:
