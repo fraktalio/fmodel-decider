@@ -6,7 +6,7 @@ A small TypeScript library for modeling deciders in domain-driven, event-sourced
 interface IDecider<C, Si, So, Ei, Eo> { 
     readonly decide: (command: C, state: Si) => readonly Eo[];
     readonly evolve: (state: Si, event: Ei) => So;
-      readonly initialState: So;
+    readonly initialState: So;
 }
 
 export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
