@@ -701,6 +701,70 @@ class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
 
     return deciderX.productViaTuplesOnState(deciderY);
   }
+
+  /**
+   * Converts this Decider to an AggregateDecider when the type constraints are satisfied.
+   *
+   * @remarks
+   * This method provides a convenient way to convert a base `Decider` to an `AggregateDecider`
+   * when the following constraints are met:
+   * - Input state type equals output state type (`Si = So = S`)
+   * - Input event type equals output event type (`Ei = Eo = E`)
+   *
+   * This is particularly useful when working with combined deciders that need to be used
+   * with test specifications that expect `AggregateDecider` interface.
+   *
+   * **Type Constraints:**
+   * - `Si extends So`: Input state must be assignable to output state
+   * - `So extends Si`: Output state must be assignable to input state
+   * - `Ei extends Eo`: Input event must be assignable to output event
+   * - `Eo extends Ei`: Output event must be assignable to input event
+   *
+   * **Use Cases:**
+   * - Converting combined deciders for testing with `DeciderEventSourcedSpec` and `DeciderStateStoredSpec`
+   * - Creating aggregate deciders from transformed base deciders
+   * - Bridging between different abstraction levels in the progressive refinement model
+   *
+   * @example
+   * Converting a combined decider to AggregateDecider:
+   * ```ts
+   * const combinedDecider = incrementDecider
+   *   .combineViaTuples(decrementDecider)
+   *   .dimapOnState(tupleToFlat, flatToTuple);
+   *
+   * // Convert to AggregateDecider for testing
+   * const aggregateDecider = combinedDecider.toAggregateDecider();
+   *
+   * // Now can use with test specifications
+   * DeciderEventSourcedSpec.for(aggregateDecider)
+   *   .given([])
+   *   .when(command)
+   *   .then(expectedEvents);
+   * ```
+   *
+   * @example
+   * Converting a state-mapped decider:
+   * ```ts
+   * const mappedDecider = baseDecider.dimapOnState(
+   *   (newState) => oldState,
+   *   (oldState) => newState
+   * );
+   *
+   * const aggregateDecider = mappedDecider.toAggregateDecider();
+   * ```
+   *
+   * @returns A new `AggregateDecider` instance that wraps this decider's functionality
+   * @throws {Error} Implicitly through TypeScript if type constraints are not satisfied
+   */
+  toAggregateDecider<S extends Si & So, E extends Ei & Eo>(
+    this: Decider<C, S, S, E, E>,
+  ): AggregateDecider<C, S, E> {
+    return new AggregateDecider<C, S, E>(
+      this.decide as (c: C, s: S) => readonly E[],
+      this.evolve as (s: S, e: E) => S,
+      this.initialState as S,
+    );
+  }
 }
 
 /**

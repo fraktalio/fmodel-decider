@@ -63,6 +63,142 @@ const counterDecider = new AggregateDecider<
   initialCounterState,
 );
 
+// Enhanced Counter Example - Demonstrating combineViaTuples with Separate Deciders
+
+// Individual command types for each operation
+type IncrementCommand = { kind: "IncrementCommand"; amount: number };
+type DecrementCommand = { kind: "DecrementCommand"; amount: number };
+type ResetCommand = { kind: "ResetCommand" };
+
+// Individual event types for each operation
+type IncrementedEvent = { kind: "IncrementedEvent"; amount: number };
+type DecrementedEvent = { kind: "DecrementedEvent"; amount: number };
+type ResetEvent = { kind: "ResetEvent" };
+
+/**
+ * Increment-only decider that handles only increment operations
+ */
+const incrementDecider = new AggregateDecider<
+  IncrementCommand,
+  CounterState,
+  IncrementedEvent
+>(
+  (command, _state) => {
+    if (command.kind === "IncrementCommand") {
+      return [{ kind: "IncrementedEvent", amount: command.amount }];
+    }
+    return [];
+  },
+  (state, event) => {
+    if (event.kind === "IncrementedEvent") {
+      return { value: state.value + event.amount };
+    }
+    return state;
+  },
+  initialCounterState,
+);
+
+/**
+ * Decrement-only decider that handles only decrement operations
+ */
+const decrementDecider = new AggregateDecider<
+  DecrementCommand,
+  CounterState,
+  DecrementedEvent
+>(
+  (command, _state) => {
+    if (command.kind === "DecrementCommand") {
+      return [{ kind: "DecrementedEvent", amount: command.amount }];
+    }
+    return [];
+  },
+  (state, event) => {
+    if (event.kind === "DecrementedEvent") {
+      return { value: state.value - event.amount };
+    }
+    return state;
+  },
+  initialCounterState,
+);
+
+/**
+ * Reset-only decider that handles only reset operations
+ */
+const resetDecider = new AggregateDecider<
+  ResetCommand,
+  CounterState,
+  ResetEvent
+>(
+  (command, _state) => {
+    if (command.kind === "ResetCommand") {
+      return [{ kind: "ResetEvent" }];
+    }
+    return [];
+  },
+  (state, event) => {
+    if (event.kind === "ResetEvent") {
+      return { value: 0 };
+    }
+    return state;
+  },
+  initialCounterState,
+);
+
+/**
+ * Combined counter decider using combineViaTuples method.
+ * This demonstrates how to compose multiple deciders while keeping their states separate.
+ * The original tuple state: [readonly [CounterState, CounterState], CounterState]
+ * representing [[incrementState, decrementState], resetState]
+ */
+const baseCombinedCounterDecider = incrementDecider
+  .combineViaTuples(decrementDecider)
+  .combineViaTuples(resetDecider);
+
+// Type aliases for the combined decider
+type CombinedCommand = IncrementCommand | DecrementCommand | ResetCommand;
+type CombinedEvent = IncrementedEvent | DecrementedEvent | ResetEvent;
+
+// Original tuple state from combineViaTuples
+type TupleState = readonly [
+  readonly [CounterState, CounterState],
+  CounterState,
+];
+
+// Flattened state structure for easier testing
+type CombinedState = {
+  readonly incrementState: CounterState;
+  readonly decrementState: CounterState;
+  readonly resetState: CounterState;
+};
+
+/**
+ * Transform the combined decider to use a flatter state structure using dimapOnState.
+ * This avoids wrappers by transforming the tuple state to a more convenient object structure.
+ */
+const combinedCounterDecider = baseCombinedCounterDecider.dimapOnState<
+  CombinedState,
+  CombinedState
+>(
+  // Convert flat state to tuple state (contravariant - for input)
+  (flatState: CombinedState): TupleState => [
+    [flatState.incrementState, flatState.decrementState],
+    flatState.resetState,
+  ],
+  // Convert tuple state to flat state (covariant - for output)
+  (tupleState: TupleState): CombinedState => ({
+    incrementState: tupleState[0][0],
+    decrementState: tupleState[0][1],
+    resetState: tupleState[1],
+  }),
+);
+
+/**
+ * Convert the combined decider to an AggregateDecider using the new extension method.
+ * This is much cleaner than manually creating a new AggregateDecider instance.
+ */
+const combinedCounterAggregateDecider = combinedCounterDecider
+  .toAggregateDecider();
+
 // Tests
 Deno.test("Counter Increment - Event Sourced", () => {
   DeciderEventSourcedSpec.for(counterDecider)
@@ -90,6 +226,118 @@ Deno.test("Counter Reset - State Stored", () => {
     .given({ value: 42 })
     .when({ kind: "ResetCommand" })
     .then({ value: 0 });
+});
+
+// Enhanced Counter Tests - Demonstrating combineViaTuples with DeciderEventSourcedSpec and DeciderStateStoredSpec
+
+Deno.test("Combined Counter - Increment operation (Event Sourced)", () => {
+  DeciderEventSourcedSpec.for(combinedCounterAggregateDecider)
+    .given([])
+    .when({ kind: "IncrementCommand", amount: 5 })
+    .then([{ kind: "IncrementedEvent", amount: 5 }]);
+});
+
+Deno.test("Combined Counter - Increment operation (State Stored)", () => {
+  const initialFlatState: CombinedState = {
+    incrementState: { value: 0 },
+    decrementState: { value: 0 },
+    resetState: { value: 0 },
+  };
+
+  DeciderStateStoredSpec.for(combinedCounterAggregateDecider)
+    .given(initialFlatState)
+    .when({ kind: "IncrementCommand", amount: 5 })
+    .then({
+      incrementState: { value: 5 }, // increment state updated
+      decrementState: { value: 0 }, // decrement unchanged
+      resetState: { value: 0 }, // reset state unchanged
+    });
+});
+
+Deno.test("Combined Counter - Decrement operation (Event Sourced)", () => {
+  DeciderEventSourcedSpec.for(combinedCounterAggregateDecider)
+    .given([{ kind: "IncrementedEvent", amount: 10 }])
+    .when({ kind: "DecrementCommand", amount: 3 })
+    .then([{ kind: "DecrementedEvent", amount: 3 }]);
+});
+
+Deno.test("Combined Counter - Decrement operation (State Stored)", () => {
+  const initialFlatState: CombinedState = {
+    incrementState: { value: 10 },
+    decrementState: { value: 10 },
+    resetState: { value: 10 },
+  };
+
+  DeciderStateStoredSpec.for(combinedCounterAggregateDecider)
+    .given(initialFlatState)
+    .when({ kind: "DecrementCommand", amount: 3 })
+    .then({
+      incrementState: { value: 10 }, // increment unchanged
+      decrementState: { value: 7 }, // decrement state updated
+      resetState: { value: 10 }, // reset state unchanged
+    });
+});
+
+Deno.test("Combined Counter - Reset operation (Event Sourced)", () => {
+  DeciderEventSourcedSpec.for(combinedCounterAggregateDecider)
+    .given([
+      { kind: "IncrementedEvent", amount: 15 },
+      { kind: "DecrementedEvent", amount: 5 },
+    ])
+    .when({ kind: "ResetCommand" })
+    .then([{ kind: "ResetEvent" }]);
+});
+
+Deno.test("Combined Counter - Reset operation (State Stored)", () => {
+  const initialFlatState: CombinedState = {
+    incrementState: { value: 15 },
+    decrementState: { value: 20 },
+    resetState: { value: 25 },
+  };
+
+  DeciderStateStoredSpec.for(combinedCounterAggregateDecider)
+    .given(initialFlatState)
+    .when({ kind: "ResetCommand" })
+    .then({
+      incrementState: { value: 15 }, // increment state unchanged
+      decrementState: { value: 20 }, // decrement state unchanged
+      resetState: { value: 0 }, // reset state updated
+    });
+});
+
+Deno.test("Combined Counter - Complex event sourced sequence", () => {
+  DeciderEventSourcedSpec.for(combinedCounterAggregateDecider)
+    .given([
+      { kind: "IncrementedEvent", amount: 10 },
+      { kind: "IncrementedEvent", amount: 5 },
+      { kind: "DecrementedEvent", amount: 3 },
+    ])
+    .when({ kind: "ResetCommand" })
+    .then([{ kind: "ResetEvent" }]);
+});
+
+Deno.test("Extension Method - toAggregateDecider() demonstration", () => {
+  // Demonstrate that we can create an AggregateDecider directly from any compatible Decider
+  const directAggregateDecider = combinedCounterDecider.toAggregateDecider();
+
+  // Verify it works with both test specifications
+  DeciderEventSourcedSpec.for(directAggregateDecider)
+    .given([])
+    .when({ kind: "IncrementCommand", amount: 3 })
+    .then([{ kind: "IncrementedEvent", amount: 3 }]);
+
+  DeciderStateStoredSpec.for(directAggregateDecider)
+    .given({
+      incrementState: { value: 0 },
+      decrementState: { value: 0 },
+      resetState: { value: 0 },
+    })
+    .when({ kind: "IncrementCommand", amount: 3 })
+    .then({
+      incrementState: { value: 3 },
+      decrementState: { value: 0 },
+      resetState: { value: 0 },
+    });
 });
 
 // Restaurant Ordering Example with Different Input/Output Event Types (Ei ≠ Eo)
