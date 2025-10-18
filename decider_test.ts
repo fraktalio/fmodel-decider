@@ -3,7 +3,7 @@ import {
   DeciderEventSourcedSpec,
   DeciderStateStoredSpec,
 } from "./test_specification.ts";
-import { assert, assertEquals } from "@std/assert";
+import { assertEquals } from "@std/assert";
 
 // Simple Counter Example with Exhaustive Matching
 type CounterCommand =
