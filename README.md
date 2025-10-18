@@ -2,6 +2,22 @@
 
 A small TypeScript library for modeling deciders in domain-driven, event-sourced, or state-stored architectures — with progressive type refinement to express precisely what capabilities each implementation supports.
 
+```ts
+interface IDecider<C, Si, So, Ei, Eo> { 
+    readonly decide: (command: C, state: Si) => readonly Eo[];
+    readonly evolve: (state: Si, event: Ei) => So;
+      readonly initialState: So;
+}
+
+export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
+      computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+}
+
+export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
+      computeNewState(state: S, command: C): S;
+}
+```
+
 🧠 What is a “Decider”?
 
 In functional and event-sourced architectures, a Decider is the core domain component that:
