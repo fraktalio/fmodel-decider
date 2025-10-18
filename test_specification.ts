@@ -12,11 +12,12 @@ import type { IAggregateDecider, IDcbDecider } from "./decider.ts";
  * implement event-sourced behavior. Unlike the state-stored version, this
  * specification does not operate directly on state but on event histories.
  *
- * @typeParam C - Command type
- * @typeParam Ei - Input event type (consumed)
- * @typeParam Eo - Output event type (produced)
+ * @typeParam C - Command type representing the intent or instruction to be processed
+ * @typeParam Ei - Input event type consumed by the decider's evolve function
+ * @typeParam Eo - Output event type produced by the decider's decide function
  *
  * @example
+ * Restaurant menu management testing:
  * ```ts
  * DeciderEventSourcedSpec.for(restaurantDecider)
  *   .given([restaurantCreated])
@@ -25,6 +26,7 @@ import type { IAggregateDecider, IDcbDecider } from "./decider.ts";
  * ```
  *
  * @example
+ * Payment policy testing:
  * ```ts
  * DeciderEventSourcedSpec.for(paymentPolicy)
  *   .given([paymentReceived])
@@ -70,11 +72,12 @@ export const DeciderEventSourcedSpec = {
  * This reflects aggregates that use the same event type for both input and
  * output (`E`), allowing both **state-stored** and **event-sourced** testing.
  *
- * @typeParam C - Command type
- * @typeParam S - State type
- * @typeParam E - Event type (both consumed and produced)
+ * @typeParam C - Command type representing the intent or instruction to be processed
+ * @typeParam S - State type representing the aggregate's internal state
+ * @typeParam E - Event type (both consumed and produced) representing state changes
  *
  * @example
+ * Order processing testing:
  * ```ts
  * DeciderStateStoredSpec.for(orderDecider)
  *   .given({ status: "Pending" })

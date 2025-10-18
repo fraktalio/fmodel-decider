@@ -198,7 +198,7 @@ const decide = (
 
     default: {
       // Exhaustive matching of the command type
-      const _: never = command;
+      const _exhaustiveCheck: never = command;
       return [];
     }
   }
@@ -295,7 +295,7 @@ const evolve = (state: OrderState, event: OrderEvent): OrderState => {
 
     default: {
       // Exhaustive matching of the event type
-      const _: never = event;
+      const _exhaustiveCheck: never = event;
       return state;
     }
   }

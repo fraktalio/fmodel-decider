@@ -29,7 +29,7 @@ const counterDecider = new AggregateDecider<
   CounterState,
   CounterEvent
 >(
-  (command, state) => {
+  (command, _state) => {
     switch (command.kind) {
       case "IncrementCommand":
         return [{ kind: "IncrementedEvent", amount: command.amount }];
@@ -39,7 +39,7 @@ const counterDecider = new AggregateDecider<
         return [{ kind: "ResetEvent" }];
       default: {
         // Exhaustive matching of the command type
-        const _: never = command;
+        const _exhaustiveCheck: never = command;
         return [];
       }
     }
@@ -54,7 +54,7 @@ const counterDecider = new AggregateDecider<
         return { value: 0 };
       default: {
         // Exhaustive matching of the event type
-        const _: never = event;
+        const _exhaustiveCheck: never = event;
         return state;
       }
     }
