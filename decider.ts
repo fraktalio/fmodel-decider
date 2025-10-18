@@ -701,70 +701,6 @@ class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
 
     return deciderX.productViaTuplesOnState(deciderY);
   }
-
-  /**
-   * Converts this Decider to an AggregateDecider when the type constraints are satisfied.
-   *
-   * @remarks
-   * This method provides a convenient way to convert a base `Decider` to an `AggregateDecider`
-   * when the following constraints are met:
-   * - Input state type equals output state type (`Si = So = S`)
-   * - Input event type equals output event type (`Ei = Eo = E`)
-   *
-   * This is particularly useful when working with combined deciders that need to be used
-   * with test specifications that expect `AggregateDecider` interface.
-   *
-   * **Type Constraints:**
-   * - `Si extends So`: Input state must be assignable to output state
-   * - `So extends Si`: Output state must be assignable to input state
-   * - `Ei extends Eo`: Input event must be assignable to output event
-   * - `Eo extends Ei`: Output event must be assignable to input event
-   *
-   * **Use Cases:**
-   * - Converting combined deciders for testing with `DeciderEventSourcedSpec` and `DeciderStateStoredSpec`
-   * - Creating aggregate deciders from transformed base deciders
-   * - Bridging between different abstraction levels in the progressive refinement model
-   *
-   * @example
-   * Converting a combined decider to AggregateDecider:
-   * ```ts
-   * const combinedDecider = incrementDecider
-   *   .combineViaTuples(decrementDecider)
-   *   .dimapOnState(tupleToFlat, flatToTuple);
-   *
-   * // Convert to AggregateDecider for testing
-   * const aggregateDecider = combinedDecider.toAggregateDecider();
-   *
-   * // Now can use with test specifications
-   * DeciderEventSourcedSpec.for(aggregateDecider)
-   *   .given([])
-   *   .when(command)
-   *   .then(expectedEvents);
-   * ```
-   *
-   * @example
-   * Converting a state-mapped decider:
-   * ```ts
-   * const mappedDecider = baseDecider.dimapOnState(
-   *   (newState) => oldState,
-   *   (oldState) => newState
-   * );
-   *
-   * const aggregateDecider = mappedDecider.toAggregateDecider();
-   * ```
-   *
-   * @returns A new `AggregateDecider` instance that wraps this decider's functionality
-   * @throws {Error} Implicitly through TypeScript if type constraints are not satisfied
-   */
-  toAggregateDecider<S extends Si & So, E extends Ei & Eo>(
-    this: Decider<C, S, S, E, E>,
-  ): AggregateDecider<C, S, E> {
-    return new AggregateDecider<C, S, E>(
-      this.decide as (c: C, s: S) => readonly E[],
-      this.evolve as (s: S, e: E) => S,
-      this.initialState as S,
-    );
-  }
 }
 
 /**
@@ -862,14 +798,15 @@ export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
  *
  * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
-export class DcbDecider<C, S, Ei, Eo> extends Decider<C, S, S, Ei, Eo>
-  implements IDcbDecider<C, S, Ei, Eo> {
+export class DcbDecider<C, S, Ei, Eo> implements IDcbDecider<C, S, Ei, Eo> {
+  private readonly _decider: Decider<C, S, S, Ei, Eo>;
+
   constructor(
-    override readonly decide: (c: C, s: S) => readonly Eo[],
-    override readonly evolve: (s: S, e: Ei) => S,
-    override readonly initialState: S,
+    readonly decide: (c: C, s: S) => readonly Eo[],
+    readonly evolve: (s: S, e: Ei) => S,
+    readonly initialState: S,
   ) {
-    super(decide, evolve, initialState);
+    this._decider = new Decider(decide, evolve, initialState);
   }
 
   /**
@@ -908,6 +845,106 @@ export class DcbDecider<C, S, Ei, Eo> extends Decider<C, S, S, Ei, Eo>
       this.initialState,
     );
     return this.decide(command, currentState);
+  }
+
+  /**
+   * Transforms the command type of this DcbDecider by applying a contravariant mapping function.
+   *
+   * @typeParam Cn - The new command type that the resulting DcbDecider will accept
+   * @param f - Mapping function that transforms the new command type to the original command type
+   * @returns A new `DcbDecider` instance that accepts commands of type `Cn`
+   */
+  mapContraOnCommand<Cn>(f: (cn: Cn) => C): DcbDecider<Cn, S, Ei, Eo> {
+    const mappedDecider = this._decider.mapContraOnCommand(f);
+    return new DcbDecider(
+      mappedDecider.decide,
+      mappedDecider.evolve,
+      mappedDecider.initialState,
+    );
+  }
+
+  /**
+   * Transforms both input and output event types of this DcbDecider using dimap.
+   *
+   * @typeParam Ein - New input event type that the resulting DcbDecider will consume
+   * @typeParam Eon - New output event type that the resulting DcbDecider will produce
+   * @param fl - Contravariant mapping function that transforms new input events to original input events
+   * @param fr - Covariant mapping function that transforms original output events to new output events
+   * @returns A new `DcbDecider` instance with transformed event types
+   */
+  dimapOnEvent<Ein, Eon>(
+    fl: (ein: Ein) => Ei,
+    fr: (eo: Eo) => Eon,
+  ): DcbDecider<C, S, Ein, Eon> {
+    const mappedDecider = this._decider.dimapOnEvent(fl, fr);
+    return new DcbDecider(
+      mappedDecider.decide,
+      mappedDecider.evolve,
+      mappedDecider.initialState,
+    );
+  }
+
+  /**
+   * Transforms both input and output state types of this DcbDecider using dimap.
+   * Since DcbDecider has Si = So = S, the new state type must be the same for input and output.
+   *
+   * @typeParam Sn - New state type (both input and output)
+   * @param fl - Contravariant mapping function that transforms new state to original state
+   * @param fr - Covariant mapping function that transforms original state to new state
+   * @returns A new `DcbDecider` instance with transformed state types
+   */
+  dimapOnState<Sn>(
+    fl: (sn: Sn) => S,
+    fr: (s: S) => Sn,
+  ): DcbDecider<C, Sn, Ei, Eo> {
+    const mappedDecider = this._decider.dimapOnState(fl, fr);
+    return new DcbDecider(
+      mappedDecider.decide,
+      mappedDecider.evolve,
+      mappedDecider.initialState,
+    );
+  }
+
+  /**
+   * Combines this DcbDecider with another DcbDecider using intersection-based state merging.
+   *
+   * @typeParam C2 - Command type of the second DcbDecider
+   * @typeParam S2 - State type of the second DcbDecider
+   * @typeParam Ei2 - Input event type of the second DcbDecider
+   * @typeParam Eo2 - Output event type of the second DcbDecider
+   * @param other - The second DcbDecider to combine with
+   * @returns A new `DcbDecider` with combined functionality
+   */
+  combine<C2, S2, Ei2, Eo2>(
+    other: DcbDecider<C2, S2, Ei2, Eo2>,
+  ): DcbDecider<C | C2, S & S2, Ei | Ei2, Eo | Eo2> {
+    const combinedDecider = this._decider.combine(other._decider);
+    return new DcbDecider(
+      combinedDecider.decide,
+      combinedDecider.evolve,
+      combinedDecider.initialState,
+    );
+  }
+
+  /**
+   * Combines this DcbDecider with another DcbDecider using tuple-based state composition.
+   *
+   * @typeParam C2 - Command type of the second DcbDecider
+   * @typeParam S2 - State type of the second DcbDecider
+   * @typeParam Ei2 - Input event type of the second DcbDecider
+   * @typeParam Eo2 - Output event type of the second DcbDecider
+   * @param other - The second DcbDecider to combine with
+   * @returns A new `DcbDecider` with tuple-based combined state
+   */
+  combineViaTuples<C2, S2, Ei2, Eo2>(
+    other: DcbDecider<C2, S2, Ei2, Eo2>,
+  ): DcbDecider<C | C2, readonly [S, S2], Ei | Ei2, Eo | Eo2> {
+    const combinedDecider = this._decider.combineViaTuples(other._decider);
+    return new DcbDecider(
+      combinedDecider.decide,
+      combinedDecider.evolve,
+      combinedDecider.initialState,
+    );
   }
 }
 
@@ -1349,14 +1386,15 @@ export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
  *
  * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
-export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
-  implements IAggregateDecider<C, S, E> {
+export class AggregateDecider<C, S, E> implements IAggregateDecider<C, S, E> {
+  private readonly _decider: Decider<C, S, S, E, E>;
+
   constructor(
-    override readonly decide: (c: C, s: S) => readonly E[],
-    override readonly evolve: (s: S, e: E) => S,
-    override readonly initialState: S,
+    readonly decide: (c: C, s: S) => readonly E[],
+    readonly evolve: (s: S, e: E) => S,
+    readonly initialState: S,
   ) {
-    super(decide, evolve, initialState);
+    this._decider = new Decider(decide, evolve, initialState);
   }
 
   /**
@@ -1403,6 +1441,117 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
   computeNewState(state: S, command: C): S {
     const events = this.decide(command, state);
     return events.reduce(this.evolve, state);
+  }
+
+  /**
+   * Computes new events from a command by first replaying all past events to derive the current state, then applying decision logic.
+   * This method is inherited from the DcbDecider interface.
+   */
+  computeNewEvents(events: readonly E[], command: C): readonly E[] {
+    const currentState = events.reduce(
+      this.evolve,
+      this.initialState,
+    );
+    return this.decide(command, currentState);
+  }
+
+  /**
+   * Transforms the command type of this AggregateDecider by applying a contravariant mapping function.
+   *
+   * @typeParam Cn - The new command type that the resulting AggregateDecider will accept
+   * @param f - Mapping function that transforms the new command type to the original command type
+   * @returns A new `AggregateDecider` instance that accepts commands of type `Cn`
+   */
+  mapContraOnCommand<Cn>(f: (cn: Cn) => C): AggregateDecider<Cn, S, E> {
+    const mappedDecider = this._decider.mapContraOnCommand(f);
+    return new AggregateDecider(
+      mappedDecider.decide,
+      mappedDecider.evolve,
+      mappedDecider.initialState,
+    );
+  }
+
+  /**
+   * Transforms both input and output event types of this AggregateDecider using dimap.
+   * Since AggregateDecider has Ei = Eo = E, both input and output events are transformed to the same type.
+   *
+   * @typeParam En - New event type (both input and output)
+   * @param fl - Contravariant mapping function that transforms new events to original events
+   * @param fr - Covariant mapping function that transforms original events to new events
+   * @returns A new `AggregateDecider` instance with transformed event types
+   */
+  dimapOnEvent<En>(
+    fl: (en: En) => E,
+    fr: (e: E) => En,
+  ): AggregateDecider<C, S, En> {
+    const mappedDecider = this._decider.dimapOnEvent(fl, fr);
+    return new AggregateDecider(
+      mappedDecider.decide,
+      mappedDecider.evolve,
+      mappedDecider.initialState,
+    );
+  }
+
+  /**
+   * Transforms both input and output state types of this AggregateDecider using dimap.
+   * Since AggregateDecider has Si = So = S, both input and output states are transformed to the same type.
+   *
+   * @typeParam Sn - New state type (both input and output)
+   * @param fl - Contravariant mapping function that transforms new state to original state
+   * @param fr - Covariant mapping function that transforms original state to new state
+   * @returns A new `AggregateDecider` instance with transformed state types
+   */
+  dimapOnState<Sn>(
+    fl: (sn: Sn) => S,
+    fr: (s: S) => Sn,
+  ): AggregateDecider<C, Sn, E> {
+    const mappedDecider = this._decider.dimapOnState(fl, fr);
+    return new AggregateDecider(
+      mappedDecider.decide,
+      mappedDecider.evolve,
+      mappedDecider.initialState,
+    );
+  }
+
+  /**
+   * Combines this AggregateDecider with another AggregateDecider using intersection-based state merging.
+   *
+   * @typeParam C2 - Command type of the second AggregateDecider
+   * @typeParam S2 - State type of the second AggregateDecider
+   * @typeParam E2 - Event type of the second AggregateDecider
+   * @param other - The second AggregateDecider to combine with
+   * @returns A new `AggregateDecider` with combined functionality
+   */
+  combine<C2, S2, E2>(
+    other: AggregateDecider<C2, S2, E2>,
+  ): AggregateDecider<C | C2, S & S2, E | E2> {
+    const combinedDecider = this._decider.combine(other._decider);
+    return new AggregateDecider(
+      combinedDecider.decide,
+      combinedDecider.evolve,
+      combinedDecider.initialState,
+    );
+  }
+
+  /**
+   * Combines this AggregateDecider with another AggregateDecider using tuple-based state composition.
+   * This method now returns an AggregateDecider directly, eliminating the need for manual conversion.
+   *
+   * @typeParam C2 - Command type of the second AggregateDecider
+   * @typeParam S2 - State type of the second AggregateDecider
+   * @typeParam E2 - Event type of the second AggregateDecider
+   * @param other - The second AggregateDecider to combine with
+   * @returns A new `AggregateDecider` with tuple-based combined state
+   */
+  combineViaTuples<C2, S2, E2>(
+    other: AggregateDecider<C2, S2, E2>,
+  ): AggregateDecider<C | C2, readonly [S, S2], E | E2> {
+    const combinedDecider = this._decider.combineViaTuples(other._decider);
+    return new AggregateDecider(
+      combinedDecider.decide,
+      combinedDecider.evolve,
+      combinedDecider.initialState,
+    );
   }
 }
 

@@ -176,7 +176,6 @@ type CombinedState = {
  * This avoids wrappers by transforming the tuple state to a more convenient object structure.
  */
 const combinedCounterDecider = baseCombinedCounterDecider.dimapOnState<
-  CombinedState,
   CombinedState
 >(
   // Convert flat state to tuple state (contravariant - for input)
@@ -193,11 +192,10 @@ const combinedCounterDecider = baseCombinedCounterDecider.dimapOnState<
 );
 
 /**
- * Convert the combined decider to an AggregateDecider using the new extension method.
- * This is much cleaner than manually creating a new AggregateDecider instance.
+ * With the new architecture, combineViaTuples returns an AggregateDecider directly!
+ * No conversion needed - this is the main benefit of the architectural refactoring.
  */
-const combinedCounterAggregateDecider = combinedCounterDecider
-  .toAggregateDecider();
+const combinedCounterAggregateDecider = combinedCounterDecider;
 
 // Tests
 Deno.test("Counter Increment - Event Sourced", () => {
@@ -316,17 +314,17 @@ Deno.test("Combined Counter - Complex event sourced sequence", () => {
     .then([{ kind: "ResetEvent" }]);
 });
 
-Deno.test("Extension Method - toAggregateDecider() demonstration", () => {
-  // Demonstrate that we can create an AggregateDecider directly from any compatible Decider
-  const directAggregateDecider = combinedCounterDecider.toAggregateDecider();
+Deno.test("Architectural Improvement - No conversion needed!", () => {
+  // With the new architecture, combineViaTuples returns AggregateDecider directly
+  // No toAggregateDecider() method needed - this is the main benefit!
 
-  // Verify it works with both test specifications
-  DeciderEventSourcedSpec.for(directAggregateDecider)
+  // Verify it works with both test specifications directly
+  DeciderEventSourcedSpec.for(combinedCounterDecider)
     .given([])
     .when({ kind: "IncrementCommand", amount: 3 })
     .then([{ kind: "IncrementedEvent", amount: 3 }]);
 
-  DeciderStateStoredSpec.for(directAggregateDecider)
+  DeciderStateStoredSpec.for(combinedCounterDecider)
     .given({
       incrementState: { value: 0 },
       decrementState: { value: 0 },
