@@ -28,8 +28,8 @@ cases.
 
 | Concept                           | `DcbDecider`                                                     | `AggregateDecider`                                                                   |
 | --------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **Event-sourced computation**     | ✅ Supported                                                     | ✅ Supported                                                                         |
-| **Event type symmetry (Ei = Eo)** | ❌ Not required                                                  | ✅ Required                                                                          |
+| **Event-sourced computation**     | ✅ Supported                                                     | ✅ Supported (but Limited)                                                                         |
+| **Event type symmetry (Ei = Eo)** | ✅ Not required                                                  | ❌ Required                                                                          |
 | **State-stored computation**      | ❌ Not possible                                                  | ✅ Supported                                                                         |
 | **Use case**                      | Cross-Concept / Dynamic Aggregate | Single-Concept / DDD Aggregate                                               |
 | **Interpretation**                | “Given _these_ events, decide _those_ new events.”               | “Given _these_ events, update my state — possibly producing new _same-type_ events.” |
