@@ -1,7 +1,18 @@
 # fmodel-decider
 
-> Progressive type refinement for capability modeling in event-sourced and
-> state-stored systems
+A small TypeScript library for modeling deciders in domain-driven, event-sourced, or state-stored architectures — with progressive type refinement to express precisely what capabilities each implementation supports.
+
+🧠 What is a “Decider”?
+
+In functional and event-sourced architectures, a Decider is the core domain component that:
+
+- Decides which events should be emitted given a command and the current state,
+- Evolves the state when given an event,
+- Begins from an initial state.
+
+In other words, the decision logic is explicit, pure, and separated from state mutation. This separation improves testability, auditability, and reasoning about behavior.
+
+As Jeremie Chassaing describes in [“Functional Event Sourcing Decider”](https://thinkbeforecoding.com/post/2021/12/17/functional-event-sourcing-decider), this pattern disentangles decision from mutation to surface business logic clearly.
 
 ## 🎯 Motivation
 
@@ -24,12 +35,15 @@ and aggregate-based (`AggregateDecider`) variants.
 
 Both `DcbDecider` and `AggregateDecider` support event-sourced computation, but
 they differ in event type symmetry, which defines their expressive power and use
-cases.
+cases:
+
+- `DcbDecider` supports more powerful event-sourced computation in a heterogeneous event context. It can consume one event type and emit another. 
+-`AggregateDecider` is limited to consume and emit same event type(s).
 
 | Concept                           | `DcbDecider`                                                     | `AggregateDecider`                                                                   |
 | --------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | **Event-sourced computation**     | ✅ Supported                                                     | ✅ Supported (but Limited)                                                                         |
-| **Event type symmetry (Ei = Eo)** | ✅ Not required                                                  | ❌ Required                                                                          |
+| **Event type symmetry (Ei = Eo)** | ❌ Not required                                                  | ✅ Required                                                                          |
 | **State-stored computation**      | ❌ Not possible                                                  | ✅ Supported                                                                         |
 | **Use case**                      | Cross-Concept / Dynamic Aggregate | Single-Concept / DDD Aggregate                                               |
 | **Interpretation**                | “Given _these_ events, decide _those_ new events.”               | “Given _these_ events, update my state — possibly producing new _same-type_ events.” |
@@ -53,3 +67,11 @@ deno task dev
 ```
 deno publish --dry-run
 ```
+
+
+---
+
+Created with :heart: by [Fraktalio](https://fraktalio.com/)
+
+Excited to launch your next IT project with us? Let's get started! Reach out to
+our team at `info@fraktalio.com` to begin the journey to success.
