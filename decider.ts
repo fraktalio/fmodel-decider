@@ -207,12 +207,6 @@ export interface IDecider<C, Si, So, Ei, Eo> {
  * - **Transformations**: Map over command, state, and event types using contravariant/covariant functors
  * - **Combinations**: Merge multiple deciders using intersection or tuple-based state merging
  *
- * **When to Use Decider vs Specialized Types:**
- * - Use `Decider` for cross-boundary scenarios (policies, sagas, projections)
- * - Use `Decider` when input/output types need to differ significantly
- * - Use `DcbDecider` when state types should be consistent (event-sourced scenarios)
- * - Use `AggregateDecider` for traditional domain aggregates with consistent event/state types
- *
  * **Type Parameter Independence:**
  * The five generic types are completely independent, enabling complex modeling scenarios:
  * - `C`: Commands can be union types, complex objects, or simple primitives
@@ -374,7 +368,7 @@ export class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
     readonly decide: (c: C, s: Si) => readonly Eo[],
     readonly evolve: (s: Si, e: Ei) => So,
     readonly initialState: So,
-  ) {}
+  ) { }
 
   /**
    * Transforms the command type of this decider by applying a contravariant mapping function.
@@ -1399,7 +1393,7 @@ export class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
  *     }
  *   },
  *   initialState: { orderId: '', status: 'pending', customerId: '' },
- *
+ *   
  *   computeNewEvents: (events, command) => {
  *     // Event-sourced computation: replay events to get current state, then decide
  *     const currentState = events.reduce(
@@ -1875,12 +1869,12 @@ export class DcbDecider<C, S, Ei, Eo> extends Decider<C, S, S, Ei, Eo>
    * const accountDecider = new DcbDecider<AccountCommand, AccountState, AccountEvent, AccountEvent>(
    *   (cmd, state) => {
    *     if (!state.isActive) return [];
-   *
+   *     
    *     switch (cmd.type) {
    *       case 'deposit':
    *         return [{ type: 'Deposited', accountId: cmd.accountId, amount: cmd.amount }];
    *       case 'withdraw':
-   *         return state.balance >= cmd.amount
+   *         return state.balance >= cmd.amount 
    *           ? [{ type: 'Withdrawn', accountId: cmd.accountId, amount: cmd.amount }]
    *           : []; // Insufficient funds
    *       default:
@@ -2121,13 +2115,13 @@ export class DcbDecider<C, S, Ei, Eo> extends Decider<C, S, S, Ei, Eo>
  *     items: [],
  *     total: 0
  *   },
- *
+ *   
  *   // Event-sourced computation (inherited from IDcbDecider)
  *   computeNewEvents: (events, command) => {
  *     const currentState = events.reduce(orderAggregate.evolve, orderAggregate.initialState);
  *     return orderAggregate.decide(command, currentState);
  *   },
- *
+ *   
  *   // State-stored computation (unique to IAggregateDecider)
  *   computeNewState: (state, command) => {
  *     const events = orderAggregate.decide(command, state);
@@ -2904,10 +2898,10 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
    *       case 'addItem':
    *         return state.status === 'draft' ? [{ type: 'ItemAdded', orderId: cmd.orderId, itemId: cmd.itemId }] : [];
    *       case 'removeItem':
-   *         return state.status === 'draft' && state.items.includes(cmd.itemId!)
+   *         return state.status === 'draft' && state.items.includes(cmd.itemId!) 
    *           ? [{ type: 'ItemRemoved', orderId: cmd.orderId, itemId: cmd.itemId }] : [];
    *       case 'confirm':
-   *         return state.status === 'draft' && state.items.length > 0
+   *         return state.status === 'draft' && state.items.length > 0 
    *           ? [{ type: 'OrderConfirmed', orderId: cmd.orderId }] : [];
    *       default:
    *         return [];
@@ -2916,16 +2910,16 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
    *   (state, event) => {
    *     switch (event.type) {
    *       case 'ItemAdded':
-   *         return {
-   *           ...state,
-   *           items: [...state.items, event.itemId!],
-   *           totalItems: state.totalItems + 1
+   *         return { 
+   *           ...state, 
+   *           items: [...state.items, event.itemId!], 
+   *           totalItems: state.totalItems + 1 
    *         };
    *       case 'ItemRemoved':
-   *         return {
-   *           ...state,
-   *           items: state.items.filter(id => id !== event.itemId),
-   *           totalItems: state.totalItems - 1
+   *         return { 
+   *           ...state, 
+   *           items: state.items.filter(id => id !== event.itemId), 
+   *           totalItems: state.totalItems - 1 
    *         };
    *       case 'OrderConfirmed':
    *         return { ...state, status: 'confirmed' };
@@ -2971,7 +2965,7 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
    *       case 'deposit':
    *         return state.status === 'active' ? [{ type: 'Deposited', accountId: cmd.accountId, amount: cmd.amount }] : [];
    *       case 'withdraw':
-   *         return state.status === 'active' && state.balance >= cmd.amount!
+   *         return state.status === 'active' && state.balance >= cmd.amount! 
    *           ? [{ type: 'Withdrawn', accountId: cmd.accountId, amount: cmd.amount }] : [];
    *       case 'freeze':
    *         return state.status === 'active' ? [{ type: 'AccountFrozen', accountId: cmd.accountId }] : [];
@@ -2984,16 +2978,16 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
    *   (state, event) => {
    *     switch (event.type) {
    *       case 'Deposited':
-   *         return {
-   *           ...state,
-   *           balance: state.balance + event.amount!,
-   *           transactionCount: state.transactionCount + 1
+   *         return { 
+   *           ...state, 
+   *           balance: state.balance + event.amount!, 
+   *           transactionCount: state.transactionCount + 1 
    *         };
    *       case 'Withdrawn':
-   *         return {
-   *           ...state,
-   *           balance: state.balance - event.amount!,
-   *           transactionCount: state.transactionCount + 1
+   *         return { 
+   *           ...state, 
+   *           balance: state.balance - event.amount!, 
+   *           transactionCount: state.transactionCount + 1 
    *         };
    *       case 'AccountFrozen':
    *         return { ...state, status: 'frozen' };
@@ -3046,10 +3040,10 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
    *       case 'restock':
    *         return [{ type: 'Restocked', itemId: cmd.itemId, quantity: cmd.quantity }];
    *       case 'reserve':
-   *         return state.available >= cmd.quantity
+   *         return state.available >= cmd.quantity 
    *           ? [{ type: 'Reserved', itemId: cmd.itemId, quantity: cmd.quantity }] : [];
    *       case 'release':
-   *         return state.reserved >= cmd.quantity
+   *         return state.reserved >= cmd.quantity 
    *           ? [{ type: 'Released', itemId: cmd.itemId, quantity: cmd.quantity }] : [];
    *       case 'adjust':
    *         return [{ type: 'Adjusted', itemId: cmd.itemId, quantity: cmd.quantity }];
@@ -3060,28 +3054,28 @@ export class AggregateDecider<C, S, E> extends DcbDecider<C, S, E, E>
    *   (state, event) => {
    *     switch (event.type) {
    *       case 'Restocked':
-   *         return {
-   *           ...state,
-   *           available: state.available + event.quantity,
-   *           total: state.total + event.quantity
+   *         return { 
+   *           ...state, 
+   *           available: state.available + event.quantity, 
+   *           total: state.total + event.quantity 
    *         };
    *       case 'Reserved':
-   *         return {
-   *           ...state,
-   *           available: state.available - event.quantity,
-   *           reserved: state.reserved + event.quantity
+   *         return { 
+   *           ...state, 
+   *           available: state.available - event.quantity, 
+   *           reserved: state.reserved + event.quantity 
    *         };
    *       case 'Released':
-   *         return {
-   *           ...state,
-   *           available: state.available + event.quantity,
-   *           reserved: state.reserved - event.quantity
+   *         return { 
+   *           ...state, 
+   *           available: state.available + event.quantity, 
+   *           reserved: state.reserved - event.quantity 
    *         };
    *       case 'Adjusted':
-   *         return {
-   *           ...state,
-   *           available: state.available + event.quantity,
-   *           total: state.total + event.quantity
+   *         return { 
+   *           ...state, 
+   *           available: state.available + event.quantity, 
+   *           total: state.total + event.quantity 
    *         };
    *       default:
    *         return state;
