@@ -37,8 +37,8 @@ Both `DcbDecider` and `AggregateDecider` support event-sourced computation, but
 they differ in event type symmetry, which defines their expressive power and use
 cases:
 
-- `DcbDecider` supports more powerful event-sourced computation in a heterogeneous event context. It can consume one event type and emit another. 
--`AggregateDecider` is limited to consume and emit same event type(s).
+- `DcbDecider` supports more powerful event-sourced computation in a heterogeneous event context. It can consume one event type and emit another.
+- `AggregateDecider` is limited to consume and emit same event type(s).
 
 | Concept                           | `DcbDecider`                                                     | `AggregateDecider`                                                                   |
 | --------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
