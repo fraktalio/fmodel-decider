@@ -13,8 +13,6 @@
 
 import type { IAggregateDecider } from "./decider.ts";
 
-
-
 /**
  * Process manager interface that acts as a ToDo list for orchestrating business processes.
  *
@@ -50,8 +48,6 @@ export interface IProcess<AR, S, E, A> extends IAggregateDecider<AR, S, E> {
   readonly pending: (state: S) => readonly A[];
 }
 
-
-
 /**
  * Process manager that acts as a ToDo list for orchestrating business processes.
  *
@@ -83,7 +79,7 @@ export class Process<AR, S, E, A> implements IProcess<AR, S, E, A> {
     readonly initialState: S,
     readonly react: (state: S, event: E) => readonly A[],
     readonly pending: (state: S) => readonly A[],
-  ) { }
+  ) {}
 
   /**
    * Computes the next state from an action result using state-stored computation.
@@ -94,7 +90,10 @@ export class Process<AR, S, E, A> implements IProcess<AR, S, E, A> {
    */
   computeNewState(state: S, actionResult: AR): S {
     const events = this.decide(actionResult, state);
-    return events.reduce((currentState, event) => this.evolve(currentState, event), state);
+    return events.reduce(
+      (currentState, event) => this.evolve(currentState, event),
+      state,
+    );
   }
 
   /**
@@ -105,7 +104,10 @@ export class Process<AR, S, E, A> implements IProcess<AR, S, E, A> {
    * @returns New events to append to the event stream
    */
   computeNewEvents(events: readonly E[], actionResult: AR): readonly E[] {
-    const currentState = events.reduce((state, event) => this.evolve(state, event), this.initialState);
+    const currentState = events.reduce(
+      (state, event) => this.evolve(state, event),
+      this.initialState,
+    );
     return this.decide(actionResult, currentState);
   }
 

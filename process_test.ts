@@ -17,15 +17,26 @@ import { Process } from "./process.ts";
 // Order Fulfillment Process with ToDo List Checkboxes
 // This demonstrates the new task-based approach where each task can be:
 // - Missing (not started) ☐
-// - "started" (in progress) ☑️  
+// - "started" (in progress) ☑️
 // - "finished" (completed) ✅
 
 /**
  * Action Results (Events from other systems that trigger process reactions)
  */
 type OrderEvent =
-  | { type: "OrderCreated"; orderId: string; customerId: string; items: string[]; totalAmount: number }
-  | { type: "PaymentProcessed"; orderId: string; paymentId: string; amount: number }
+  | {
+    type: "OrderCreated";
+    orderId: string;
+    customerId: string;
+    items: string[];
+    totalAmount: number;
+  }
+  | {
+    type: "PaymentProcessed";
+    orderId: string;
+    paymentId: string;
+    amount: number;
+  }
   | { type: "InventoryReserved"; orderId: string; items: string[] }
   | { type: "ShipmentScheduled"; orderId: string; trackingId: string };
 
@@ -54,7 +65,13 @@ type ProcessState = {
  * Process Events (Internal events representing task state changes)
  */
 type ProcessEvent =
-  | { type: "OrderFulfillmentStarted"; orderId: string; customerId: string; items: string[]; totalAmount: number }
+  | {
+    type: "OrderFulfillmentStarted";
+    orderId: string;
+    customerId: string;
+    items: string[];
+    totalAmount: number;
+  }
   | { type: "TaskStarted"; orderId: string; taskName: string }
   | { type: "TaskCompleted"; orderId: string; taskName: string; result?: any };
 
@@ -62,12 +79,27 @@ type ProcessEvent =
  * Actions (Commands sent to other systems)
  */
 type ProcessAction =
-  | { type: "ProcessPayment"; orderId: string; customerId: string; amount: number }
+  | {
+    type: "ProcessPayment";
+    orderId: string;
+    customerId: string;
+    amount: number;
+  }
   | { type: "ReserveInventory"; orderId: string; items: string[] }
-  | { type: "ScheduleShipment"; orderId: string; customerId: string; items: string[] }
+  | {
+    type: "ScheduleShipment";
+    orderId: string;
+    customerId: string;
+    items: string[];
+  }
   | { type: "SendConfirmationEmail"; orderId: string; customerId: string }
   | { type: "UpdateAnalytics"; orderId: string; status: string }
-  | { type: "NotifyCustomer"; orderId: string; customerId: string; message: string };
+  | {
+    type: "NotifyCustomer";
+    orderId: string;
+    customerId: string;
+    message: string;
+  };
 
 /**
  * Order Fulfillment Process Implementation
@@ -91,12 +123,19 @@ const orderFulfillmentProcess = new Process<
               items: orderEvent.items,
               totalAmount: orderEvent.totalAmount,
             },
-            { type: "TaskStarted", orderId: orderEvent.orderId, taskName: "processPayment" },
+            {
+              type: "TaskStarted",
+              orderId: orderEvent.orderId,
+              taskName: "processPayment",
+            },
           ];
         }
         break;
       case "PaymentProcessed":
-        if (state.orderId === orderEvent.orderId && state.tasks.processPayment === "started") {
+        if (
+          state.orderId === orderEvent.orderId &&
+          state.tasks.processPayment === "started"
+        ) {
           return [
             {
               type: "TaskCompleted",
@@ -104,21 +143,43 @@ const orderFulfillmentProcess = new Process<
               taskName: "processPayment",
               result: { paymentId: orderEvent.paymentId },
             },
-            { type: "TaskStarted", orderId: orderEvent.orderId, taskName: "reserveInventory" },
-            { type: "TaskStarted", orderId: orderEvent.orderId, taskName: "sendConfirmationEmail" },
+            {
+              type: "TaskStarted",
+              orderId: orderEvent.orderId,
+              taskName: "reserveInventory",
+            },
+            {
+              type: "TaskStarted",
+              orderId: orderEvent.orderId,
+              taskName: "sendConfirmationEmail",
+            },
           ];
         }
         break;
       case "InventoryReserved":
-        if (state.orderId === orderEvent.orderId && state.tasks.reserveInventory === "started") {
+        if (
+          state.orderId === orderEvent.orderId &&
+          state.tasks.reserveInventory === "started"
+        ) {
           return [
-            { type: "TaskCompleted", orderId: orderEvent.orderId, taskName: "reserveInventory" },
-            { type: "TaskStarted", orderId: orderEvent.orderId, taskName: "scheduleShipment" },
+            {
+              type: "TaskCompleted",
+              orderId: orderEvent.orderId,
+              taskName: "reserveInventory",
+            },
+            {
+              type: "TaskStarted",
+              orderId: orderEvent.orderId,
+              taskName: "scheduleShipment",
+            },
           ];
         }
         break;
       case "ShipmentScheduled":
-        if (state.orderId === orderEvent.orderId && state.tasks.scheduleShipment === "started") {
+        if (
+          state.orderId === orderEvent.orderId &&
+          state.tasks.scheduleShipment === "started"
+        ) {
           return [
             {
               type: "TaskCompleted",
@@ -126,14 +187,17 @@ const orderFulfillmentProcess = new Process<
               taskName: "scheduleShipment",
               result: { trackingId: orderEvent.trackingId },
             },
-            { type: "TaskStarted", orderId: orderEvent.orderId, taskName: "notifyCustomer" },
+            {
+              type: "TaskStarted",
+              orderId: orderEvent.orderId,
+              taskName: "notifyCustomer",
+            },
           ];
         }
         break;
     }
     return [];
   },
-
   // Evolution logic: State + ProcessEvent → State
   (state, event) => {
     switch (event.type) {
@@ -168,10 +232,8 @@ const orderFulfillmentProcess = new Process<
         return state;
     }
   },
-
   // Initial state
   { orderId: "", customerId: "", items: [], totalAmount: 0, tasks: {} },
-
   // Reaction logic: (State, ProcessEvent) → ProcessAction[] (subset of pending)
   (state, event) => {
     // Only return actions that this specific event makes ready
@@ -188,7 +250,11 @@ const orderFulfillmentProcess = new Process<
               },
             ];
           case "reserveInventory":
-            return [{ type: "ReserveInventory", orderId: event.orderId, items: state.items }];
+            return [{
+              type: "ReserveInventory",
+              orderId: event.orderId,
+              items: state.items,
+            }];
           case "scheduleShipment":
             return [
               {
@@ -200,7 +266,11 @@ const orderFulfillmentProcess = new Process<
             ];
           case "sendConfirmationEmail":
             return [
-              { type: "SendConfirmationEmail", orderId: event.orderId, customerId: state.customerId },
+              {
+                type: "SendConfirmationEmail",
+                orderId: event.orderId,
+                customerId: state.customerId,
+              },
             ];
           case "notifyCustomer":
             return [
@@ -216,13 +286,16 @@ const orderFulfillmentProcess = new Process<
       case "TaskCompleted":
         // Some task completions might trigger additional actions
         if (event.taskName === "scheduleShipment") {
-          return [{ type: "UpdateAnalytics", orderId: event.orderId, status: "shipped" }];
+          return [{
+            type: "UpdateAnalytics",
+            orderId: event.orderId,
+            status: "shipped",
+          }];
         }
         break;
     }
     return [];
   },
-
   // Pending logic: State → ProcessAction[] (complete ToDo list)
   (state) => {
     const actions: ProcessAction[] = [];
@@ -240,7 +313,11 @@ const orderFulfillmentProcess = new Process<
     }
 
     if (state.tasks.reserveInventory === "started") {
-      actions.push({ type: "ReserveInventory", orderId: state.orderId, items: state.items });
+      actions.push({
+        type: "ReserveInventory",
+        orderId: state.orderId,
+        items: state.items,
+      });
     }
 
     if (state.tasks.scheduleShipment === "started") {
@@ -270,7 +347,11 @@ const orderFulfillmentProcess = new Process<
     }
 
     // Always include analytics for any active order
-    actions.push({ type: "UpdateAnalytics", orderId: state.orderId, status: "processing" });
+    actions.push({
+      type: "UpdateAnalytics",
+      orderId: state.orderId,
+      status: "processing",
+    });
 
     return actions;
   },
@@ -288,7 +369,10 @@ Deno.test("Order Fulfillment Process - Initial Order Creation", () => {
     totalAmount: 100,
   };
 
-  const newState = orderFulfillmentProcess.computeNewState(initialState, orderCreated);
+  const newState = orderFulfillmentProcess.computeNewState(
+    initialState,
+    orderCreated,
+  );
 
   // Verify state after order creation
   assertEquals(newState.orderId, "order-123");
@@ -316,7 +400,10 @@ Deno.test("Order Fulfillment Process - Payment Processing", () => {
     amount: 100,
   };
 
-  const newState = orderFulfillmentProcess.computeNewState(stateWithOrder, paymentProcessed);
+  const newState = orderFulfillmentProcess.computeNewState(
+    stateWithOrder,
+    paymentProcessed,
+  );
 
   // Verify task states after payment
   assertEquals(newState.tasks.processPayment, "finished"); // ✅ Payment completed
@@ -338,7 +425,9 @@ Deno.test("Order Fulfillment Process - Complete ToDo List (Pending)", () => {
     },
   };
 
-  const allPendingActions = orderFulfillmentProcess.pending(stateWithMultipleTasks);
+  const allPendingActions = orderFulfillmentProcess.pending(
+    stateWithMultipleTasks,
+  );
 
   // Should return actions for all "started" tasks plus analytics
   assertEquals(allPendingActions.length, 3);
@@ -362,7 +451,10 @@ Deno.test("Order Fulfillment Process - Event-Driven Actions (React)", () => {
     taskName: "processPayment",
   };
 
-  const readyActions = orderFulfillmentProcess.react(stateWithOrder, taskStartedEvent);
+  const readyActions = orderFulfillmentProcess.react(
+    stateWithOrder,
+    taskStartedEvent,
+  );
 
   // Should return only the action made ready by this specific event
   assertEquals(readyActions.length, 1);
@@ -383,7 +475,9 @@ Deno.test("Order Fulfillment Process - Subset Relationship", () => {
   };
 
   // Get complete ToDo list
-  const allPendingActions = orderFulfillmentProcess.pending(stateWithMultipleTasks);
+  const allPendingActions = orderFulfillmentProcess.pending(
+    stateWithMultipleTasks,
+  );
 
   // Get actions made ready by specific event
   const taskStartedEvent: ProcessEvent = {
@@ -391,15 +485,20 @@ Deno.test("Order Fulfillment Process - Subset Relationship", () => {
     orderId: "order-123",
     taskName: "reserveInventory",
   };
-  const readyActions = orderFulfillmentProcess.react(stateWithMultipleTasks, taskStartedEvent);
+  const readyActions = orderFulfillmentProcess.react(
+    stateWithMultipleTasks,
+    taskStartedEvent,
+  );
 
   // Verify subset relationship: readyActions should be subset of allPendingActions
   assertEquals(readyActions.length, 1);
   assertEquals(allPendingActions.length, 3); // 2 tasks + analytics
-  
+
   // The ready action should exist in the pending list
   const readyActionType = readyActions[0].type;
-  const existsInPending = allPendingActions.some(action => action.type === readyActionType);
+  const existsInPending = allPendingActions.some((action) =>
+    action.type === readyActionType
+  );
   assertEquals(existsInPending, true);
 });
 
@@ -427,8 +526,11 @@ Deno.test("Order Fulfillment Process - Event Sourced Computation", () => {
     items: ["item-1"],
   };
 
-  const newEvents = orderFulfillmentProcess.computeNewEvents(events, inventoryReserved);
-  
+  const newEvents = orderFulfillmentProcess.computeNewEvents(
+    events,
+    inventoryReserved,
+  );
+
   // Should not produce events because inventory task wasn't started yet
   assertEquals(newEvents.length, 0);
 });
@@ -450,9 +552,13 @@ Deno.test("Order Fulfillment Process - Parallel Task Execution", () => {
   const pendingActions = orderFulfillmentProcess.pending(stateAfterPayment);
 
   // Should have actions for both parallel tasks
-  const hasInventoryAction = pendingActions.some(action => action.type === "ReserveInventory");
-  const hasEmailAction = pendingActions.some(action => action.type === "SendConfirmationEmail");
-  
+  const hasInventoryAction = pendingActions.some((action) =>
+    action.type === "ReserveInventory"
+  );
+  const hasEmailAction = pendingActions.some((action) =>
+    action.type === "SendConfirmationEmail"
+  );
+
   assertEquals(hasInventoryAction, true);
   assertEquals(hasEmailAction, true);
 });
@@ -477,7 +583,10 @@ Deno.test("Order Fulfillment Process - Task Completion Triggers New Tasks", () =
     items: ["item-1", "item-2"],
   };
 
-  const newState = orderFulfillmentProcess.computeNewState(stateWithInventoryStarted, inventoryReserved);
+  const newState = orderFulfillmentProcess.computeNewState(
+    stateWithInventoryStarted,
+    inventoryReserved,
+  );
 
   // Verify inventory task completed and shipping task started
   assertEquals(newState.tasks.reserveInventory, "finished"); // ✅ Inventory done
@@ -488,7 +597,7 @@ Deno.test("Order Fulfillment Process - Task Completion Triggers New Tasks", () =
 Deno.test("Order Fulfillment Process - No Actions for Empty State", () => {
   const emptyState = orderFulfillmentProcess.initialState;
   const pendingActions = orderFulfillmentProcess.pending(emptyState);
-  
+
   // Should return no actions for empty state
   assertEquals(pendingActions.length, 0);
 });
