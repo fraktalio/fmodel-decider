@@ -12,7 +12,7 @@
  */
 
 import { assertEquals } from "@std/assert";
-import { Process } from "./process.ts";
+import { AggregateProcess } from "./process.ts";
 
 // Order Fulfillment Process with ToDo List Checkboxes
 // This demonstrates the new task-based approach where each task can be:
@@ -104,7 +104,7 @@ type ProcessAction =
 /**
  * Order Fulfillment Process Implementation
  */
-const orderFulfillmentProcess = new Process<
+const orderFulfillmentProcess = new AggregateProcess<
   OrderEvent,
   ProcessState,
   ProcessEvent,

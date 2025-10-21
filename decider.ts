@@ -23,7 +23,7 @@
  * @typeParam Ei - Input event type consumed by the evolve function to update state
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-concept scenarios
  */
-interface IDecider<C, Si, So, Ei, Eo> {
+export interface IDecider<C, Si, So, Ei, Eo> {
   /**
    * Computes output events from a command and current state.
    *
@@ -62,7 +62,7 @@ interface IDecider<C, Si, So, Ei, Eo> {
  *
  * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
-class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
+export class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
   /**
    * Creates a new Decider instance with the specified decision logic, state evolution logic, and initial state.
    *
