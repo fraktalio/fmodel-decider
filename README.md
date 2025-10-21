@@ -82,94 +82,24 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 ### Deciders
 
-| Concept                       | `DcbDecider`           | `AggregateDecider`             |
-| ----------------------------- | ---------------------- | ------------------------------ |
-| **Event-sourced computation** | ✅ Supported           | ✅ Supported                   |
-| **Event type symmetry**       | ❌ Not required        | ✅ Required (Ei = Eo)          |
-| **State-stored computation**  | ❌ Not possible        | ✅ Supported                   |
-| **Use case**                  | Cross-concept boundary | Single-concept / DDD Aggregate |
+| Concept                       | `DcbDecider`           | `AggregateDecider`              |
+| ----------------------------- | ---------------------- | ------------------------------- |
+| **Event-sourced computation** | ✅ Supported           | ✅ Supported (limited: Ei = Eo) |
+| **State-stored computation**  | ❌ Not possible        | ✅ Supported                    |
+| **Use case**                  | Cross-concept boundary | Single-concept / DDD Aggregate  |
 
 ### Process Managers
 
-| Concept                       | `DcbProcess`           | `AggregateProcess`             |
-| ----------------------------- | ---------------------- | ------------------------------ |
-| **Event-sourced computation** | ✅ Supported           | ✅ Supported                   |
-| **Event type symmetry**       | ❌ Not required        | ✅ Required (Ei = Eo)          |
-| **State-stored computation**  | ❌ Not possible        | ✅ Supported                   |
-| **Process orchestration**     | ✅ Supported           | ✅ Supported                   |
-| **Use case**                  | Cross-concept boundary | Single-concept / DDD Aggregate |
+| Concept                       | `DcbProcess`    | `AggregateProcess`              |
+| ----------------------------- | --------------- | ------------------------------- |
+| **Event-sourced computation** | ✅ Supported    | ✅ Supported (limited: Ei = Eo) |
+| **State-stored computation**  | ❌ Not possible | ✅ Supported                    |
+| **Process orchestration**     | ✅ Supported    | ✅ Supported                    |
 
 ## Testing
 
-The library provides Given-When-Then test specifications:
-
-### Decider Testing
-
-| Spec name                 | Purpose                     | Works with                       |
-| ------------------------- | --------------------------- | -------------------------------- |
-| `DeciderEventSourcedSpec` | Test event-sourced deciders | `DcbDecider`, `AggregateDecider` |
-| `DeciderStateStoredSpec`  | Test state-stored deciders  | `AggregateDecider`               |
-
-### Process Manager Testing
-
-| Spec name                 | Purpose                      | Works with                       |
-| ------------------------- | ---------------------------- | -------------------------------- |
-| `ProcessEventSourcedSpec` | Test event-sourced processes | `DcbProcess`, `AggregateProcess` |
-| `ProcessStateStoredSpec`  | Test state-stored processes  | `AggregateProcess`               |
-
-## Process Management
-
-Process Managers act as smart ToDo lists for long-running business processes,
-following the same progressive refinement pattern as Deciders:
-
-### Core Capabilities
-
-- **Complete ToDo List**: `pending(state)` returns all actions that could be
-  executed
-- **Ready Actions**: `react(state, event)` returns actions that an event makes
-  ready (subset of pending)
-- **State Management**: Maintains internal state to track process progress
-- **Event Sourcing**: Supports both event-sourced and state-stored computation
-
-### Progressive Refinement
-
-Each Process Manager refinement adds constraints and capabilities:
-
-- **`Process<AR, Si, So, Ei, Eo, A>`**: Maximum flexibility for cross-concept
-  scenarios
-- **`DcbProcess<AR, S, Ei, Eo, A>`**: Event-sourced computation with state
-  constraint (`Si = So = S`)
-- **`AggregateProcess<AR, S, E, A>`**: Full aggregate capabilities with dual
-  constraints (`Si = So = S`, `Ei = Eo = E`)
-
-### Usage Patterns
-
-**Event-Driven Processing**:
-
-```ts
-const readyActions = process.react(currentState, incomingEvent);
-await executeActions(readyActions);
-```
-
-**Batch Processing**:
-
-```ts
-const allPendingActions = process.pending(currentState);
-await executeActions(allPendingActions);
-```
-
-**Event-Sourced Computation**:
-
-```ts
-const newEvents = process.computeNewEvents(eventHistory, actionResult);
-await appendToEventStream(newEvents);
-```
-
-**State-Stored Computation** (AggregateProcess only):
-
-```ts
-const newState = process.computeNewState(currentState, actionResult);
-await saveState(newState);
+```bash
+deno test
 ```
 
 ## Development
