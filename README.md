@@ -26,9 +26,7 @@ interface IProcess<AR, Si, So, Ei, Eo, A> extends IDecider<AR, Si, So, Ei, Eo> {
 }
 
 export interface IDcbProcess<AR, S, Ei, Eo, A>
-  extends IDcbDecider<AR, S, Ei, Eo> {
-  readonly react: (state: S, event: Ei) => readonly A[];
-  readonly pending: (state: S) => readonly A[];
+  extends IProcess<AR, S, S, Ei, Eo, A>, IDcbDecider<AR, S, Ei, Eo> {
 }
 
 export interface IAggregateProcess<AR, S, E, A>
