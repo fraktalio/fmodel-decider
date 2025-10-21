@@ -1,3 +1,4 @@
+// deno-lint-ignore-file
 /*
  * Copyright 2025 Fraktalio D.O.O. All rights reserved.
  *
@@ -215,7 +216,7 @@ const orderFulfillmentProcess = new AggregateProcess<
           ...state,
           tasks: { ...state.tasks, [event.taskName]: "started" },
         };
-      case "TaskCompleted":
+      case "TaskCompleted": {
         const updatedState = {
           ...state,
           tasks: { ...state.tasks, [event.taskName]: "finished" },
@@ -228,6 +229,7 @@ const orderFulfillmentProcess = new AggregateProcess<
           updatedState.trackingId = event.result.trackingId;
         }
         return updatedState;
+      }
       default:
         return state;
     }
