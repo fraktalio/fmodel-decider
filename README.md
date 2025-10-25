@@ -32,15 +32,24 @@ export interface IDcbProcess<AR, S, Ei, Eo, A>
 export interface IAggregateProcess<AR, S, E, A>
   extends IDcbProcess<AR, S, E, E, A>, IAggregateDecider<AR, S, E> {
 }
+
+// View Hierarchy
+interface IView<Si, So, E> {
+  readonly evolve: (state: Si, event: E) => So;
+  readonly initialState: So;
+}
+
+export interface IProjection<S, E> extends IView<S, S, E> {
+}
 ```
 
 ## What is a Decider?
 
 A Decider is a pure functional component that:
 
-- Decides which events to emit given a command and current state
-- Evolves state when given an event
-- Defines an initial state
+- **Decides** which events to emit given a command and current state
+- **Evolves** state when given an event
+- **Defines** an initial state
 
 This pattern separates decision logic from state mutation, improving testability
 and reasoning about behavior.
@@ -58,15 +67,37 @@ smart ToDo list:
 Process Managers coordinate long-running business processes and manage complex
 workflows.
 
+## What is a View?
+
+A View is a pure functional component that builds up state by processing events:
+
+- **Evolves** state when given an event (read-side projection)
+- **Defines** an initial state
+- **Supports** independent input and output state types for complex
+  transformations
+
+Views are the read-side complement to Deciders, enabling event-sourced
+projections and read models.
+
+
 ## Progressive Type Refinement
 
 Each refinement step increases capability and constraint:
+
+### Deciders
 
 | Class                        | Type constraint              | Adds method(s)                        | Computation mode            |
 | ---------------------------- | ---------------------------- | ------------------------------------- | --------------------------- |
 | `Decider<C, Si, So, Ei, Eo>` | all independent              | none                                  | generic                     |
 | `DcbDecider<C, S, Ei, Eo>`   | `Si = So = S`                | `computeNewEvents`                    | event-sourced               |
 | `AggregateDecider<C, S, E>`  | `Si = So = S`, `Ei = Eo = E` | `computeNewEvents`, `computeNewState` | event-sourced, state-stored |
+
+### Views
+
+| Class              | Type constraint | Computation mode |
+| ------------------ | --------------- | ---------------- |
+| `View<Si, So, E>`  | all independent | generic          |
+| `Projection<S, E>` | `Si = So = S`   | state-stored     |
 
 ### Process Managers
 
@@ -87,6 +118,13 @@ Process managers follow the same progressive refinement pattern as Deciders:
 | **Event-sourced computation** | ✅ Supported           | ✅ Supported (limited: Ei = Eo) |
 | **State-stored computation**  | ❌ Not possible        | ✅ Supported                    |
 | **Use case**                  | Cross-concept boundary | Single-concept / DDD Aggregate  |
+
+### Views
+
+| Concept                       | `View`                 | `Projection`                    |
+| ----------------------------- | ---------------------- | ------------------------------- |
+| **State transformation**      | ✅ Independent Si, So  | ✅ Constrained Si = So = S      |
+| **Use case**                  | Not sure :)            | Read models / Event projections |
 
 ### Process Managers
 
