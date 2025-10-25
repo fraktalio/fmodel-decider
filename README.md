@@ -156,18 +156,19 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 ### Views
 
-| Concept                  | `View`                | `Projection`                    |
-| ------------------------ | --------------------- | ------------------------------- |
-| **State transformation** | ✅ Independent Si, So | ✅ Constrained Si = So = S      |
-| **Use case**             | Not sure :)           | Read models / Event projections |
+| Concept                  | `Projection`                    |
+| ------------------------ | ------------------------------- |
+| **State transformation** | ✅ Constrained Si = So = S      |
+| **Use case**             | Read models / Event projections |
 
 ### Process Managers
 
-| Concept                       | `DcbProcess`    | `AggregateProcess`              |
-| ----------------------------- | --------------- | ------------------------------- |
-| **Event-sourced computation** | ✅ Supported    | ✅ Supported (limited: Ei = Eo) |
-| **State-stored computation**  | ❌ Not possible | ✅ Supported                    |
-| **Process orchestration**     | ✅ Supported    | ✅ Supported                    |
+| Concept                       | `DcbProcess`     | `AggregateProcess`                        |
+| ----------------------------- | ---------------- | ----------------------------------------- |
+| **Event-sourced computation** | ✅ Supported     | ✅ Supported (limited: Ei = Eo)           |
+| **State-stored computation**  | ❌ Not possible  | ✅ Supported                              |
+| **Process orchestration**     | ✅ Supported     | ✅ Supported                              |
+| **Use case**                  | Unknown, for now | Process manager/Saga/Automation/ToDo List |
 
 ## Testing
 
@@ -189,8 +190,9 @@ deno publish --dry-run
 
 ## Credits
 
-Special credits to `Jérémie Chassaing` for sharing his [research](https://www.youtube.com/watch?v=kgYGMVDHQHs)
-and `Adam Dymitruk` for hosting the meetup.
+Special credits to `Jérémie Chassaing` for sharing his
+[research](https://www.youtube.com/watch?v=kgYGMVDHQHs) and `Adam Dymitruk` for
+hosting the meetup.
 
 ---
 
