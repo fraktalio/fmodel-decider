@@ -1,7 +1,43 @@
 # fmodel-decider
 
-TypeScript library for modeling deciders in domain-driven, event-sourced, or
-state-stored architectures with progressive type refinement.
+TypeScript library for modeling deciders, process managers, and views in
+domain-driven, event-sourced, or state-stored architectures with progressive
+type refinement.
+
+## Progressive Type Refinement Philosophy
+
+This library demonstrates how to evolve from **general, flexible types** to
+**specific, constrained types** that better represent real-world information
+systems. Starting with the most generic interfaces that support all possible
+type combinations, we progressively add constraints that:
+
+- **Increase semantic meaning** - Each refinement step adds domain-specific
+  behavior
+- **Reduce complexity** - Constraints eliminate impossible states and invalid
+  operations
+- **Improve usability** - More specific types provide better APIs and clearer
+  intent
+- **Enable optimizations** - Constraints allow for more efficient
+  implementations
+
+This approach mirrors how we model information systems: beginning with broad
+concepts and iteratively refining them into precise, domain-specific
+abstractions that capture business rules and invariants.
+
+## Educational Purpose
+
+This library serves as both a **practical toolkit** and an **educational
+resource** for understanding:
+
+- **Functional domain modeling** patterns in TypeScript
+- **Progressive type refinement** as a design methodology
+- **Event-sourced** and **state-stored** computation patterns
+- **Process orchestration** and workflow management
+- **Read-side projections** and view materialization
+
+The progression from generic interfaces to specialized implementations
+illustrates fundamental principles of type-driven development and domain-driven
+design.
 
 ```ts
 // Decider Hierarchy
@@ -79,7 +115,6 @@ A View is a pure functional component that builds up state by processing events:
 Views are the read-side complement to Deciders, enabling event-sourced
 projections and read models.
 
-
 ## Progressive Type Refinement
 
 Each refinement step increases capability and constraint:
@@ -121,10 +156,10 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 ### Views
 
-| Concept                       | `View`                 | `Projection`                    |
-| ----------------------------- | ---------------------- | ------------------------------- |
-| **State transformation**      | ✅ Independent Si, So  | ✅ Constrained Si = So = S      |
-| **Use case**                  | Not sure :)            | Read models / Event projections |
+| Concept                  | `View`                | `Projection`                    |
+| ------------------------ | --------------------- | ------------------------------- |
+| **State transformation** | ✅ Independent Si, So | ✅ Constrained Si = So = S      |
+| **Use case**             | Not sure :)           | Read models / Event projections |
 
 ### Process Managers
 
@@ -151,6 +186,11 @@ deno task dev
 ```bash
 deno publish --dry-run
 ```
+
+## Credits
+
+Special credits to `Jérémie Chassaing` for sharing his [research](https://www.youtube.com/watch?v=kgYGMVDHQHs)
+and `Adam Dymitruk` for hosting the meetup.
 
 ---
 
