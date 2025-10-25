@@ -1,5 +1,6 @@
 import { assert, assertEquals } from "@std/assert";
 import type { IAggregateDecider, IDcbDecider } from "./decider.ts";
+import type { IProjection } from "./view.ts";
 
 /**
  * A Given–When–Then test DSL for **event-sourced deciders**.
@@ -135,4 +136,114 @@ export type DeciderSSSpecification<C, S> = {
       thenThrows: (assertion: (error: Error) => boolean) => void;
     };
   };
+};
+
+/**
+ * View specification type definition for Given–Then testing pattern.
+ *
+ * @typeParam S - State type representing the projection's internal state
+ * @typeParam E - Event type that triggers state evolution in the projection
+ */
+export type ViewSpecification<S, E> = {
+  given: (events: E[]) => {
+    then: (expectedState: S) => void;
+    thenThrows: (assertion: (error: Error) => boolean) => void;
+  };
+};
+
+/**
+ * A Given–Then test DSL for **projections** (event-sourced views).
+ *
+ * @remarks
+ * `ViewSpecification` allows testing projections that evolve state by processing
+ * a sequence of events. It tests the projection's ability to build up state from
+ * an event stream, which is the core behavior of event-sourced projections.
+ *
+ * This specification is designed specifically for {@link IProjection} implementations
+ * where the input and output state types are identical (Si = So = S), following
+ * the progressive refinement pattern.
+ *
+ * The specification processes events in sequence using the projection's `evolve`
+ * function, starting from the `initialState`, and verifies the final computed state.
+ *
+ * @typeParam S - State type representing the projection's internal state structure
+ * @typeParam E - Event type that triggers state evolution in the projection
+ *
+ * @example
+ * Restaurant view testing:
+ * ```ts
+ * ViewSpecification.for(restaurantProjection)
+ *   .given([restaurantCreated, menuChanged, orderPlaced])
+ *   .then(expectedRestaurantState);
+ * ```
+ *
+ * @example
+ * Order summary projection testing:
+ * ```ts
+ * ViewSpecification.for(orderSummaryProjection)
+ *   .given([orderCreated, itemAdded, itemRemoved])
+ *   .then({ totalItems: 1, totalAmount: 25.99 });
+ * ```
+ *
+ * @example
+ * Testing projection error handling:
+ * ```ts
+ * ViewSpecification.for(inventoryProjection)
+ *   .given([invalidEvent])
+ *   .thenThrows((error) => error.message.includes("Invalid event"));
+ * ```
+ *
+ * @author Fraktalio
+ */
+export const ViewSpecification = {
+  /**
+   * Creates a new view specification for testing the given projection.
+   *
+   * @param view - The projection of type `IProjection<S, E>` to test
+   * @returns A specification object that allows defining test scenarios
+   */
+  for: <S, E>(
+    view: IProjection<S, E>,
+  ): ViewSpecification<S, E> => {
+    return {
+      /**
+       * Defines the sequence of events to process through the projection.
+       *
+       * @param events - Array of events to be processed in order by the projection
+       * @returns An object with `then` and `thenThrows` methods for assertions
+       */
+      given: (events: E[]) => {
+        const handle = () => {
+          return events.reduce<S>(
+            view.evolve,
+            view.initialState,
+          );
+        };
+        return {
+          /**
+           * Asserts that processing the given events results in the expected state.
+           *
+           * @param expectedState - The state that should result from processing all events
+           */
+          then: (expectedState: S) => {
+            const resultState = handle();
+            assertEquals(resultState, expectedState);
+          },
+          /**
+           * Asserts that processing the given events throws an error.
+           *
+           * @param check - Optional function to validate the thrown error
+           */
+          thenThrows: (check?: (error: Error) => boolean) => {
+            try {
+              handle();
+              throw new Error("Expected projection to throw, but it did not.");
+            } catch (error) {
+              if (check) assert(check(error as Error));
+            }
+          },
+        };
+      },
+    };
+  },
 };
