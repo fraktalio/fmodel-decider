@@ -26,8 +26,6 @@ import type { IAggregateDecider, IDcbDecider, IDecider } from "./decider.ts";
  * @typeParam Ei - Input event type consumed by the evolve function and react method
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-concept scenarios
  * @typeParam A - Action type representing actions that can be executed as part of the business process
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface IProcess<AR, Si, So, Ei, Eo, A>
   extends IDecider<AR, Si, So, Ei, Eo> {
@@ -61,8 +59,6 @@ export interface IProcess<AR, Si, So, Ei, Eo, A>
  * @typeParam Ei - Input event type consumed by the evolve function and react method
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-boundary scenarios
  * @typeParam A - Action type representing actions that can be executed as part of the business process
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface IDcbProcess<AR, S, Ei, Eo, A>
   extends IProcess<AR, S, S, Ei, Eo, A>, IDcbDecider<AR, S, Ei, Eo> {
@@ -85,8 +81,6 @@ export interface IDcbProcess<AR, S, Ei, Eo, A>
  * @typeParam S - State type (both input and output), representing the aggregate's consistent internal state
  * @typeParam E - Event type (both input and output), representing state changes and domain events within the aggregate boundary
  * @typeParam A - Action type representing actions that can be executed as part of the business process
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface IAggregateProcess<AR, S, E, A>
   extends IDcbProcess<AR, S, E, E, A>, IAggregateDecider<AR, S, E> {
@@ -105,8 +99,6 @@ export interface IAggregateProcess<AR, S, E, A>
  * @typeParam Ei - Input event type consumed by the evolve function and react method
  * @typeParam Eo - Output event type produced by the decide function
  * @typeParam A - Action type representing actions that can be executed as part of the business process
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class Process<AR, Si, So, Ei, Eo, A>
   implements IProcess<AR, Si, So, Ei, Eo, A> {
@@ -349,8 +341,6 @@ export class Process<AR, Si, So, Ei, Eo, A>
  * @typeParam Ei - Input event type consumed by the evolve function and react method
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-boundary scenarios
  * @typeParam A - Action type representing actions that can be executed as part of the business process
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class DcbProcess<AR, S, Ei, Eo, A>
   implements IDcbProcess<AR, S, Ei, Eo, A> {
@@ -546,8 +536,6 @@ export class DcbProcess<AR, S, Ei, Eo, A>
  * @typeParam S - State type (both input and output) representing the consistent aggregate state structure
  * @typeParam E - Event type (both input and output) representing domain events that directly correspond to state changes
  * @typeParam A - Action type representing actions that can be executed as part of the business process
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class AggregateProcess<AR, S, E, A>
   implements IAggregateProcess<AR, S, E, A> {

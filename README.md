@@ -32,22 +32,26 @@ resource** for understanding:
 - **Functional domain modeling** patterns in TypeScript
 - **Progressive type refinement** as a design methodology
 - **Event-sourced** and **state-stored** computation patterns
-- **Process orchestration** and workflow management
+- **Process orchestration** and **workflow** management
 - **Read-side projections** and view materialization
 
-The progression from generic interfaces to specialized implementations
-illustrates fundamental principles of type-driven development and domain-driven
-design.
-
 ```ts
-// Decider Hierarchy
-interface IDecider<C, Si, So, Ei, Eo> {
-  readonly decide: (command: C, state: Si) => readonly Eo[];
-  readonly evolve: (state: Si, event: Ei) => So;
+// View Hierarchy
+export interface IView<Si, So, E> {
+  readonly evolve: (state: Si, event: E) => So;
   readonly initialState: So;
 }
 
-export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
+export interface IProjection<S, E> extends IView<S, S, E> {
+}
+
+// Decider Hierarchy
+export interface IDecider<C, Si, So, Ei, Eo> extends IView<Si, So, Ei> {
+  readonly decide: (command: C, state: Si) => readonly Eo[];
+}
+
+export interface IDcbDecider<C, S, Ei, Eo>
+  extends IDecider<C, S, S, Ei, Eo>, IProjection<S, Ei> {
   computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
 }
 
@@ -56,7 +60,8 @@ export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
 }
 
 // Process Manager Hierarchy
-interface IProcess<AR, Si, So, Ei, Eo, A> extends IDecider<AR, Si, So, Ei, Eo> {
+export interface IProcess<AR, Si, So, Ei, Eo, A>
+  extends IDecider<AR, Si, So, Ei, Eo> {
   readonly react: (state: Si, event: Ei) => readonly A[];
   readonly pending: (state: Si) => readonly A[];
 }
@@ -69,15 +74,77 @@ export interface IAggregateProcess<AR, S, E, A>
   extends IDcbProcess<AR, S, E, E, A>, IAggregateDecider<AR, S, E> {
 }
 
-// View Hierarchy
-interface IView<Si, So, E> {
-  readonly evolve: (state: Si, event: E) => So;
-  readonly initialState: So;
+// Workflow Hierarchy
+export interface IWorkflowProcess<AR, A, TaskName extends string = string>
+  extends
+    IProcess<
+      AR,
+      WorkflowState<TaskName>,
+      WorkflowState<TaskName>,
+      WorkflowEvent<TaskName>,
+      WorkflowEvent<TaskName>,
+      A
+    > {
+  readonly createTaskStarted: (
+    taskName: TaskName,
+    metadata?: Record<string, unknown>,
+  ) => TaskStarted<TaskName>;
+
+  readonly createTaskCompleted: (
+    taskName: TaskName,
+    result?: unknown,
+    metadata?: Record<string, unknown>,
+  ) => TaskCompleted<TaskName>;
+
+  readonly getTaskStatus: (
+    state: WorkflowState<TaskName>,
+    taskName: TaskName,
+  ) => TaskStatus | undefined;
+
+  readonly isTaskStarted: (
+    state: WorkflowState<TaskName>,
+    taskName: TaskName,
+  ) => boolean;
+
+  readonly isTaskCompleted: (
+    state: WorkflowState<TaskName>,
+    taskName: TaskName,
+  ) => boolean;
 }
 
-export interface IProjection<S, E> extends IView<S, S, E> {
+export interface IDcbWorkflowProcess<AR, A, TaskName extends string = string>
+  extends
+    IWorkflowProcess<AR, A, TaskName>,
+    IDcbProcess<
+      AR,
+      WorkflowState<TaskName>,
+      WorkflowEvent<TaskName>,
+      WorkflowEvent<TaskName>,
+      A
+    > {
+}
+
+export interface IAggregateWorkflowProcess<
+  AR,
+  A,
+  TaskName extends string = string,
+> extends
+  IWorkflowProcess<AR, A, TaskName>,
+  IAggregateProcess<AR, WorkflowState<TaskName>, WorkflowEvent<TaskName>, A> {
 }
 ```
+
+## What is a View?
+
+A View is a pure functional component that builds up state by processing events:
+
+- **Evolves** state when given an event (read-side projection)
+- **Defines** an initial state
+- **Supports** independent input and output state types for complex
+  transformations
+
+Views are the read-side complement to Deciders, enabling event-sourced
+projections and read models.
 
 ## What is a Decider?
 
@@ -102,18 +169,6 @@ smart ToDo list:
 
 Process Managers coordinate long-running business processes and manage complex
 workflows.
-
-## What is a View?
-
-A View is a pure functional component that builds up state by processing events:
-
-- **Evolves** state when given an event (read-side projection)
-- **Defines** an initial state
-- **Supports** independent input and output state types for complex
-  transformations
-
-Views are the read-side complement to Deciders, enabling event-sourced
-projections and read models.
 
 ## Progressive Type Refinement
 

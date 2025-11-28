@@ -3,16 +3,14 @@
  * This is the most generic form of a view, allowing for transformations between different state types
  * and enabling complex cross-concept scenarios.
  *
- * @typeParam Si - Input state type that the view can process
- * @typeParam So - Output state type that the view produces after evolution
+ * @typeParam Si - Input state type
+ * @typeParam So - Output state type
  * @typeParam E - Event type that triggers state evolution
- *
- * @author Fraktalio
  */
 export interface IView<Si, So, E> {
   /**
    * Evolves the input state based on the given event to produce an output state.
-   * This function defines the core state evolution logic of the view.
+   * This function defines the core state evolution logic.
    *
    * @param state - The current input state
    * @param event - The event to process
@@ -21,7 +19,7 @@ export interface IView<Si, So, E> {
   readonly evolve: (state: Si, event: E) => So;
 
   /**
-   * The initial output state of the view.
+   * The initial output state.
    * This represents the starting point for state evolution.
    */
   readonly initialState: So;
@@ -34,8 +32,6 @@ export interface IView<Si, So, E> {
  *
  * @typeParam S - State type (both input and output are identical)
  * @typeParam E - Event type that triggers state evolution
- *
- * @author Fraktalio
  */
 export interface IProjection<S, E> extends IView<S, S, E> {
 }
@@ -211,8 +207,6 @@ export class View<Si, So, E> implements IView<Si, So, E> {
  *
  * @typeParam S - State type (both input and output are identical)
  * @typeParam E - Event type that triggers state evolution
- *
- * @author Fraktalio
  */
 export class Projection<S, E> implements IProjection<S, E> {
   private readonly _view: View<S, S, E>;

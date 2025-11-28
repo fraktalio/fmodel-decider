@@ -22,8 +22,6 @@ import { AggregateProcess, DcbProcess, Process } from "./process.ts";
  * Used to signal when a task begins execution in a workflow process.
  *
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface TaskStarted<TaskName extends string = string> {
   readonly type: "TaskStarted";
@@ -40,8 +38,6 @@ export interface TaskStarted<TaskName extends string = string> {
  * Used to signal when a task completes execution, optionally with result data.
  *
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface TaskCompleted<TaskName extends string = string> {
   readonly type: "TaskCompleted";
@@ -59,8 +55,6 @@ export interface TaskCompleted<TaskName extends string = string> {
  * Simplifies event handling by constraining to task-based operations.
  *
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export type WorkflowEvent<TaskName extends string = string> =
   | TaskStarted<TaskName>
@@ -86,8 +80,6 @@ export type TaskStatus = "started" | "finished";
  * Provides O(1) lookup for task status queries in workflow processes.
  *
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export type TaskState<TaskName extends string = string> = {
   readonly [K in TaskName]?: TaskStatus;
@@ -101,12 +93,9 @@ export type TaskState<TaskName extends string = string> = {
  * Provides a foundation for workflow processes to track task progress alongside business state.
  *
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface WorkflowState<TaskName extends string = string> {
   readonly tasks: TaskState<TaskName>;
-  // Additional domain-specific state properties can be added by extending this interface
 }
 
 /**
@@ -122,8 +111,6 @@ export interface WorkflowState<TaskName extends string = string> {
  * @param state - Current workflow state
  * @param event - Workflow event to process
  * @returns New workflow state with updated task status
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export const evolveWorkflowState = <TaskName extends string = string>(
   state: WorkflowState<TaskName>,
@@ -164,8 +151,6 @@ export const evolveWorkflowState = <TaskName extends string = string>(
  * @typeParam AR - Action Result type representing results from executed actions
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface IWorkflowProcess<AR, A, TaskName extends string = string>
   extends
@@ -252,19 +237,17 @@ export interface IWorkflowProcess<AR, A, TaskName extends string = string>
  * @typeParam AR - Action Result type representing results from executed actions
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface IDcbWorkflowProcess<AR, A, TaskName extends string = string>
   extends
+    IWorkflowProcess<AR, A, TaskName>,
     IDcbProcess<
       AR,
       WorkflowState<TaskName>,
       WorkflowEvent<TaskName>,
       WorkflowEvent<TaskName>,
       A
-    >,
-    IWorkflowProcess<AR, A, TaskName> {
+    > {
 }
 
 /**
@@ -280,16 +263,14 @@ export interface IDcbWorkflowProcess<AR, A, TaskName extends string = string>
  * @typeParam AR - Action Result type representing results from executed actions within the aggregate boundary
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export interface IAggregateWorkflowProcess<
   AR,
   A,
   TaskName extends string = string,
 > extends
-  IAggregateProcess<AR, WorkflowState<TaskName>, WorkflowEvent<TaskName>, A>,
-  IWorkflowProcess<AR, A, TaskName> {
+  IWorkflowProcess<AR, A, TaskName>,
+  IAggregateProcess<AR, WorkflowState<TaskName>, WorkflowEvent<TaskName>, A> {
 }
 /**
  * The foundational workflow process implementation with fixed WorkflowState type.
@@ -303,8 +284,6 @@ export interface IAggregateWorkflowProcess<
  * @typeParam AR - Action Result type representing results from executed actions
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class WorkflowProcess<AR, A, TaskName extends string = string>
   implements IWorkflowProcess<AR, A, TaskName> {
@@ -525,8 +504,6 @@ export class WorkflowProcess<AR, A, TaskName extends string = string>
  * @typeParam AR - Action Result type representing results from executed actions
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class DcbWorkflowProcess<AR, A, TaskName extends string = string>
   implements IDcbWorkflowProcess<AR, A, TaskName> {
@@ -760,8 +737,6 @@ export class DcbWorkflowProcess<AR, A, TaskName extends string = string>
  * @typeParam AR - Action Result type representing results from executed actions within the aggregate boundary
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  * @typeParam TaskName - Union type of valid task names for type safety
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class AggregateWorkflowProcess<AR, A, TaskName extends string = string>
   implements IAggregateWorkflowProcess<AR, A, TaskName> {

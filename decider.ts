@@ -11,6 +11,8 @@
  * language governing permissions and limitations under the License.
  */
 
+import type { IProjection, IView } from "./view.ts";
+
 /**
  * The foundational contract for decision-making algorithms with independent type parameters.
  *
@@ -23,7 +25,7 @@
  * @typeParam Ei - Input event type consumed by the evolve function to update state
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-concept scenarios
  */
-export interface IDecider<C, Si, So, Ei, Eo> {
+export interface IDecider<C, Si, So, Ei, Eo> extends IView<Si, So, Ei> {
   /**
    * Computes output events from a command and current state.
    *
@@ -32,20 +34,50 @@ export interface IDecider<C, Si, So, Ei, Eo> {
    * @returns A readonly array of output events representing what should happen as a result of the command
    */
   readonly decide: (command: C, state: Si) => readonly Eo[];
+}
 
+/**
+ * The first refinement step constraining input and output state types to be identical.
+ *
+ * @remarks
+ * Enforces `Si = So = S` constraint enabling event-sourced computation where state is derived from historical events.
+ *
+ * @typeParam C - Command type representing the intent or instruction to be processed
+ * @typeParam S - State type (both input and output), constrained to be identical for consistent event-sourced evolution
+ * @typeParam Ei - Input event type consumed by the evolve function to update state
+ * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-boundary scenarios
+ */
+export interface IDcbDecider<C, S, Ei, Eo>
+  extends IDecider<C, S, S, Ei, Eo>, IProjection<S, Ei> {
   /**
-   * Computes the next state from the current state and an input event.
+   * Computes new events from a command by first replaying all past events to derive the current state.
    *
-   * @param state - The current input state before applying the event
-   * @param event - The input event containing information about what happened
-   * @returns The new output state after applying the event
+   * @param events - A readonly array of historical input events representing the complete past behavior of the system
+   * @param command - The new command to evaluate against the current state derived from the event history
+   * @returns A readonly array of newly produced output events representing the decisions made based on the command and current state
    */
-  readonly evolve: (state: Si, event: Ei) => So;
+  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+}
 
+/**
+ * The most refined form in the progressive type system, constraining both state and event types to be identical.
+ *
+ * @remarks
+ * Final refinement step with dual constraints `Si = So = S` and `Ei = Eo = E`, supporting both event-sourced and state-stored computation patterns.
+ *
+ * @typeParam C - Command type representing the intent or instruction to be processed by the aggregate
+ * @typeParam S - State type (both input and output), representing the aggregate's consistent internal state
+ * @typeParam E - Event type (both input and output), representing state changes and domain events within the aggregate boundary
+ */
+export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
   /**
-   * The initial state representing the starting point for state evolution.
+   * Computes the next state directly from a command and current state using the state-stored computation pattern.
+   *
+   * @param state - The current state of the aggregate
+   * @param command - The command to evaluate against the current state
+   * @returns The new state after applying all events produced by the command
    */
-  readonly initialState: So;
+  computeNewState(state: S, command: C): S;
 }
 
 /**
@@ -59,8 +91,6 @@ export interface IDecider<C, Si, So, Ei, Eo> {
  * @typeParam So - Output state type produced by the evolve function
  * @typeParam Ei - Input event type consumed by the evolve function
  * @typeParam Eo - Output event type produced by the decide function
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
   /**
@@ -255,28 +285,6 @@ export class Decider<C, Si, So, Ei, Eo> implements IDecider<C, Si, So, Ei, Eo> {
 }
 
 /**
- * The first refinement step constraining input and output state types to be identical.
- *
- * @remarks
- * Enforces `Si = So = S` constraint enabling event-sourced computation where state is derived from historical events.
- *
- * @typeParam C - Command type representing the intent or instruction to be processed
- * @typeParam S - State type (both input and output), constrained to be identical for consistent event-sourced evolution
- * @typeParam Ei - Input event type consumed by the evolve function to update state
- * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-boundary scenarios
- */
-export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
-  /**
-   * Computes new events from a command by first replaying all past events to derive the current state.
-   *
-   * @param events - A readonly array of historical input events representing the complete past behavior of the system
-   * @param command - The new command to evaluate against the current state derived from the event history
-   * @returns A readonly array of newly produced output events representing the decisions made based on the command and current state
-   */
-  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
-}
-
-/**
  * The second step in the progressive refinement model constraining input and output state types to be identical.
  *
  * @remarks
@@ -286,8 +294,6 @@ export interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
  * @typeParam S - State type (both input and output) representing the consistent state structure throughout the decider lifecycle
  * @typeParam Ei - Input event type consumed by the evolve function to update state
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-boundary scenarios
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class DcbDecider<C, S, Ei, Eo> implements IDcbDecider<C, S, Ei, Eo> {
   private readonly _decider: Decider<C, S, S, Ei, Eo>;
@@ -416,27 +422,6 @@ export class DcbDecider<C, S, Ei, Eo> implements IDcbDecider<C, S, Ei, Eo> {
 }
 
 /**
- * The most refined form in the progressive type system, constraining both state and event types to be identical.
- *
- * @remarks
- * Final refinement step with dual constraints `Si = So = S` and `Ei = Eo = E`, supporting both event-sourced and state-stored computation patterns.
- *
- * @typeParam C - Command type representing the intent or instruction to be processed by the aggregate
- * @typeParam S - State type (both input and output), representing the aggregate's consistent internal state
- * @typeParam E - Event type (both input and output), representing state changes and domain events within the aggregate boundary
- */
-export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
-  /**
-   * Computes the next state directly from a command and current state using the state-stored computation pattern.
-   *
-   * @param state - The current state of the aggregate
-   * @param command - The command to evaluate against the current state
-   * @returns The new state after applying all events produced by the command
-   */
-  computeNewState(state: S, command: C): S;
-}
-
-/**
  * The most refined form in the progressive refinement model with dual computation capabilities.
  *
  * @remarks
@@ -445,8 +430,6 @@ export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
  * @typeParam C - Command type representing the intent or instruction to be processed by the aggregate
  * @typeParam S - State type (both input and output) representing the consistent aggregate state structure
  * @typeParam E - Event type (both input and output) representing domain events that directly correspond to state changes
- *
- * @author Иван Дугалић / Ivan Dugalic / @idugalic
  */
 export class AggregateDecider<C, S, E> implements IAggregateDecider<C, S, E> {
   private readonly _decider: Decider<C, S, S, E, E>;
