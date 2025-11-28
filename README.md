@@ -223,7 +223,7 @@ Process managers follow the same progressive refinement pattern as Deciders:
 | **Event-sourced** | ✅ Supported     | ✔️ Supported (limited: Ei = Eo)           |
 | **State-stored**  | ❌ Not possible  | ✅ Supported                              |
 | **Process orchestration**     | ✅ Supported     | ✅ Supported                              |
-| **Use case**                  | Unknown, for now | Process manager/Saga/Automation/ToDo List |
+| **Use case**                  | Unknown, for now | Process manager/Automation/ToDo List |
 
 ## Testing
 
