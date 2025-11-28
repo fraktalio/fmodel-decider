@@ -205,8 +205,8 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 | Concept                       | `DcbDecider`           | `AggregateDecider`              |
 | ----------------------------- | ---------------------- | ------------------------------- |
-| **Event-sourced computation** | ✅ Supported           | ✅ Supported (limited: Ei = Eo) |
-| **State-stored computation**  | ❌ Not possible        | ✅ Supported                    |
+| **Event-sourced** | ✅ Supported           | ✅ Supported (limited: Ei = Eo) |
+| **State-stored**  | ❌ Not possible        | ✅ Supported                    |
 | **Use case**                  | Cross-concept boundary | Single-concept / DDD Aggregate  |
 
 ### Views
@@ -220,8 +220,8 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 | Concept                       | `DcbProcess`     | `AggregateProcess`                        |
 | ----------------------------- | ---------------- | ----------------------------------------- |
-| **Event-sourced computation** | ✅ Supported     | ✅ Supported (limited: Ei = Eo)           |
-| **State-stored computation**  | ❌ Not possible  | ✅ Supported                              |
+| **Event-sourced** | ✅ Supported     | ✅ Supported (limited: Ei = Eo)           |
+| **State-stored**  | ❌ Not possible  | ✅ Supported                              |
 | **Process orchestration**     | ✅ Supported     | ✅ Supported                              |
 | **Use case**                  | Unknown, for now | Process manager/Saga/Automation/ToDo List |
 
