@@ -203,11 +203,11 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 ### Deciders
 
-| Concept                       | `DcbDecider`           | `AggregateDecider`              |
-| ----------------------------- | ---------------------- | ------------------------------- |
+| Concept           | `DcbDecider`           | `AggregateDecider`              |
+| ----------------- | ---------------------- | ------------------------------- |
 | **Event-sourced** | ✅ Supported           | ✔️ Supported (limited: Ei = Eo) |
 | **State-stored**  | ❌ Not possible        | ✅ Supported                    |
-| **Use case**                  | Cross-concept boundary | Single-concept / DDD Aggregate  |
+| **Use case**      | Cross-concept boundary | Single-concept / DDD Aggregate  |
 
 ### Views
 
@@ -218,12 +218,12 @@ Process managers follow the same progressive refinement pattern as Deciders:
 
 ### Process Managers
 
-| Concept                       | `DcbProcess`     | `AggregateProcess`                        |
-| ----------------------------- | ---------------- | ----------------------------------------- |
-| **Event-sourced** | ✅ Supported     | ✔️ Supported (limited: Ei = Eo)           |
-| **State-stored**  | ❌ Not possible  | ✅ Supported                              |
-| **Process orchestration**     | ✅ Supported     | ✅ Supported                              |
-| **Use case**                  | Unknown, for now | Process manager/Automation/ToDo List |
+| Concept                   | `DcbProcess`     | `AggregateProcess`                   |
+| ------------------------- | ---------------- | ------------------------------------ |
+| **Event-sourced**         | ✅ Supported     | ✔️ Supported (limited: Ei = Eo)      |
+| **State-stored**          | ❌ Not possible  | ✅ Supported                         |
+| **Process orchestration** | ✅ Supported     | ✅ Supported                         |
+| **Use case**              | Unknown, for now | Process manager/Automation/ToDo List |
 
 ## Testing
 
