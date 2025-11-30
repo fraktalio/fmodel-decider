@@ -389,7 +389,7 @@ export const orderView: Projection<OrderView | null, OrderEvent> =
     null,
   );
 
-// ####################### Restaurant Saga / Choreography ##############################
+// ####################### Restaurant - Order Workflow / Process Manager ##############################
 
 /**
  * Task names for the restaurant order workflow
@@ -397,7 +397,7 @@ export const orderView: Projection<OrderView | null, OrderEvent> =
 type OrderTaskName = "createOrder";
 
 /**
- * Restaurant - Oßrder workflow process
+ * Restaurant - Order workflow
  *
  * @remarks
  * This workflow demonstrates the standard pattern for event-driven workflows:
@@ -406,7 +406,7 @@ type OrderTaskName = "createOrder";
  * - Task state tracks progress: missing (☐), "started" (☑️), "finished" (✅)
  *
  * The workflow reacts to RestaurantOrderPlacedEvent and orchestrates order creation
- * by issuing CreateOrderCommand to the Order aggregate.
+ * by issuing CreateOrderCommand to the Order decider.
  */
 export const restaurantOrderWorkflow: AggregateWorkflowProcess<
   Event,
