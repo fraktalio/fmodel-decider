@@ -1,6 +1,6 @@
 # fmodel-decider
 
-TypeScript library for modeling deciders, process managers, and views in
+TypeScript library for modeling deciders (`command handlers`), process managers, and views (`event handlers`) in
 domain-driven, event-sourced, or state-stored architectures with progressive
 type refinement.
 
@@ -272,7 +272,6 @@ const restaurantOrderWorkflow: AggregateWorkflowProcess<
 **When to use:**
 
 - Traditional DDD aggregate roots
-- Strong consistency within bounded contexts
 - Clear entity lifecycle management
 - Need for both event-sourced and state-stored operations
 
@@ -288,7 +287,7 @@ const restaurantOrderWorkflow: AggregateWorkflowProcess<
 **Consistency Boundary:** Flexible, use-case-driven boundaries that can span
 multiple concepts.
 
-This approach uses `DcbDecider<C, S, Ei, Eo>` where each use case defines its
+This approach uses `DcbDecider<C, S, Ei, Eo>` where each use case (command) defines its
 own consistency boundary:
 
 ```ts
@@ -324,7 +323,7 @@ const allDomainDecider = createRestaurantDecider
 **When to use:**
 
 - Event-sourced systems with flexible consistency requirements
-- Use cases that naturally span multiple concepts
+- Use cases that naturally span multiple concepts (Order, Restaurant, ...)
 
 
 **Files:**
@@ -344,7 +343,7 @@ const allDomainDecider = createRestaurantDecider
 | **Composition** | Workflow coordinates aggregates    | Deciders combine via tuples                     |
 | **Computation** | Event-sourced + State-stored       | Event-sourced only                              |
 | **Complexity**  | Higher (more components)           | Lower (focused deciders)                        |
-| **Best for**    | Traditional DDD  | Event-driven, CQRS/ES systems                   |
+| **Best for**    | Traditional DDD  | Event-driven, Event0sourced S systems                   |
 
 ### Running the Demos
 
