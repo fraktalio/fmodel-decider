@@ -225,6 +225,148 @@ Process managers follow the same progressive refinement pattern as Deciders:
 | **Process orchestration** | ✅ Supported     | ✅ Supported                         |
 | **Use case**              | Unknown, for now | Process manager/Automation/ToDo List |
 
+## Demo: Restaurant & Order Management
+
+The library includes two complete demo implementations showcasing different
+architectural approaches to the same domain problem. Both demos model a
+restaurant ordering system but differ in how they define consistency boundaries.
+
+### Scenario 1: Aggregate Pattern (`demo/aggregate/`)
+
+**Consistency Boundary:** Traditional DDD Aggregates with strong consistency
+within each aggregate root.
+
+This approach uses `AggregateDecider<C, S, E>` where each aggregate (Restaurant,
+Order) maintains its own consistency boundary:
+
+```ts
+// Restaurant Aggregate - manages restaurant state
+const restaurantDecider: AggregateDecider<
+  RestaurantCommand,
+  Restaurant | null,
+  RestaurantEvent
+>;
+
+// Order Aggregate - manages order state
+const orderDecider: AggregateDecider<
+  OrderCommand,
+  Order | null,
+  OrderEvent
+>;
+
+// Workflow Process - coordinates between aggregates
+const restaurantOrderWorkflow: AggregateWorkflowProcess<
+  Event,
+  Command,
+  OrderTaskName
+>;
+```
+
+**Key Characteristics:**
+
+- **Strong boundaries:** Each aggregate is independently consistent
+- **Event-sourced & state-stored:** Supports both computation modes
+- **Cross-aggregate coordination:** Workflow process orchestrates between
+  Restaurant and Order
+
+**When to use:**
+
+- Traditional DDD aggregate roots
+- Strong consistency within bounded contexts
+- Clear entity lifecycle management
+- Need for both event-sourced and state-stored operations
+
+**Files:**
+
+- `restaurantDecider.ts` - Restaurant aggregate logic
+- `orderDecider.ts` - Order aggregate logic
+- `restaurantOrderWorkflow.ts` - Cross-aggregate orchestration
+- `restaurantView.ts` / `orderView.ts` - Read model projections
+
+### Scenario 2: Dynamic Consistency Boundary (DCB) Pattern (`demo/dcb/`)
+
+**Consistency Boundary:** Flexible, use-case-driven boundaries that can span
+multiple concepts.
+
+This approach uses `DcbDecider<C, S, Ei, Eo>` where each use case defines its
+own consistency boundary:
+
+```ts
+// Each use case is a separate decider with its own state
+const createRestaurantDecider: DcbDecider<
+  CreateRestaurantCommand,
+  CreateRestaurantState,
+  RestaurantEvent,
+  RestaurantCreatedEvent
+>;
+
+const placeOrderDecider: DcbDecider<
+  PlaceOrderCommand,
+  PlaceOrderState,
+  RestaurantEvent | OrderEvent,
+  RestaurantOrderPlacedEvent
+>;
+
+// Combined into a single domain decider
+const allDomainDecider = createRestaurantDecider
+  .combineViaTuples(changeRestaurantMenuDecider)
+  .combineViaTuples(placeOrderDecider)
+  .combineViaTuples(markOrderAsPreparedDecider);
+```
+
+**Key Characteristics:**
+
+- **Flexible boundaries:** Each use case defines what it needs
+- **Event-sourced only:** Optimized for event-driven architectures
+- **Cross-concept operations:** Single decider can span Restaurant and Order
+- **Compositional:** Deciders combine via tuples to form complete domain model
+
+**When to use:**
+
+- Event-sourced systems with flexible consistency requirements
+- Use cases that naturally span multiple concepts
+
+
+**Files:**
+
+- `createRestaurant.ts` - Restaurant creation use case
+- `changeRestaurantMenu.ts` - Menu update use case
+- `placeOrder.ts` - Order placement (spans Restaurant + Order)
+- `markOrderAsPrepared.ts` - Order preparation use case
+
+### Comparison
+
+| Aspect          | Aggregate Pattern                  | DCB Pattern                                     |
+| --------------- | ---------------------------------- | ----------------------------------------------- |
+| **Consistency** | Strong within aggregate            | Flexible per use case                           |
+| **Boundaries**  | Entity-centric (Restaurant, Order) | Use-case-centric (CreateRestaurant, PlaceOrder) |
+| **State model** | Aggregate state                    | Use-case-specific state                         |
+| **Composition** | Workflow coordinates aggregates    | Deciders combine via tuples                     |
+| **Computation** | Event-sourced + State-stored       | Event-sourced only                              |
+| **Complexity**  | Higher (more components)           | Lower (focused deciders)                        |
+| **Best for**    | Traditional DDD  | Event-driven, CQRS/ES systems                   |
+
+### Running the Demos
+
+```bash
+# Run all aggregate tests
+deno test demo/aggregate/
+
+# Run all DCB tests  
+deno test demo/dcb/
+
+# Run specific test file
+deno test demo/aggregate/restaurantDecider_test.ts
+```
+
+Both demos include:
+
+- ✅ Complete command handlers (deciders)
+- ✅ Event-sourced projections (views)
+- ✅ Workflow orchestration (aggregate pattern only)
+- ✅ Comprehensive test coverage using Given-When-Then DSL
+- ✅ Type-safe domain modeling
+
 ## Testing
 
 ```bash
