@@ -34,19 +34,16 @@ export type RestaurantMenu = {
   readonly cuisine: RestaurantMenuCuisine;
 };
 
-// ###########################################################################
-// ########################### Restaurant ####################################
-// ###########################################################################
-
 // ########################## API (COMMANDS) #################################
 
-export type RestaurantCommand =
+export type Command =
   | CreateRestaurantCommand
   | ChangeRestaurantMenuCommand
-  | PlaceOrderCommand;
+  | PlaceOrderCommand
+  | CreateOrderCommand
+  | MarkOrderAsPreparedCommand;
 
 export type CreateRestaurantCommand = {
-  readonly decider: "Restaurant";
   readonly kind: "CreateRestaurantCommand";
   readonly id: RestaurantId;
   readonly name: RestaurantName;
@@ -54,63 +51,19 @@ export type CreateRestaurantCommand = {
 };
 
 export type ChangeRestaurantMenuCommand = {
-  readonly decider: "Restaurant";
   readonly kind: "ChangeRestaurantMenuCommand";
   readonly id: RestaurantId;
   readonly menu: RestaurantMenu;
 };
 
 export type PlaceOrderCommand = {
-  readonly decider: "Restaurant";
   readonly kind: "PlaceOrderCommand";
   readonly id: RestaurantId;
   readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
 };
 
-// ########################### API (EVENTS) ##################################
-
-export type RestaurantEvent =
-  | RestaurantCreatedEvent
-  | RestaurantMenuChangedEvent
-  | RestaurantOrderPlacedEvent;
-
-export type RestaurantCreatedEvent = {
-  readonly decider: "Restaurant";
-  readonly kind: "RestaurantCreatedEvent";
-  readonly id: RestaurantId;
-  readonly name: RestaurantName;
-  readonly menu: RestaurantMenu;
-  readonly final: boolean;
-};
-
-export type RestaurantMenuChangedEvent = {
-  readonly decider: "Restaurant";
-  readonly kind: "RestaurantMenuChangedEvent";
-  readonly id: RestaurantId;
-  readonly menu: RestaurantMenu;
-  readonly final: boolean;
-};
-
-export type RestaurantOrderPlacedEvent = {
-  readonly decider: "Restaurant";
-  readonly kind: "RestaurantOrderPlacedEvent";
-  readonly id: RestaurantId;
-  readonly orderId: OrderId;
-  readonly menuItems: MenuItem[];
-  readonly final: boolean;
-};
-
-// ###########################################################################
-// ############################## Order ######################################
-// ###########################################################################
-
-// ########################## API (COMMANDS) #################################
-
-export type OrderCommand = CreateOrderCommand | MarkOrderAsPreparedCommand;
-
 export type CreateOrderCommand = {
-  readonly decider: "Order";
   readonly kind: "CreateOrderCommand";
   readonly id: OrderId;
   readonly restaurantId: RestaurantId;
@@ -118,34 +71,43 @@ export type CreateOrderCommand = {
 };
 
 export type MarkOrderAsPreparedCommand = {
-  readonly decider: "Order";
   readonly kind: "MarkOrderAsPreparedCommand";
   readonly id: OrderId;
 };
 
 // ########################### API (EVENTS) ##################################
 
-export type OrderEvent =
-  | OrderCreatedEvent
+export type Event =
+  | RestaurantCreatedEvent
+  | RestaurantMenuChangedEvent
+  | RestaurantOrderPlacedEvent
   | OrderPreparedEvent;
 
-export type OrderCreatedEvent = {
-  readonly decider: "Order";
-  readonly kind: "OrderCreatedEvent";
-  readonly id: OrderId;
+export type RestaurantCreatedEvent = {
+  readonly kind: "RestaurantCreatedEvent";
   readonly restaurantId: RestaurantId;
+  readonly name: RestaurantName;
+  readonly menu: RestaurantMenu;
+  readonly final: boolean;
+};
+
+export type RestaurantMenuChangedEvent = {
+  readonly kind: "RestaurantMenuChangedEvent";
+  readonly restaurantId: RestaurantId;
+  readonly menu: RestaurantMenu;
+  readonly final: boolean;
+};
+
+export type RestaurantOrderPlacedEvent = {
+  readonly kind: "RestaurantOrderPlacedEvent";
+  readonly restaurantId: RestaurantId;
+  readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
   readonly final: boolean;
 };
 
 export type OrderPreparedEvent = {
-  readonly decider: "Order";
   readonly kind: "OrderPreparedEvent";
-  readonly id: OrderId;
+  readonly orderId: OrderId;
   readonly final: boolean;
 };
-
-// All variants of commands
-export type Command = RestaurantCommand | OrderCommand;
-// All variants of events
-export type Event = RestaurantEvent | OrderEvent;

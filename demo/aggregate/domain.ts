@@ -47,84 +47,49 @@ export const restaurantDecider: AggregateDecider<
   (command, currentState) => {
     switch (command.kind) {
       case "CreateRestaurantCommand":
-        return (currentState === null ||
-            currentState.restaurantId === undefined)
-          ? [
-            {
-              version: 1,
-              decider: "Restaurant",
-              kind: "RestaurantCreatedEvent",
-              id: command.id,
-              name: command.name,
-              menu: command.menu,
-              final: false,
-            },
-          ]
-          : [
-            {
-              version: 1,
-              decider: "Restaurant",
-              kind: "RestaurantNotCreatedEvent",
-              id: command.id,
-              name: command.name,
-              menu: command.menu,
-              reason: "Restaurant already exist!",
-              final: false,
-            },
-          ];
+        if (currentState !== null && currentState.restaurantId !== undefined) {
+          throw new Error("Restaurant already exist!");
+        }
+        return [
+          {
+            decider: "Restaurant",
+            kind: "RestaurantCreatedEvent",
+            id: command.id,
+            name: command.name,
+            menu: command.menu,
+            final: false,
+          },
+        ];
       case "ChangeRestaurantMenuCommand":
-        return (currentState !== null &&
-            currentState.restaurantId === command.id)
-          ? [
-            {
-              version: 1,
-              decider: "Restaurant",
-              kind: "RestaurantMenuChangedEvent",
-              id: currentState.restaurantId,
-              menu: command.menu,
-              final: false,
-            },
-          ]
-          : [
-            {
-              version: 1,
-              decider: "Restaurant",
-              kind: "RestaurantMenuNotChangedEvent",
-              id: command.id,
-              menu: command.menu,
-              reason: "Restaurant does not exist!",
-              final: false,
-            },
-          ];
+        if (currentState === null) {
+          throw new Error("Restaurant does not exist!");
+        }
+        return [
+          {
+            decider: "Restaurant",
+            kind: "RestaurantMenuChangedEvent",
+            id: currentState.restaurantId,
+            menu: command.menu,
+            final: false,
+          },
+        ];
       case "PlaceOrderCommand":
-        return (currentState !== null &&
-            currentState.restaurantId === command.id)
-          ? [
-            {
-              version: 1,
-              decider: "Restaurant",
-              kind: "RestaurantOrderPlacedEvent",
-              id: command.id,
-              orderId: command.orderId,
-              menuItems: command.menuItems,
-              final: false,
-            },
-          ]
-          : [
-            {
-              version: 1,
-              decider: "Restaurant",
-              kind: "RestaurantOrderNotPlacedEvent",
-              id: command.id,
-              orderId: command.orderId,
-              menuItems: command.menuItems,
-              reason: "Restaurant does not exist!",
-              final: false,
-            },
-          ];
+        if (currentState === null) {
+          throw new Error("Restaurant does not exist!");
+        }
+        return [
+          {
+            decider: "Restaurant",
+            kind: "RestaurantOrderPlacedEvent",
+            id: command.id,
+            orderId: command.orderId,
+            menuItems: command.menuItems,
+            final: false,
+          },
+        ];
       default: {
         // Exhaustive matching of the command type
-        const _: never = command;
+        const _exhaustiveCheck: never = command;
         return [];
       }
     }
@@ -133,8 +98,6 @@ export const restaurantDecider: AggregateDecider<
     switch (event.kind) {
       case "RestaurantCreatedEvent":
         return { restaurantId: event.id, name: event.name, menu: event.menu };
-      case "RestaurantNotCreatedEvent":
-        return currentState;
       case "RestaurantMenuChangedEvent":
         return currentState !== null
           ? {
@@ -143,15 +106,11 @@ export const restaurantDecider: AggregateDecider<
             menu: event.menu,
           }
           : currentState;
-      case "RestaurantMenuNotChangedEvent":
-        return currentState;
       case "RestaurantOrderPlacedEvent":
-        return currentState;
-      case "RestaurantOrderNotPlacedEvent":
         return currentState;
       default: {
         // Exhaustive matching of the event type
-        const _: never = event;
+        const _exhaustiveCheck: never = event;
         return currentState;
       }
     }
@@ -188,8 +147,6 @@ export const restaurantView: Projection<
     switch (event.kind) {
       case "RestaurantCreatedEvent":
         return { restaurantId: event.id, name: event.name, menu: event.menu };
-      case "RestaurantNotCreatedEvent":
-        return currentState;
       case "RestaurantMenuChangedEvent":
         return currentState !== null
           ? {
@@ -198,15 +155,11 @@ export const restaurantView: Projection<
             menu: event.menu,
           }
           : currentState;
-      case "RestaurantMenuNotChangedEvent":
-        return currentState;
       case "RestaurantOrderPlacedEvent":
-        return currentState;
-      case "RestaurantOrderNotPlacedEvent":
         return currentState;
       default: {
         // Exhaustive matching of the event type
-        const _: never = event;
+        const _exhaustiveCheck: never = event;
         return currentState;
       }
     }
@@ -246,54 +199,36 @@ export const orderDecider: AggregateDecider<
   (command, currentState) => {
     switch (command.kind) {
       case "CreateOrderCommand":
-        return (currentState === null || currentState.orderId === undefined)
-          ? [
-            {
-              version: 1,
-              decider: "Order",
-              kind: "OrderCreatedEvent",
-              id: command.id,
-              restaurantId: command.restaurantId,
-              menuItems: command.menuItems,
-              final: false,
-            },
-          ]
-          : [
-            {
-              version: 1,
-              decider: "Order",
-              kind: "OrderNotCreatedEvent",
-              id: command.id,
-              restaurantId: command.restaurantId,
-              menuItems: command.menuItems,
-              final: false,
-              reason: "Order already exist!",
-            },
-          ];
+        if (currentState !== null && currentState.orderId !== undefined) {
+          throw new Error("Order already exist!");
+        }
+        return [
+          {
+            version: 1,
+            decider: "Order",
+            kind: "OrderCreatedEvent",
+            id: command.id,
+            restaurantId: command.restaurantId,
+            menuItems: command.menuItems,
+            final: false,
+          },
+        ];
       case "MarkOrderAsPreparedCommand":
-        return (currentState !== null && currentState.orderId === command.id)
-          ? [
-            {
-              version: 1,
-              decider: "Order",
-              kind: "OrderPreparedEvent",
-              id: currentState.orderId,
-              final: false,
-            },
-          ]
-          : [
-            {
-              version: 1,
-              decider: "Order",
-              kind: "OrderNotPreparedEvent",
-              id: command.id,
-              reason: "Order does not exist!",
-              final: false,
-            },
-          ];
+        if (currentState === null) {
+          throw new Error("Order does not exist!");
+        }
+        return [
+          {
+            version: 1,
+            decider: "Order",
+            kind: "OrderPreparedEvent",
+            id: currentState.orderId,
+            final: false,
+          },
+        ];
       default: {
         // Exhaustive matching of the command type
-        const _: never = command;
+        const _exhaustiveCheck: never = command;
         return [];
       }
     }
@@ -307,8 +242,6 @@ export const orderDecider: AggregateDecider<
           menuItems: event.menuItems,
           status: "CREATED",
         };
-      case "OrderNotCreatedEvent":
-        return currentState;
       case "OrderPreparedEvent":
         return currentState !== null
           ? {
@@ -318,11 +251,9 @@ export const orderDecider: AggregateDecider<
             status: "PREPARED",
           }
           : currentState;
-      case "OrderNotPreparedEvent":
-        return currentState;
       default: {
         // Exhaustive matching of the event type
-        const _: never = event;
+        const _exhaustiveCheck: never = event;
         return currentState;
       }
     }
@@ -366,8 +297,6 @@ export const orderView: Projection<OrderView | null, OrderEvent> =
             menuItems: event.menuItems,
             status: "CREATED",
           };
-        case "OrderNotCreatedEvent":
-          return currentState;
         case "OrderPreparedEvent":
           return currentState !== null
             ? {
@@ -377,11 +306,9 @@ export const orderView: Projection<OrderView | null, OrderEvent> =
               status: "PREPARED",
             }
             : currentState;
-        case "OrderNotPreparedEvent":
-          return currentState;
         default: {
           // Exhaustive matching of the event type
-          const _: never = event;
+          const _exhaustiveCheck: never = event;
           return currentState;
         }
       }
@@ -417,10 +344,7 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
   (event, workflowState) => {
     switch (event.kind) {
       case "RestaurantCreatedEvent":
-      case "RestaurantNotCreatedEvent":
       case "RestaurantMenuChangedEvent":
-      case "RestaurantMenuNotChangedEvent":
-      case "RestaurantOrderNotPlacedEvent":
         // These events don't trigger workflow actions
         return [];
       case "RestaurantOrderPlacedEvent":
@@ -455,10 +379,8 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
           ];
         }
         return [];
-      case "OrderNotCreatedEvent":
       case "OrderPreparedEvent":
-      case "OrderNotPreparedEvent":
-        // These events don't trigger workflow actions
+        // This event doesn't trigger workflow actions
         return [];
       default: {
         // Exhaustive check: ensures all Event types are handled
