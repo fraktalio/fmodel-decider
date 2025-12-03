@@ -4,6 +4,8 @@ TypeScript library for modeling deciders (`command handlers`), process managers,
 domain-driven, event-sourced, or state-stored architectures with progressive
 type refinement.
 
+![fmodel](fmodel.webp)
+
 ## Progressive Type Refinement Philosophy
 
 This library demonstrates how to evolve from **general, flexible types** to
@@ -383,6 +385,10 @@ deno task dev
 ```bash
 deno publish --dry-run
 ```
+
+## Further Reading
+
+- [https://fmodel.fraktalio.com/](https://fmodel.fraktalio.com/)
 
 ## Credits
 
