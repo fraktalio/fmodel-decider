@@ -40,7 +40,6 @@ export type Command =
   | CreateRestaurantCommand
   | ChangeRestaurantMenuCommand
   | PlaceOrderCommand
-  | CreateOrderCommand
   | MarkOrderAsPreparedCommand;
 
 export type CreateRestaurantCommand = {
@@ -60,13 +59,6 @@ export type PlaceOrderCommand = {
   readonly kind: "PlaceOrderCommand";
   readonly id: RestaurantId;
   readonly orderId: OrderId;
-  readonly menuItems: MenuItem[];
-};
-
-export type CreateOrderCommand = {
-  readonly kind: "CreateOrderCommand";
-  readonly id: OrderId;
-  readonly restaurantId: RestaurantId;
   readonly menuItems: MenuItem[];
 };
 
