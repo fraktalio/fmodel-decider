@@ -38,6 +38,20 @@ export type RestaurantMenu = {
 // ########################### Restaurant ####################################
 // ###########################################################################
 
+// ########################## STATE & VIEW ###################################
+
+export type Restaurant = {
+  readonly restaurantId: RestaurantId;
+  readonly name: RestaurantName;
+  readonly menu: RestaurantMenu;
+};
+
+export type RestaurantView = {
+  readonly restaurantId: RestaurantId;
+  readonly name: RestaurantName;
+  readonly menu: RestaurantMenu;
+};
+
 // ########################## API (COMMANDS) #################################
 
 export type RestaurantCommand =
@@ -105,6 +119,22 @@ export type RestaurantOrderPlacedEvent = {
 // ############################## Order ######################################
 // ###########################################################################
 
+// ########################## STATE & VIEW ###################################
+
+export type Order = {
+  readonly orderId: OrderId;
+  readonly restaurantId: RestaurantId;
+  readonly menuItems: MenuItem[];
+  readonly status: OrderStatus;
+};
+
+export type OrderView = {
+  readonly orderId: OrderId;
+  readonly restaurantId: RestaurantId;
+  readonly menuItems: MenuItem[];
+  readonly status: OrderStatus;
+};
+
 // ########################## API (COMMANDS) #################################
 
 export type OrderCommand = CreateOrderCommand | MarkOrderAsPreparedCommand;
@@ -130,6 +160,7 @@ export type OrderEvent =
   | OrderPreparedEvent;
 
 export type OrderCreatedEvent = {
+  readonly version: number;
   readonly decider: "Order";
   readonly kind: "OrderCreatedEvent";
   readonly id: OrderId;
@@ -139,6 +170,7 @@ export type OrderCreatedEvent = {
 };
 
 export type OrderPreparedEvent = {
+  readonly version: number;
   readonly decider: "Order";
   readonly kind: "OrderPreparedEvent";
   readonly id: OrderId;

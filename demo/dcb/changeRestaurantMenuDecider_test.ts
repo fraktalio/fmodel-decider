@@ -1,5 +1,5 @@
 import { DeciderEventSourcedSpec } from "../../test_specification.ts";
-import { changeRestaurantManuDecider } from "./changeRestaurantMenu.ts";
+import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
 import type { ChangeRestaurantMenuCommand, RestaurantMenu } from "./api.ts";
 
 // Test data

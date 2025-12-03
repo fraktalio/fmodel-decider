@@ -1,5 +1,5 @@
 import { DeciderEventSourcedSpec } from "../../test_specification.ts";
-import { markOrderAsPreparedDecider } from "./markOrderAsPrepared.ts";
+import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 import type { MarkOrderAsPreparedCommand, MenuItem } from "./api.ts";
 
 // Test data

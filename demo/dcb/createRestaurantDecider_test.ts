@@ -1,5 +1,5 @@
 import { DeciderEventSourcedSpec } from "../../test_specification.ts";
-import { crateRestaurantDecider } from "./createRestaurant.ts";
+import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
 import type { CreateRestaurantCommand, RestaurantMenu } from "./api.ts";
 
 // Test data

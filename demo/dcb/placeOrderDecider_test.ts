@@ -1,5 +1,5 @@
 import { DeciderEventSourcedSpec } from "../../test_specification.ts";
-import { placeOrderDecider } from "./placeOrder.ts";
+import { placeOrderDecider } from "./placeOrderDecider.ts";
 import type { MenuItem, PlaceOrderCommand, RestaurantMenu } from "./api.ts";
 
 // Test data
