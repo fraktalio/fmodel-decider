@@ -5,6 +5,7 @@ import type {
   OrderPreparedEvent,
   OrderStatus,
   RestaurantId,
+  RestaurantOrderPlacedEvent,
 } from "./api.ts";
 
 /**
@@ -22,20 +23,35 @@ export const orderView: Projection<OrderView | null, OrderEvent> =
     OrderView | null,
     OrderEvent
   >(
-    (currentState, _event) => {
-      return currentState !== null
-        ? {
-          orderId: currentState.orderId,
-          restaurantId: currentState.restaurantId,
-          menuItems: currentState.menuItems,
-          status: "PREPARED",
+    (currentState, event) => {
+      switch (event.kind) {
+        case "RestaurantOrderPlacedEvent":
+          return {
+            orderId: event.orderId,
+            restaurantId: event.restaurantId,
+            menuItems: event.menuItems,
+            status: "CREATED",
+          };
+        case "OrderPreparedEvent":
+          return currentState !== null
+            ? {
+              orderId: currentState.orderId,
+              restaurantId: currentState.restaurantId,
+              menuItems: currentState.menuItems,
+              status: "PREPARED",
+            }
+            : currentState;
+        default: {
+          // Exhaustive matching of the event type
+          const _exhaustiveCheck: never = event;
+          return currentState;
         }
-        : currentState;
+      }
     },
     null,
   );
 
-type OrderEvent = OrderPreparedEvent;
+type OrderEvent = OrderPreparedEvent | RestaurantOrderPlacedEvent;
 
 export type OrderView = {
   readonly orderId: OrderId;
