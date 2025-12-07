@@ -1,3 +1,5 @@
+import { identity } from "@fraktalio/fmodel-decider";
+
 /**
  * Represents a view that evolves state based on events, supporting independent input and output state types.
  * This is the most generic form of a view, allowing for transformations between different state types
@@ -316,8 +318,3 @@ export class Projection<S, E> implements IProjection<S, E> {
     );
   }
 }
-
-/**
- * The identity function: returns its input unchanged.
- */
-const identity = <T>(t: T) => t;

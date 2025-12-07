@@ -3,11 +3,11 @@ name: Publish to JSR
 on:
   push:
     tags:
-      - 'v*.*.*'  # Triggers on version tags like v0.1.0, v1.2.3, etc.
+      - "v*.*.*" # Triggers on version tags like v0.1.0, v1.2.3, etc.
 
 permissions:
   contents: read
-  id-token: write  # Required for JSR publishing
+  id-token: write # Required for JSR publishing
 
 jobs:
   publish:

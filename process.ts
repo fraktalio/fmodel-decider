@@ -12,6 +12,7 @@
  */
 
 import type { IAggregateDecider, IDcbDecider, IDecider } from "./decider.ts";
+import { identity } from "@fraktalio/fmodel-decider";
 
 /**
  * The foundational process manager interface with independent type parameters.
@@ -726,8 +727,3 @@ export class AggregateProcess<AR, S, E, A>
     );
   }
 }
-
-/**
- * The identity function: returns its input unchanged.
- */
-const identity = <T>(t: T) => t;

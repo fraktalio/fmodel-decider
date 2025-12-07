@@ -12,11 +12,17 @@ import { restaurantView } from "./restaurantView.ts";
 import { orderView } from "./orderView.ts";
 import { restaurantOrderWorkflow } from "./restaurantOrderWorkflow.ts";
 import type { OrderTaskName } from "./restaurantOrderWorkflow.ts";
-import type { Command, Event, OrderView, RestaurantView , Restaurant, Order} from "./api.ts";
+import type {
+  Command,
+  Event,
+  Order,
+  OrderView,
+  Restaurant,
+  RestaurantView,
+} from "./api.ts";
 import type { IAggregateDecider } from "../../decider.ts";
 import type { IProjection } from "../../view.ts";
 import type { IAggregateWorkflowProcess } from "../../process_workflow.ts";
-
 
 // Re-export types
 export type { Order, OrderView, Restaurant, RestaurantView } from "./api.ts";
@@ -30,8 +36,11 @@ export type { Order, OrderView, Restaurant, RestaurantView } from "./api.ts";
  *
  * State structure: readonly [Restaurant | null, Order | null]
  */
-export const all_domain_deciders: IAggregateDecider<Command, readonly [Restaurant | null, Order | null], Event> = 
-  restaurantDecider.combineViaTuples(orderDecider);
+export const all_domain_deciders: IAggregateDecider<
+  Command,
+  readonly [Restaurant | null, Order | null],
+  Event
+> = restaurantDecider.combineViaTuples(orderDecider);
 
 /**
  * Combined domain view that handles all events
@@ -150,7 +159,10 @@ export const handleCommandGeneric = async <
         const cmdEvents = await currentEvents(cmd);
         // Include both historical events and events produced in this execution
         const allHistoricalEvents = [...cmdEvents, ...allEvents];
-        const newEventsFromWorkflow = decider.computeNewEvents(allHistoricalEvents, cmd);
+        const newEventsFromWorkflow = decider.computeNewEvents(
+          allHistoricalEvents,
+          cmd,
+        );
         allEvents.push(...newEventsFromWorkflow);
         eventsToProcess.push(...newEventsFromWorkflow);
       }
