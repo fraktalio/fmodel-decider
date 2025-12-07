@@ -4,7 +4,7 @@ import type { Command, Event, MenuItem, OrderId, RestaurantId } from "./api.ts";
 /**
  * Task names for the restaurant order workflow
  */
-type OrderTaskName = "createOrder";
+export type OrderTaskName = "createOrder";
 
 /**
  * Restaurant - Order workflow
