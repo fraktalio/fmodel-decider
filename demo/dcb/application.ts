@@ -70,7 +70,9 @@ export const all_domain_views = restaurantView
  * and read-side (views consuming events) in CQRS/Event Sourcing architectures.
  *
  * @typeParam C - Command type
- * @typeParam E - Event type
+ * @typeParam Ei - Event input type
+ * @typeParam Eo - Event output type
+ * @typeParam S - State type
  * @typeParam VS - View state type
  *
  * @param command - The command to handle
