@@ -2,6 +2,7 @@ export * from "./decider.ts";
 export * from "./process.ts";
 export * from "./process_workflow.ts";
 export * from "./view.ts";
+export * from "./application.ts"
 
 /**
  * The identity function: returns its input unchanged.

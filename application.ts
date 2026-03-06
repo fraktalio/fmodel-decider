@@ -1,7 +1,8 @@
 import type {
   IEventComputation,
   IStateComputation,
-} from "@fraktalio/fmodel-decider";
+} from "./decider.ts";
+import type { IProjection } from "./view.ts";
 
 /**
  * Repository interface for event-sourced command processing.
@@ -134,5 +135,76 @@ export class StateStoredCommandHandler<C, S, CM, SM> {
    */
   handle(command: C & CM): Promise<S & SM> {
     return this.stateRepository.execute(command, this.decider);
+  }
+}
+
+/**
+ * Repository interface for view state management.
+ *
+ * @remarks
+ * This repository handles events by using a view/projection to evolve state from events,
+ * then persisting the updated state. It supports the read-side projection pattern where
+ * views materialize state from event streams.
+ *
+ * The repository:
+ * 1. Loads the current view state
+ * 2. Uses the projection to evolve state from the event
+ * 3. Persists the updated state with metadata
+ *
+ * @typeParam E - Event type representing domain events to be projected
+ * @typeParam S - State type representing the view's materialized state
+ * @typeParam EM - Event metadata type (e.g., timestamp, position, causation ID)
+ * @typeParam SM - State metadata type (e.g., version, last updated timestamp)
+ */
+export interface IViewStateRepository<E, S, EM, SM> {
+  /**
+   * Executes event projection by loading state, evolving it via the view, and persisting it.
+   *
+   * @param event - The event with metadata to project
+   * @param view - The projection that evolves state from events
+   * @returns A promise resolving to the updated state with its metadata
+   */
+  readonly execute: (
+    event: E & EM,
+    view: IProjection<S, E>,
+  ) => Promise<S & SM>;
+}
+
+/**
+ * Event handler for view projections.
+ *
+ * @remarks
+ * This handler coordinates between a view/projection and a view state repository to process
+ * events and materialize read-side state. It encapsulates the view and repository, providing
+ * a simple `handle` method for event processing.
+ *
+ * The handler delegates to the repository which:
+ * 1. Loads the current view state
+ * 2. Uses the projection to evolve state from the event
+ * 3. Persists the updated state with metadata
+ *
+ * **View compatibility:**
+ * - Works with `IProjection<S, E>` (constrains `Si = So = S`)
+ * - Suitable for read models, query models, and materialized views
+ *
+ * @typeParam E - Event type representing domain events to be projected
+ * @typeParam S - State type representing the view's materialized state
+ * @typeParam EM - Event metadata type
+ * @typeParam SM - State metadata type
+ */
+export class EventHandler<E, S, EM, SM> {
+  constructor(
+    private readonly view: IProjection<S, E>,
+    private readonly viewStateRepository: IViewStateRepository<E, S, EM, SM>,
+  ) {}
+
+  /**
+   * Handles an event by executing it through the view state repository.
+   *
+   * @param event - The event with metadata to handle
+   * @returns A promise resolving to the updated state with its metadata
+   */
+  handle(event: E & EM): Promise<S & SM> {
+    return this.viewStateRepository.execute(event, this.view);
   }
 }

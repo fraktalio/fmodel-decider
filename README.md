@@ -232,12 +232,20 @@ export interface IStateRepository<C, S, CM, SM> {
     decider: IStateComputation<C, S>, // Pure computation
   ) => Promise<S & SM>; // State + metadata
 }
+
+// View state repository
+export interface IViewStateRepository<E, S, EM, SM> {
+  readonly execute: (
+    event: E & EM, // Event + metadata
+    view: IProjection<S, E>, // Pure projection
+  ) => Promise<S & SM>; // State + metadata
+}
 ```
 
 **Key benefits:**
 
 - Repositories depend only on computation interfaces (`IEventComputation`,
-  `IStateComputation`)
+  `IStateComputation`) or projections (`IProjection`)
 - Metadata flows through the application layer without touching domain logic
 - Clean separation between domain concerns and infrastructure concerns
 
@@ -280,6 +288,30 @@ export class StateStoredCommandHandler<C, S, CM, SM> {
 - `StateStoredCommandHandler` works only with `IStateComputation`
   implementations:
   - `IAggregateDecider<C, S, E>` (the only built-in implementation)
+
+### Event Handlers
+
+Event handlers coordinate between views/projections and view state repositories:
+
+```ts
+// Event handler for view projections
+export class EventHandler<E, S, EM, SM> {
+  constructor(
+    private readonly view: IProjection<S, E>,
+    private readonly viewStateRepository: IViewStateRepository<E, S, EM, SM>,
+  ) {}
+
+  handle(event: E & EM): Promise<S & SM> {
+    return this.viewStateRepository.execute(event, this.view);
+  }
+}
+```
+
+**View compatibility:**
+
+- `EventHandler` works with `IProjection<S, E>` implementations
+- Suitable for read models, query models, and materialized views
+- Processes events to build and maintain view state
 
 This design keeps domain logic pure while providing flexible infrastructure
 integration.

@@ -11,7 +11,7 @@
  * language governing permissions and limitations under the License.
  */
 
-import { identity } from "@fraktalio/fmodel-decider";
+import { identity } from "./mod.ts";
 import type { IProjection, IView } from "./view.ts";
 
 /**

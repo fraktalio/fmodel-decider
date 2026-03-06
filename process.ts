@@ -12,7 +12,7 @@
  */
 
 import type { IAggregateDecider, IDcbDecider, IDecider } from "./decider.ts";
-import { identity } from "@fraktalio/fmodel-decider";
+import { identity } from "./mod.ts";
 
 /**
  * The foundational process manager interface with independent type parameters.

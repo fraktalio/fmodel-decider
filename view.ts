@@ -1,4 +1,4 @@
-import { identity } from "@fraktalio/fmodel-decider";
+import { identity } from "./mod.ts";
 
 /**
  * Represents a view that evolves state based on events, supporting independent input and output state types.
