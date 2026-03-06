@@ -51,6 +51,65 @@ export interface IDecider<C, Si, So, Ei, Eo> extends IView<Si, So, Ei> {
 }
 
 /**
+ * Contract for event-sourced computation pattern.
+ *
+ * @remarks
+ * This interface defines the capability to compute new events from a command by first replaying
+ * the complete event history to derive the current state. This is the foundation of event-sourced
+ * architectures where state is ephemeral and derived from events.
+ *
+ * The computation pattern:
+ * 1. Replay all historical events to reconstruct current state
+ * 2. Evaluate the command against that state
+ * 3. Produce new events representing the decision
+ *
+ * @typeParam C - Command type representing the intent to be processed
+ * @typeParam Ei - Input event type consumed to derive state
+ * @typeParam Eo - Output event type produced as the result of the command
+ *
+ * @author Fraktalio
+ */
+export interface IEventComputation<C, Ei, Eo> {
+  /**
+   * Computes new events from a command by first replaying all past events to derive the current state.
+   *
+   * @param events - A readonly array of historical input events representing the complete past behavior of the system
+   * @param command - The new command to evaluate against the current state derived from the event history
+   * @returns A readonly array of newly produced output events representing the decisions made based on the command and current state
+   */
+  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+}
+
+/**
+ * Contract for state-stored computation pattern.
+ *
+ * @remarks
+ * This interface defines the capability to compute new state directly from a command and current state
+ * without replaying events. This is the foundation of state-stored architectures where state is
+ * persisted directly and events (if any) are derived from state changes.
+ *
+ * The computation pattern:
+ * 1. Load the current state from storage
+ * 2. Evaluate the command against that state
+ * 3. Compute and return the new state
+ *
+ * @typeParam C - Command type representing the intent to be processed
+ * @typeParam S - State type representing the aggregate's internal state
+ *
+ * @author Fraktalio
+ */
+export interface IStateComputation<C, S> {
+  /**
+   * Computes the next state directly from a command and current state using the state-stored computation pattern.
+   *
+   * @param state - The current state of the aggregate
+   * @param command - The command to evaluate against the current state
+   * @returns The new state after applying all events produced by the command
+   */
+  computeNewState(state: S, command: C): S;
+}
+
+/**
  * The first refinement step constraining input and output state types to be identical.
  *
  * @remarks
@@ -74,16 +133,10 @@ export interface IDecider<C, Si, So, Ei, Eo> extends IView<Si, So, Ei> {
  * @author Fraktalio
  */
 export interface IDcbDecider<C, S, Ei, Eo>
-  extends IDecider<C, S, S, Ei, Eo>, IProjection<S, Ei> {
-  /**
-   * Computes new events from a command by first replaying all past events to derive the current state.
-   *
-   * @param events - A readonly array of historical input events representing the complete past behavior of the system
-   * @param command - The new command to evaluate against the current state derived from the event history
-   * @returns A readonly array of newly produced output events representing the decisions made based on the command and current state
-   */
-  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
-}
+  extends
+    IDecider<C, S, S, Ei, Eo>,
+    IProjection<S, Ei>,
+    IEventComputation<C, Ei, Eo> {}
 
 /**
  * The most refined form in the progressive type system, constraining both state and event types to be identical.
@@ -112,16 +165,8 @@ export interface IDcbDecider<C, S, Ei, Eo>
  *
  * @author Fraktalio
  */
-export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
-  /**
-   * Computes the next state directly from a command and current state using the state-stored computation pattern.
-   *
-   * @param state - The current state of the aggregate
-   * @param command - The command to evaluate against the current state
-   * @returns The new state after applying all events produced by the command
-   */
-  computeNewState(state: S, command: C): S;
-}
+export interface IAggregateDecider<C, S, E>
+  extends IDcbDecider<C, S, E, E>, IStateComputation<C, S> {}
 
 /**
  * The foundational implementation of decision-making algorithms with independent type parameters.
@@ -784,4 +829,3 @@ export class AggregateDecider<C, S, E> implements IAggregateDecider<C, S, E> {
     );
   }
 }
-

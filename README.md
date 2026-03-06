@@ -38,6 +38,15 @@ resource** for understanding:
 - **Read-side projections** and view materialization
 
 ```ts
+// Computation Pattern Interfaces
+export interface EventComputation<C, Ei, Eo> {
+  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+}
+
+export interface StateComputation<C, S> {
+  computeNewState(state: S, command: C): S;
+}
+
 // View Hierarchy
 export interface IView<Si, So, E> {
   readonly evolve: (state: Si, event: E) => So;
@@ -53,12 +62,14 @@ export interface IDecider<C, Si, So, Ei, Eo> extends IView<Si, So, Ei> {
 }
 
 export interface IDcbDecider<C, S, Ei, Eo>
-  extends IDecider<C, S, S, Ei, Eo>, IProjection<S, Ei> {
-  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+  extends
+    IDecider<C, S, S, Ei, Eo>,
+    IProjection<S, Ei>,
+    EventComputation<C, Ei, Eo> {
 }
 
-export interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
-  computeNewState(state: S, command: C): S;
+export interface IAggregateDecider<C, S, E>
+  extends IDcbDecider<C, S, E, E>, StateComputation<C, S> {
 }
 
 // Process Manager Hierarchy
@@ -172,17 +183,127 @@ smart ToDo list:
 Process Managers coordinate long-running business processes and manage complex
 workflows.
 
+## Application Layer
+
+The library provides an application layer that bridges pure domain logic with
+infrastructure concerns. This layer introduces **metadata** (correlation IDs,
+timestamps, versions) without polluting the core domain model.
+
+### Key Design Principle: Metadata Isolation
+
+**Core domain (Deciders, Views, Processes)** remain pure and metadata-free:
+
+```ts
+// Domain layer - no metadata
+const decider: IDcbDecider<OrderCommand, OrderState, OrderEvent, OrderEvent>;
+```
+
+**Application layer** introduces metadata at the boundary:
+
+```ts
+// Application layer - metadata added here
+const handler: EventSourcedCommandHandler<
+  OrderCommand,
+  OrderEvent,
+  OrderEvent,
+  CommandMetadata, // ← Metadata introduced
+  EventMetadata // ← Metadata introduced
+>;
+```
+
+### Repository Interfaces
+
+The application layer defines repository contracts based on computation
+patterns:
+
+```ts
+// Event-sourced repository
+export interface IEventRepository<C, Ei, Eo, CM, EM> {
+  readonly execute: (
+    command: C & CM, // Command + metadata
+    decider: IEventComputation<C, Ei, Eo>, // Pure computation
+  ) => Promise<readonly (Eo & EM)[]>; // Events + metadata
+}
+
+// State-stored repository
+export interface IStateRepository<C, S, CM, SM> {
+  readonly execute: (
+    command: C & CM, // Command + metadata
+    decider: IStateComputation<C, S>, // Pure computation
+  ) => Promise<S & SM>; // State + metadata
+}
+```
+
+**Key benefits:**
+
+- Repositories depend only on computation interfaces (`IEventComputation`,
+  `IStateComputation`)
+- Metadata flows through the application layer without touching domain logic
+- Clean separation between domain concerns and infrastructure concerns
+
+### Command Handlers
+
+Command handlers coordinate between deciders and repositories:
+
+```ts
+// Event-sourced handler
+export class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
+  constructor(
+    private readonly decider: IEventComputation<C, Ei, Eo>,
+    private readonly eventRepository: IEventRepository<C, Ei, Eo, CM, EM>,
+  ) {}
+
+  handle(command: C & CM): Promise<readonly (Eo & EM)[]> {
+    return this.eventRepository.execute(command, this.decider);
+  }
+}
+
+// State-stored handler
+export class StateStoredCommandHandler<C, S, CM, SM> {
+  constructor(
+    private readonly decider: IStateComputation<C, S>,
+    private readonly stateRepository: IStateRepository<C, S, CM, SM>,
+  ) {}
+
+  handle(command: C & CM): Promise<S & SM> {
+    return this.stateRepository.execute(command, this.decider);
+  }
+}
+```
+
+**Decider compatibility:**
+
+- `EventSourcedCommandHandler` works with any `IEventComputation`
+  implementation:
+  - `IDcbDecider<C, S, Ei, Eo>` for dynamic consistency boundaries
+  - `IAggregateDecider<C, S, E>` for traditional aggregates
+- `StateStoredCommandHandler` works only with `IStateComputation`
+  implementations:
+  - `IAggregateDecider<C, S, E>` (the only built-in implementation)
+
+This design keeps domain logic pure while providing flexible infrastructure
+integration.
+
 ## Progressive Type Refinement
 
 Each refinement step increases capability and constraint:
 
+### Computation Patterns
+
+The library defines two fundamental computation patterns:
+
+| Interface          | Purpose                                   | Method             |
+| ------------------ | ----------------------------------------- | ------------------ |
+| `EventComputation` | Event-sourced computation (replay events) | `computeNewEvents` |
+| `StateComputation` | State-stored computation (direct state)   | `computeNewState`  |
+
 ### Deciders
 
-| Class                        | Type constraint              | Adds method(s)                        | Computation mode            |
-| ---------------------------- | ---------------------------- | ------------------------------------- | --------------------------- |
-| `Decider<C, Si, So, Ei, Eo>` | all independent              | none                                  | generic                     |
-| `DcbDecider<C, S, Ei, Eo>`   | `Si = So = S`                | `computeNewEvents`                    | event-sourced               |
-| `AggregateDecider<C, S, E>`  | `Si = So = S`, `Ei = Eo = E` | `computeNewEvents`, `computeNewState` | event-sourced, state-stored |
+| Class                        | Type constraint              | Implements                                            | Computation mode            |
+| ---------------------------- | ---------------------------- | ----------------------------------------------------- | --------------------------- |
+| `Decider<C, Si, So, Ei, Eo>` | all independent              | -                                                     | generic                     |
+| `DcbDecider<C, S, Ei, Eo>`   | `Si = So = S`                | `EventComputation<C, Ei, Eo>`                         | event-sourced               |
+| `AggregateDecider<C, S, E>`  | `Si = So = S`, `Ei = Eo = E` | `EventComputation<C, E, E>`, `StateComputation<C, S>` | event-sourced, state-stored |
 
 ### Views
 
@@ -195,11 +316,11 @@ Each refinement step increases capability and constraint:
 
 Process managers follow the same progressive refinement pattern as Deciders:
 
-| Class                            | Type constraint              | Adds method(s)                                            | Computation mode            |
-| -------------------------------- | ---------------------------- | --------------------------------------------------------- | --------------------------- |
-| `Process<AR, Si, So, Ei, Eo, A>` | all independent              | `react`, `pending`                                        | generic                     |
-| `DcbProcess<AR, S, Ei, Eo, A>`   | `Si = So = S`                | `react`, `pending`, `computeNewEvents`                    | event-sourced               |
-| `AggregateProcess<AR, S, E, A>`  | `Si = So = S`, `Ei = Eo = E` | `react`, `pending`, `computeNewEvents`, `computeNewState` | event-sourced, state-stored |
+| Class                            | Type constraint              | Implements                                              | Computation mode            |
+| -------------------------------- | ---------------------------- | ------------------------------------------------------- | --------------------------- |
+| `Process<AR, Si, So, Ei, Eo, A>` | all independent              | -                                                       | generic                     |
+| `DcbProcess<AR, S, Ei, Eo, A>`   | `Si = So = S`                | `EventComputation<AR, Ei, Eo>`                          | event-sourced               |
+| `AggregateProcess<AR, S, E, A>`  | `Si = So = S`, `Ei = Eo = E` | `EventComputation<AR, E, E>`, `StateComputation<AR, S>` | event-sourced, state-stored |
 
 ## Key Differences
 
