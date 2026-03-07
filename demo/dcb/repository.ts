@@ -24,14 +24,14 @@ export interface EventMetadata {
 }
 
 /**
- * Events loaded from storage with their versionstamps.
+ * Events loaded from storage with their index keys for optimistic locking.
  *
  * @property events - Array of events in chronological order (sorted by ULID)
- * @property versionstamps - Map of event ID to versionstamp for optimistic locking
+ * @property indexKeys - Array of index keys with versionstamps for optimistic locking
  */
 export interface LoadedEvents<E> {
   readonly events: readonly E[];
-  readonly versionstamps: Map<string, string>;
+  readonly indexKeys: { key: Deno.KvKey; versionstamp: string }[];
 }
 
 /**
@@ -150,9 +150,9 @@ export class EventSourcedRepository<C, Ei, Eo>
     while (attempts < this.maxRetries) {
       attempts++;
 
-      // 1. Load events with versionstamps
+      // 1. Load events with index keys
       const entityIdEventTypePairs = this.getEntityIdEventTypePairs(command);
-      const { events, versionstamps } = await this.loadEvents(
+      const { events, indexKeys } = await this.loadEvents(
         entityIdEventTypePairs,
       );
 
@@ -166,7 +166,7 @@ export class EventSourcedRepository<C, Ei, Eo>
       // 3. Attempt to persist with optimistic locking
       const persistedEvents = await this.persistEvents(
         newEvents,
-        versionstamps,
+        indexKeys,
       );
 
       if (persistedEvents) {
@@ -197,7 +197,11 @@ export class EventSourcedRepository<C, Ei, Eo>
     entityIdEventTypePairs: [string, string][],
   ): Promise<LoadedEvents<Ei>> {
     try {
-      const ulidMap = new Map<string, string>(); // ULID → versionstamp
+      const indexKeys: {
+        key: Deno.KvKey;
+        versionstamp: string;
+        eventId: string;
+      }[] = [];
 
       // Scan type indexes for all (entityId, eventType) pairs
       for (const [entityId, eventType] of entityIdEventTypePairs) {
@@ -207,14 +211,23 @@ export class EventSourcedRepository<C, Ei, Eo>
 
         for await (const entry of iter) {
           const eventId = entry.value as string; // Pointer pattern
-          ulidMap.set(eventId, entry.versionstamp);
+          indexKeys.push({
+            key: entry.key,
+            versionstamp: entry.versionstamp,
+            eventId,
+          });
         }
       }
 
+      // Sort by event ID (ULID) and deduplicate
+      const sortedKeys = indexKeys.sort((a, b) =>
+        a.eventId.localeCompare(b.eventId)
+      );
+      const uniqueEventIds = [...new Set(sortedKeys.map((k) => k.eventId))];
+
       // Fetch full events from primary storage
-      const ulids = Array.from(ulidMap.keys()).sort(); // Sort by ULID
       const events = await Promise.all(
-        ulids.map(async (eventId) => {
+        uniqueEventIds.map(async (eventId) => {
           const result = await this.kv.get(["events", eventId]);
           if (result.value === null) {
             throw new Error(`Event ${eventId} not found in primary storage`);
@@ -223,7 +236,13 @@ export class EventSourcedRepository<C, Ei, Eo>
         }),
       );
 
-      return { events, versionstamps: ulidMap };
+      return {
+        events,
+        indexKeys: sortedKeys.map(({ key, versionstamp }) => ({
+          key,
+          versionstamp,
+        })),
+      };
     } catch (error) {
       throw new RepositoryError("load", error as Error);
     }
@@ -238,33 +257,22 @@ export class EventSourcedRepository<C, Ei, Eo>
    * 3. Writes pointers to type indexes
    *
    * @param events - Events to persist
-   * @param versionstamps - Versionstamps of loaded events for conflict detection
+   * @param indexKeys - Index keys with versionstamps for conflict detection
    * @returns Persisted events with metadata, or null if conflict detected
    * @throws RepositoryError if persist operation fails
    */
   private async persistEvents(
     events: readonly Eo[],
-    versionstamps: Map<string, string>,
+    indexKeys: { key: Deno.KvKey; versionstamp: string }[],
   ): Promise<readonly (Eo & EventMetadata)[] | null> {
     try {
       const atomic = this.kv.atomic();
       const timestamp = Date.now();
       const eventsWithMetadata: (Eo & EventMetadata)[] = [];
 
-      // Check all loaded event versionstamps
-      for (const [eventId, versionstamp] of versionstamps) {
-        // Get event to determine its type and entity ID
-        const result = await this.kv.get(["events", eventId]);
-        if (result.value !== null) {
-          const event = result.value as Ei;
-          const eventType = (event as { kind: string }).kind;
-          const entityId = this.getEventEntityId(event);
-
-          atomic.check({
-            key: ["events_by_type", eventType, entityId, eventId],
-            versionstamp: versionstamp,
-          });
-        }
+      // Check all loaded event versionstamps using stored keys
+      for (const { key, versionstamp } of indexKeys) {
+        atomic.check({ key, versionstamp });
       }
 
       // Write new events
