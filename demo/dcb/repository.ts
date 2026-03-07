@@ -114,7 +114,7 @@ export class EventSourcedRepository<C, Ei, Eo>
    *
    * @param kv - Deno KV instance for storage
    * @param getEntityIdEventTypePairs - Returns array of [entityId, eventType] tuples to load for this command
-   * @param getEventEntityId - Extracts entity ID from event for indexing
+   * @param getEventEntityId - Extracts entity ID from output event for indexing
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
    */
   constructor(
@@ -122,7 +122,7 @@ export class EventSourcedRepository<C, Ei, Eo>
     private readonly getEntityIdEventTypePairs: (
       command: C,
     ) => [string, string][],
-    private readonly getEventEntityId: (event: Ei | Eo) => string,
+    private readonly getEventEntityId: (event: Eo) => string,
     private readonly maxRetries: number = 10,
   ) {}
 
