@@ -103,12 +103,15 @@ export class OptimisticLockingError extends Error {
  * multiple entities while maintaining type safety and optimistic locking.
  *
  * @typeParam C - Command type
- * @typeParam Ei - Input event type (consumed by decider)
- * @typeParam Eo - Output event type (produced by decider)
+ * @typeParam Ei - Input event type (consumed by decider) - must have a 'kind' discriminator property
+ * @typeParam Eo - Output event type (produced by decider) - must have a 'kind' discriminator property
  */
-export class EventSourcedRepository<C, Ei, Eo>
-  implements
-    IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
+export class EventSourcedRepository<
+  C,
+  Ei extends { kind: string },
+  Eo extends { kind: string },
+> implements
+  IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
   /**
    * Creates a new EventSourcedRepository.
    *
@@ -121,7 +124,7 @@ export class EventSourcedRepository<C, Ei, Eo>
     private readonly kv: Deno.Kv,
     private readonly getEntityIdEventTypePairs: (
       command: C,
-    ) => [string, string][],
+    ) => [string, Ei["kind"]][],
     private readonly getEventEntityId: (event: Eo) => string,
     private readonly maxRetries: number = 10,
   ) {}
@@ -194,7 +197,7 @@ export class EventSourcedRepository<C, Ei, Eo>
    * @throws RepositoryError if load operation fails
    */
   private async loadEvents(
-    entityIdEventTypePairs: [string, string][],
+    entityIdEventTypePairs: [string, Ei["kind"]][],
   ): Promise<LoadedEvents<Ei>> {
     try {
       const indexKeys: {
