@@ -54,20 +54,11 @@ export class PlaceOrderRepository {
         [cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
       ],
       (evt) => {
-        // Primary index: restaurant ID for restaurant events, order ID for order events
+        // Index by order ID for RestaurantOrderPlacedEvent, restaurant ID for others
         if (evt.kind === "RestaurantOrderPlacedEvent") {
           return evt.orderId;
         }
         return evt.restaurantId;
-      },
-      10, // maxRetries
-      undefined, // No filter needed - we query by order ID directly
-      (evt) => {
-        // Additional indexes: RestaurantOrderPlacedEvent also indexed by restaurant ID
-        if (evt.kind === "RestaurantOrderPlacedEvent") {
-          return [evt.restaurantId];
-        }
-        return [];
       },
     );
   }

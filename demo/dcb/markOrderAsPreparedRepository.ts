@@ -45,14 +45,7 @@ export class MarkOrderAsPreparedRepository {
         [cmd.id, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
         [cmd.id, "OrderPreparedEvent"], // Query by order ID to check if already prepared
       ],
-      (evt) => {
-        // Primary index: order ID for both event types
-        if (evt.kind === "RestaurantOrderPlacedEvent") {
-          return evt.orderId;
-        }
-        return evt.orderId;
-      },
-      10, // maxRetries
+      (evt) => evt.orderId, // Index by order ID for both event types
     );
   }
 

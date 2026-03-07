@@ -94,11 +94,11 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     assertEquals(storedEvent.restaurantId, "r-happy-1");
     assertEquals(storedEvent.orderId, "o-happy-1");
 
-    // Verify events persisted to type index (pointer pattern)
+    // Verify events persisted to type index (pointer pattern) - indexed by order ID
     const typeIndexKey = [
       "events_by_type",
       "RestaurantOrderPlacedEvent",
-      "r-happy-1",
+      "o-happy-1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -403,21 +403,30 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
       "o-retry-2",
     );
 
-    // Verify both orders were persisted
-    const iter = kv.list({
-      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "r-retry-1"],
+    // Verify both orders were persisted (indexed by order ID)
+    const iterByOrder1 = kv.list({
+      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-retry-1"],
     });
-    const entries = [];
-    for await (const entry of iter) {
-      entries.push(entry);
+    const entriesByOrder1 = [];
+    for await (const entry of iterByOrder1) {
+      entriesByOrder1.push(entry);
     }
-    assertEquals(entries.length, 2, "Both orders should be persisted");
+    assertEquals(entriesByOrder1.length, 1, "First order should be persisted");
+
+    const iterByOrder2 = kv.list({
+      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-retry-2"],
+    });
+    const entriesByOrder2 = [];
+    for await (const entry of iterByOrder2) {
+      entriesByOrder2.push(entry);
+    }
+    assertEquals(entriesByOrder2.length, 1, "Second order should be persisted");
   } finally {
     kv.close();
   }
 });
 
-Deno.test("PlaceOrderRepository - verify events indexed by restaurant ID correctly", async () => {
+Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", async () => {
   const kv = await Deno.openKv(":memory:");
 
   try {
@@ -471,19 +480,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by restaurant ID correct
     await handler.handle(order1);
     await handler.handle(order2);
 
-    // Query events by restaurant ID (should find both orders via additional index)
-    const iterByRestaurant = kv.list({
-      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "r-index-1"],
-    });
-    const entriesByRestaurant = [];
-    for await (const entry of iterByRestaurant) {
-      entriesByRestaurant.push(entry);
-    }
-
-    // Should have 2 order events indexed by restaurant ID
-    assertEquals(entriesByRestaurant.length, 2);
-
-    // Query events by order ID (should find specific order via primary index)
+    // Query events by order ID (each order indexed separately)
     const iterByOrder1 = kv.list({
       prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-index-1"],
     });
@@ -491,7 +488,6 @@ Deno.test("PlaceOrderRepository - verify events indexed by restaurant ID correct
     for await (const entry of iterByOrder1) {
       entriesByOrder1.push(entry);
     }
-
     assertEquals(entriesByOrder1.length, 1);
 
     const iterByOrder2 = kv.list({
@@ -501,17 +497,10 @@ Deno.test("PlaceOrderRepository - verify events indexed by restaurant ID correct
     for await (const entry of iterByOrder2) {
       entriesByOrder2.push(entry);
     }
-
     assertEquals(entriesByOrder2.length, 1);
 
-    // Verify both indexes point to the same events in primary storage
-    for (
-      const entry of [
-        ...entriesByRestaurant,
-        ...entriesByOrder1,
-        ...entriesByOrder2,
-      ]
-    ) {
+    // Verify indexes point to correct events in primary storage
+    for (const entry of [...entriesByOrder1, ...entriesByOrder2]) {
       assertEquals(entry.key[0], "events_by_type");
       assertEquals(entry.key[1], "RestaurantOrderPlacedEvent");
       assertEquals(typeof entry.key[3], "string"); // Event ID (ULID)

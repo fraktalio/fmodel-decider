@@ -114,20 +114,16 @@ export class EventSourcedRepository<C, Ei, Eo>
    *
    * @param kv - Deno KV instance for storage
    * @param getEntityIdEventTypePairs - Returns array of [entityId, eventType] tuples to load for this command
-   * @param getEventEntityId - Extracts primary entity ID from event for indexing
+   * @param getEventEntityId - Extracts entity ID from event for indexing
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
-   * @param eventFilter - Optional filter function to exclude events after loading (default: include all)
-   * @param getAdditionalEntityIds - Optional function to return additional entity IDs for multi-entity events (default: none)
    */
   constructor(
     private readonly kv: Deno.Kv,
     private readonly getEntityIdEventTypePairs: (
       command: C,
-    ) => ReadonlyArray<readonly [string, string]>,
+    ) => [string, string][],
     private readonly getEventEntityId: (event: Ei | Eo) => string,
     private readonly maxRetries: number = 10,
-    private readonly eventFilter?: (command: C, event: Ei) => boolean,
-    private readonly getAdditionalEntityIds?: (event: Ei | Eo) => string[],
   ) {}
 
   /**
@@ -158,7 +154,6 @@ export class EventSourcedRepository<C, Ei, Eo>
       const entityIdEventTypePairs = this.getEntityIdEventTypePairs(command);
       const { events, versionstamps } = await this.loadEvents(
         entityIdEventTypePairs,
-        command,
       );
 
       // 2. Compute new events using decider
@@ -192,17 +187,14 @@ export class EventSourcedRepository<C, Ei, Eo>
    *
    * 1. Scan type indexes to collect ULIDs and versionstamps for each (entityId, eventType) pair
    * 2. Fetch full events from primary storage
-   * 3. Apply optional event filter
-   * 4. Sort events by ULID for chronological ordering
+   * 3. Sort events by ULID for chronological ordering
    *
    * @param entityIdEventTypePairs - Array of [entityId, eventType] tuples to query
-   * @param command - The command being executed (for event filtering)
    * @returns Loaded events with versionstamps
    * @throws RepositoryError if load operation fails
    */
   private async loadEvents(
-    entityIdEventTypePairs: ReadonlyArray<readonly [string, string]>,
-    command: C,
+    entityIdEventTypePairs: [string, string][],
   ): Promise<LoadedEvents<Ei>> {
     try {
       const ulidMap = new Map<string, string>(); // ULID → versionstamp
@@ -221,7 +213,7 @@ export class EventSourcedRepository<C, Ei, Eo>
 
       // Fetch full events from primary storage
       const ulids = Array.from(ulidMap.keys()).sort(); // Sort by ULID
-      const allEvents = await Promise.all(
+      const events = await Promise.all(
         ulids.map(async (eventId) => {
           const result = await this.kv.get(["events", eventId]);
           if (result.value === null) {
@@ -230,11 +222,6 @@ export class EventSourcedRepository<C, Ei, Eo>
           return result.value as Ei;
         }),
       );
-
-      // Apply optional event filter
-      const events = this.eventFilter
-        ? allEvents.filter((event) => this.eventFilter!(command, event))
-        : allEvents;
 
       return { events, versionstamps: ulidMap };
     } catch (error) {
@@ -289,22 +276,11 @@ export class EventSourcedRepository<C, Ei, Eo>
         // Primary storage
         atomic.set(["events", eventId], event);
 
-        // Type index (pointer) - primary entity ID
+        // Type index (pointer)
         atomic.set(
           ["events_by_type", eventType, entityId, eventId],
           eventId, // Store ULID as value (pointer pattern)
         );
-
-        // Additional type indexes for multi-entity events
-        if (this.getAdditionalEntityIds) {
-          const additionalIds = this.getAdditionalEntityIds(event);
-          for (const additionalId of additionalIds) {
-            atomic.set(
-              ["events_by_type", eventType, additionalId, eventId],
-              eventId, // Store ULID as value (pointer pattern)
-            );
-          }
-        }
 
         eventsWithMetadata.push({
           ...event,
