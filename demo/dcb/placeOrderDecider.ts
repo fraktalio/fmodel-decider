@@ -10,12 +10,12 @@ import type {
 
 /**
  * State for the place order decider
- * Tracks restaurant ID, menu, and whether an order has been placed
+ * Tracks restaurant ID, menu, and whether THIS order has been placed
  */
 type PlaceOrderState = {
   readonly restaurantId: RestaurantId | null;
   readonly menu: RestaurantMenu | null;
-  readonly orderPlaced: boolean; // Whether an order has been placed
+  readonly orderPlaced: boolean; // Whether THIS specific order has been placed
 };
 
 /**
@@ -47,7 +47,8 @@ export const placeOrderDecider: DcbDecider<
       throw new Error("Restaurant does not exist!");
     }
 
-    // Check if order already placed
+    // Check if THIS specific order already exists
+    // (Repository filters by order ID, so we only see events for this order)
     if (currentState.orderPlaced) {
       throw new Error("Order already exist!");
     }

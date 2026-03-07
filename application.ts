@@ -1,7 +1,4 @@
-import type {
-  IEventComputation,
-  IStateComputation,
-} from "./decider.ts";
+import type { IEventComputation, IStateComputation } from "./decider.ts";
 import type { IProjection } from "./view.ts";
 
 /**

@@ -3,14 +3,16 @@
   "version": "0.2.0",
   "exports": "./mod.ts",
   "tasks": {
-    "dev": "deno test --watch"
+    "dev": "deno test --watch --unstable-kv",
+    "test": "deno test --unstable-kv"
   },
   "license": "Apache-2.0",
   "imports": {
-    "@std/assert": "jsr:@std/assert@1"
+    "@std/assert": "jsr:@std/assert@1",
+    "@std/ulid": "jsr:@std/ulid@^1"
   },
   "compilerOptions": {
-    "lib": ["deno.ns", "deno.window", "es2022"],
+    "lib": ["deno.ns", "deno.window", "deno.unstable", "es2022"],
     "strict": true
   }
 }

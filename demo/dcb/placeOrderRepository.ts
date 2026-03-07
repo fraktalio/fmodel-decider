@@ -1,0 +1,91 @@
+/**
+ * Repository for PlaceOrder decider.
+ *
+ * Handles order placement commands by persisting RestaurantOrderPlacedEvent
+ * to Deno KV storage with optimistic locking.
+ *
+ * This repository spans multiple entities (Restaurant and Order) and loads
+ * events related to both the restaurant state and existing orders.
+ */
+
+import { type EventMetadata, EventSourcedRepository } from "./repository.ts";
+import type {
+  PlaceOrderCommand,
+  RestaurantCreatedEvent,
+  RestaurantMenuChangedEvent,
+  RestaurantOrderPlacedEvent,
+} from "./api.ts";
+
+/**
+ * Repository for PlaceOrder decider.
+ *
+ * **Query Pattern:**
+ * Loads events using tuples:
+ * - `[(restaurantId, "RestaurantCreatedEvent")]`
+ * - `[(restaurantId, "RestaurantMenuChangedEvent")]`
+ * - `[(orderId, "RestaurantOrderPlacedEvent")]` - Query by ORDER ID to check if this specific order exists
+ *
+ * **Indexing Strategy:**
+ * RestaurantOrderPlacedEvent is indexed by BOTH order ID (primary) and restaurant ID (additional).
+ * This supports:
+ * - PlaceOrder use case: Query by order ID to check if order exists
+ * - Future queries: Query by restaurant ID to get all orders for a restaurant
+ */
+export class PlaceOrderRepository {
+  private readonly repository: EventSourcedRepository<
+    PlaceOrderCommand,
+    | RestaurantCreatedEvent
+    | RestaurantMenuChangedEvent
+    | RestaurantOrderPlacedEvent,
+    RestaurantOrderPlacedEvent
+  >;
+
+  /**
+   * Creates a new PlaceOrderRepository.
+   *
+   * @param kv - Deno KV instance for storage
+   */
+  constructor(kv: Deno.Kv) {
+    this.repository = new EventSourcedRepository(
+      kv,
+      (cmd) => [
+        [cmd.id, "RestaurantCreatedEvent"], // Query by restaurant ID
+        [cmd.id, "RestaurantMenuChangedEvent"], // Query by restaurant ID
+        [cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
+      ],
+      (evt) => {
+        // Primary index: restaurant ID for restaurant events, order ID for order events
+        if (evt.kind === "RestaurantOrderPlacedEvent") {
+          return evt.orderId;
+        }
+        return evt.restaurantId;
+      },
+      10, // maxRetries
+      undefined, // No filter needed - we query by order ID directly
+      (evt) => {
+        // Additional indexes: RestaurantOrderPlacedEvent also indexed by restaurant ID
+        if (evt.kind === "RestaurantOrderPlacedEvent") {
+          return [evt.restaurantId];
+        }
+        return [];
+      },
+    );
+  }
+
+  /**
+   * Executes a PlaceOrderCommand.
+   *
+   * @param command - The order placement command
+   * @returns Newly created RestaurantOrderPlacedEvent with metadata
+   * @throws Error if restaurant does not exist
+   * @throws Error if menu items are invalid
+   * @throws Error if order already exists
+   * @throws OptimisticLockingError if concurrent modification detected
+   */
+  async execute(
+    command: PlaceOrderCommand,
+  ): Promise<readonly (RestaurantOrderPlacedEvent & EventMetadata)[]> {
+    const { placeOrderDecider } = await import("./placeOrderDecider.ts");
+    return this.repository.execute(command, placeOrderDecider);
+  }
+}
