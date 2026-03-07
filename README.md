@@ -316,6 +316,211 @@ export class EventHandler<E, S, EM, SM> {
 This design keeps domain logic pure while providing flexible infrastructure
 integration.
 
+## DCB Event-Sourced Repository (Deno KV)
+
+The library includes a production-ready event-sourced repository implementation for the DCB pattern using Deno KV. This implementation demonstrates how to build a complete event-sourced infrastructure with optimistic locking, flexible querying, and type-safe event indexing.
+
+### Architecture: Two-Index Pattern with Pointers
+
+The repository uses a dual-index architecture optimized for both storage efficiency and query flexibility:
+
+```
+Primary Storage:  ["events", eventId] → full event data
+Type Index:       ["events_by_type", eventType, entityId, eventId] → eventId (pointer)
+```
+
+**Key benefits:**
+- **Storage efficiency:** Event data stored once, indexes store only pointers (ULIDs)
+- **Flexible queries:** Query by entity ID and event type combinations
+- **Optimistic locking:** Versionstamps on index entries enable conflict detection
+- **Chronological ordering:** Monotonic ULIDs ensure correct event ordering
+
+### Tuple-Based Query Pattern
+
+The repository's most powerful feature is its tuple-based query pattern, which allows loading events from multiple entities and types in a single operation:
+
+```ts
+// Simple case: Single entity, single event type
+(cmd) => [
+  [cmd.id, "RestaurantCreatedEvent"]
+]
+
+// Complex case: Multiple entities, multiple event types
+(cmd) => [
+  [cmd.id, "RestaurantCreatedEvent"],      // Restaurant by restaurant ID
+  [cmd.id, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
+  [cmd.orderId, "RestaurantOrderPlacedEvent"], // Order by ORDER ID (different entity!)
+]
+```
+
+This flexibility is essential for DCB patterns where consistency boundaries span multiple entities.
+
+### Type-Safe Event Indexing
+
+The repository leverages TypeScript's type system to ensure event types are valid at compile time:
+
+```ts
+export class EventSourcedRepository<
+  C,
+  Ei extends { kind: string },  // Input events must have 'kind' discriminator
+  Eo extends { kind: string },  // Output events must have 'kind' discriminator
+> {
+  constructor(
+    private readonly kv: Deno.Kv,
+    // Event types are constrained to Ei["kind"] - TypeScript enforces validity!
+    private readonly getEntityIdEventTypePairs: (
+      command: C,
+    ) => [string, Ei["kind"]][],
+    private readonly getEventEntityId: (event: Eo) => string,
+    private readonly maxRetries: number = 10,
+  ) {}
+}
+```
+
+**Benefits:**
+- Autocomplete for event type strings
+- Compile-time validation of event types
+- Impossible to query for non-existent event types
+
+### Optimistic Locking with Automatic Retry
+
+The repository implements optimistic locking using Deno KV's versionstamps:
+
+```ts
+async execute(
+  command: C,
+  decider: IEventComputation<C, Ei, Eo>,
+): Promise<readonly (Eo & EventMetadata)[]> {
+  let attempts = 0;
+  
+  while (attempts < this.maxRetries) {
+    attempts++;
+    
+    // 1. Load events with versionstamps
+    const { events, indexKeys } = await this.loadEvents(...);
+    
+    // 2. Compute new events using decider
+    const newEvents = decider.computeNewEvents(events, command);
+    
+    // 3. Attempt atomic write with versionstamp checks
+    const persistedEvents = await this.persistEvents(newEvents, indexKeys);
+    
+    if (persistedEvents) {
+      return persistedEvents; // Success!
+    }
+    
+    // Conflict detected, retry
+  }
+  
+  throw new OptimisticLockingError(attempts, entityId);
+}
+```
+
+**Key features:**
+- Automatic retry on conflicts
+- Configurable retry limit
+- Atomic operations ensure consistency
+- No lost updates
+
+### Concrete Repository Example
+
+Here's how to create a concrete repository for a specific use case:
+
+```ts
+export class PlaceOrderRepository {
+  private readonly repository: EventSourcedRepository<
+    PlaceOrderCommand,
+    | RestaurantCreatedEvent
+    | RestaurantMenuChangedEvent
+    | RestaurantOrderPlacedEvent,
+    RestaurantOrderPlacedEvent
+  >;
+
+  constructor(kv: Deno.Kv) {
+    this.repository = new EventSourcedRepository(
+      kv,
+      // Query pattern: Load restaurant state + check if order exists
+      (cmd) => [
+        [cmd.id, "RestaurantCreatedEvent"],
+        [cmd.id, "RestaurantMenuChangedEvent"],
+        [cmd.orderId, "RestaurantOrderPlacedEvent"],
+      ],
+      // Index new events by order ID
+      (evt) => evt.orderId,
+    );
+  }
+
+  async execute(
+    command: PlaceOrderCommand,
+  ): Promise<readonly (RestaurantOrderPlacedEvent & EventMetadata)[]> {
+    const { placeOrderDecider } = await import("./placeOrderDecider.ts");
+    return this.repository.execute(command, placeOrderDecider);
+  }
+}
+```
+
+### Integration with Command Handlers
+
+The repository implements `IEventRepository` and integrates seamlessly with command handlers:
+
+```ts
+// Create repository
+const repository = new PlaceOrderRepository(kv);
+
+// Create command handler
+const handler = new EventSourcedCommandHandler(
+  placeOrderDecider,
+  repository,
+);
+
+// Execute command
+const events = await handler.handle({
+  kind: "PlaceOrderCommand",
+  id: "restaurant-123",
+  orderId: "order-456",
+  menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "12.99" }],
+});
+```
+
+### Why This Makes the Library Framework-Like
+
+This implementation elevates the library from a modeling toolkit to a near-framework by providing:
+
+1. **Complete infrastructure:** Production-ready event store with Deno KV
+2. **Optimistic locking:** Built-in concurrency control
+3. **Flexible querying:** Tuple-based pattern supports complex use cases
+4. **Type safety:** Compile-time validation of event types and queries
+5. **Metadata handling:** Automatic event IDs, timestamps, and versionstamps
+6. **Error handling:** Structured errors for domain and infrastructure concerns
+7. **Testing support:** In-memory Deno KV for fast, isolated tests
+
+**What you get out of the box:**
+- ✅ Event store implementation
+- ✅ Optimistic locking with retry
+- ✅ Event indexing and querying
+- ✅ Metadata management
+- ✅ Type-safe repository pattern
+- ✅ Integration with command handlers
+- ✅ Comprehensive test coverage
+
+**What you still control:**
+- Domain logic (deciders)
+- Event schema
+- Command schema
+- Consistency boundaries
+- Business rules
+
+This strikes the perfect balance: opinionated infrastructure with flexible domain modeling.
+
+### Demo Implementation
+
+See `demo/dcb/` for a complete working example with:
+- `repository.ts` - Generic event-sourced repository
+- `createRestaurantRepository.ts` - Restaurant creation
+- `placeOrderRepository.ts` - Order placement (spans multiple entities)
+- `markOrderAsPreparedRepository.ts` - Order preparation
+- Comprehensive integration tests
+
 ## Progressive Type Refinement
 
 Each refinement step increases capability and constraint:
