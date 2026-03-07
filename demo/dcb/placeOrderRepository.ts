@@ -53,13 +53,7 @@ export class PlaceOrderRepository {
         [cmd.id, "RestaurantMenuChangedEvent"], // Query by restaurant ID
         [cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
       ],
-      (evt) => {
-        // Index by order ID for RestaurantOrderPlacedEvent, restaurant ID for others
-        if (evt.kind === "RestaurantOrderPlacedEvent") {
-          return evt.orderId;
-        }
-        return evt.restaurantId;
-      },
+      (evt) => evt.orderId, // Index RestaurantOrderPlacedEvent by order ID
     );
   }
 
