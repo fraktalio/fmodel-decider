@@ -39,6 +39,7 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r-happy-1",
+      id: "r-happy-1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -62,6 +63,7 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-happy-1",
+      id: "o-happy-1",
       orderId: "o-happy-1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -121,7 +123,8 @@ Deno.test("PlaceOrderRepository - non-existent restaurant rejection (domain erro
 
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-nonexist-999", // Non-existent restaurant
+      restaurantId: "r-nonexist-999",
+      id: "r-nonexist-999", // Non-existent restaurant
       orderId: "o-nonexist-1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -155,6 +158,7 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r-invalid-1",
+      id: "r-invalid-1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -177,6 +181,7 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-invalid-1",
+      id: "o-invalid-1",
       orderId: "o-invalid-1",
       menuItems: [
         { menuItemId: "item999", name: "Invalid Item", price: "99.99" }, // Not on menu
@@ -210,6 +215,7 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r-dup-1",
+      id: "r-dup-1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -232,6 +238,7 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-dup-1",
+      id: "o-dup-1",
       orderId: "o-dup-1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -269,6 +276,7 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r-menu-1",
+      id: "r-menu-1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -292,6 +300,7 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     const changeCommand: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: "r-menu-1",
+      id: "r-menu-1",
       menu: {
         menuId: "m2",
         cuisine: "ITALIAN",
@@ -315,6 +324,7 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-menu-1",
+      id: "o-menu-1",
       orderId: "o-menu-1",
       menuItems: [
         { menuItemId: "item3", name: "Salad", price: "8.99" }, // New item from updated menu
@@ -350,6 +360,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r-retry-1",
+      id: "r-retry-1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -373,6 +384,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     const command1: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-retry-1",
+      id: "o-retry-1",
       orderId: "o-retry-1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -390,6 +402,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     const command2: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-retry-1",
+      id: "o-retry-2",
       orderId: "o-retry-2",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -440,6 +453,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r-index-1",
+      id: "r-index-1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -462,6 +476,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
     const order1: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-index-1",
+      id: "o-index-1",
       orderId: "o-index-1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -471,6 +486,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
     const order2: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-index-1",
+      id: "o-index-2",
       orderId: "o-index-2",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },

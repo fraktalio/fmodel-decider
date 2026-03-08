@@ -350,14 +350,14 @@ allows loading events from multiple entities and types in a single operation:
 ```ts
 // Simple case: Single entity, single event type
 (cmd) => [
-  [cmd.restaurantId, "RestaurantCreatedEvent"]
+  [cmd.id, "RestaurantCreatedEvent"]
 ]
 
 // Complex case: Multiple entities, multiple event types
 (cmd) => [
   [cmd.restaurantId, "RestaurantCreatedEvent"],      // Restaurant by restaurant ID
   [cmd.restaurantId, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
-  [cmd.orderId, "RestaurantOrderPlacedEvent"], // Order by ORDER ID (different entity!)
+  [cmd.id, "RestaurantOrderPlacedEvent"], // Order by order ID (cmd.id = orderId)
 ]
 ```
 
@@ -455,10 +455,8 @@ export class PlaceOrderRepository {
       (cmd) => [
         [cmd.restaurantId, "RestaurantCreatedEvent"],
         [cmd.restaurantId, "RestaurantMenuChangedEvent"],
-        [cmd.orderId, "RestaurantOrderPlacedEvent"],
+        [cmd.id, "RestaurantOrderPlacedEvent"],
       ],
-      // Index new events by order ID
-      (evt) => evt.orderId,
     );
   }
 

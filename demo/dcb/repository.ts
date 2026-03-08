@@ -11,6 +11,28 @@ import type { IEventComputation } from "../../decider.ts";
 import type { IEventRepository } from "../../application.ts";
 
 /**
+ * Shape constraint for commands.
+ *
+ * Commands must have an `id` field identifying the target entity
+ * and a `kind` field identifying the command type.
+ */
+export type CommandShape = {
+  readonly id: string; // The ID of the entity that the command is targeting
+  readonly kind: string; // The kind/type/name of the command
+};
+
+/**
+ * Shape constraint for events.
+ *
+ * Events must have an `id` field identifying the entity that produced the event
+ * and a `kind` field identifying the event type.
+ */
+export type EventShape = {
+  readonly id: string; // The ID of the entity that produced the event
+  readonly kind: string; // The kind/type/name of the event
+};
+
+/**
  * Metadata attached to persisted events.
  *
  * @property eventId - ULID identifier for the event
@@ -85,7 +107,7 @@ export class OptimisticLockingError extends Error {
  * **Example - Simple case (CreateRestaurant):**
  * ```typescript
  * getEntityIdEventTypePairs: (cmd) => [
- *   [cmd.restaurantId, "RestaurantCreatedEvent"]  // Load RestaurantCreatedEvent by restaurant ID
+ *   [cmd.id, "RestaurantCreatedEvent"]  // Load RestaurantCreatedEvent by restaurant ID
  * ]
  * ```
  *
@@ -94,22 +116,21 @@ export class OptimisticLockingError extends Error {
  * getEntityIdEventTypePairs: (cmd) => [
  *   [cmd.restaurantId, "RestaurantCreatedEvent"],      // Restaurant events by restaurant ID
  *   [cmd.restaurantId, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
- *   [cmd.restaurantId, "RestaurantOrderPlacedEvent"],  // Orders by restaurant ID
- *   [cmd.orderId, "OrderPreparedEvent"]      // Order status by order ID (different entity!)
+ *   [cmd.id, "RestaurantOrderPlacedEvent"],  // Orders by order ID (cmd.id = orderId)
  * ]
  * ```
  *
  * This flexibility allows DCB deciders to define consistency boundaries that span
  * multiple entities while maintaining type safety and optimistic locking.
  *
- * @typeParam C - Command type
- * @typeParam Ei - Input event type (consumed by decider) - must have a 'kind' discriminator property
- * @typeParam Eo - Output event type (produced by decider) - must have a 'kind' discriminator property
+ * @typeParam C - Command type (must conform to CommandShape)
+ * @typeParam Ei - Input event type (consumed by decider, must conform to EventShape)
+ * @typeParam Eo - Output event type (produced by decider, must conform to EventShape)
  */
 export class EventSourcedRepository<
-  C,
-  Ei extends { kind: string },
-  Eo extends { kind: string },
+  C extends CommandShape,
+  Ei extends EventShape,
+  Eo extends EventShape,
 > implements
   IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
   /**
@@ -117,7 +138,6 @@ export class EventSourcedRepository<
    *
    * @param kv - Deno KV instance for storage
    * @param getEntityIdEventTypePairs - Returns array of [entityId, eventType] tuples to load for this command
-   * @param getEventEntityId - Extracts entity ID from output event for indexing
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
    */
   constructor(
@@ -125,7 +145,6 @@ export class EventSourcedRepository<
     private readonly getEntityIdEventTypePairs: (
       command: C,
     ) => [string, Ei["kind"]][],
-    private readonly getEventEntityId: (event: Eo) => string,
     private readonly maxRetries: number = 10,
   ) {}
 
@@ -282,7 +301,7 @@ export class EventSourcedRepository<
       for (const event of events) {
         const eventId = monotonicUlid();
         const eventType = (event as { kind: string }).kind;
-        const entityId = this.getEventEntityId(event);
+        const entityId = event.id; // Use id from EventShape
 
         // Primary storage
         atomic.set(["events", eventId], event);

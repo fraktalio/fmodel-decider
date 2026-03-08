@@ -42,10 +42,9 @@ export class MarkOrderAsPreparedRepository {
     this.repository = new EventSourcedRepository(
       kv,
       (cmd) => [
-        [cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
-        [cmd.orderId, "OrderPreparedEvent"], // Query by order ID to check if already prepared
+        [cmd.id, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
+        [cmd.id, "OrderPreparedEvent"], // Query by order ID to check if already prepared
       ],
-      (evt) => evt.orderId, // Index by order ID for both event types
     );
   }
 

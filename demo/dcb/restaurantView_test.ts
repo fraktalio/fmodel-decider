@@ -16,6 +16,7 @@ Deno.test("Restaurant View - Restaurant Created Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
+        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
@@ -42,6 +43,7 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
+        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
@@ -49,6 +51,7 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
       },
       {
         kind: "RestaurantMenuChangedEvent",
+        id: "restaurant-1",
         restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
@@ -66,6 +69,7 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
+        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
@@ -73,6 +77,7 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
       },
       {
         kind: "RestaurantOrderPlacedEvent",
+        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "10.00" }],
@@ -99,6 +104,7 @@ Deno.test("Restaurant View - Menu Changed Event with Null State", () => {
     .given([
       {
         kind: "RestaurantMenuChangedEvent",
+        id: "restaurant-1",
         restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,

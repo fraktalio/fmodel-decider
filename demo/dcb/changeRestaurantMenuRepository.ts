@@ -33,8 +33,7 @@ export class ChangeRestaurantMenuRepository {
   constructor(kv: Deno.Kv) {
     this.repository = new EventSourcedRepository(
       kv,
-      (cmd) => [[cmd.restaurantId, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
-      (evt) => evt.restaurantId, // Entity ID from event
+      (cmd) => [[cmd.id, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
     );
   }
 
