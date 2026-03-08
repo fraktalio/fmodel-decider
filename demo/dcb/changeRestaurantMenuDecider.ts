@@ -17,6 +17,8 @@ type ChangeRestaurantMenuState = RestaurantId | null;
  *
  * Requirements:
  * - Can only change menu if restaurant exists
+ * - Handles null commands gracefully (returns empty array)
+ * - Handles null events gracefully (returns current state)
  */
 export const changeRestaurantManuDecider: DcbDecider<
   ChangeRestaurantMenuCommand,
@@ -30,21 +32,35 @@ export const changeRestaurantManuDecider: DcbDecider<
   RestaurantMenuChangedEvent
 >(
   (command, currentState) => {
-    if (currentState === null) {
-      throw new Error("Restaurant does not exist!");
+    switch (command?.kind) {
+      case "ChangeRestaurantMenuCommand":
+        if (currentState === null) {
+          throw new Error("Restaurant does not exist!");
+        }
+        return [
+          {
+            kind: "RestaurantMenuChangedEvent",
+            id: command.restaurantId,
+            restaurantId: command.restaurantId,
+            menu: command.menu,
+            final: false,
+          },
+        ];
+      default: {
+        // Handle null commands gracefully
+        return [];
+      }
     }
-    return [
-      {
-        kind: "RestaurantMenuChangedEvent",
-        id: command.restaurantId,
-        restaurantId: command.restaurantId,
-        menu: command.menu,
-        final: false,
-      },
-    ];
   },
-  (_currentState, event) => {
-    return event.restaurantId;
+  (currentState, event) => {
+    switch (event?.kind) {
+      case "RestaurantCreatedEvent":
+        return event.restaurantId;
+      default: {
+        // Handle null events gracefully
+        return currentState;
+      }
+    }
   },
   null,
 );

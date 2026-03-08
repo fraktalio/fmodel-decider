@@ -60,9 +60,9 @@ export class PlaceOrderRepository {
   }
 
   /**
-   * Executes a PlaceOrderCommand.
+   * Executes a command.
    *
-   * @param command - The order placement command
+   * @param command - The command to execute
    * @returns Newly created RestaurantOrderPlacedEvent with metadata
    * @throws Error if restaurant does not exist
    * @throws Error if menu items are invalid

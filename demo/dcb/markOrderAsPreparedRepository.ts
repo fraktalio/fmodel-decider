@@ -52,9 +52,9 @@ export class MarkOrderAsPreparedRepository {
   }
 
   /**
-   * Executes a MarkOrderAsPreparedCommand.
+   * Executes a command.
    *
-   * @param command - The order preparation command
+   * @param command - The command to execute
    * @returns Newly created OrderPreparedEvent with metadata
    * @throws Error if order does not exist
    * @throws Error if order already prepared

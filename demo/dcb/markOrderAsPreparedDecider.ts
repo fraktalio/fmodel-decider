@@ -21,6 +21,8 @@ type MarkOrderAsPreparedState = {
  * Requirements:
  * - Can only mark order as prepared if orderId is not null (order exists)
  * - Can only mark order as prepared if it hasn't been prepared already
+ * - Handles null commands gracefully (returns empty array)
+ * - Handles null events gracefully (returns current state)
  */
 export const markOrderAsPreparedDecider: DcbDecider<
   MarkOrderAsPreparedCommand,
@@ -34,28 +36,36 @@ export const markOrderAsPreparedDecider: DcbDecider<
   OrderPreparedEvent
 >(
   (command, currentState) => {
-    // Check if order exists
-    if (currentState.orderId === null) {
-      throw new Error("Order does not exist!");
-    }
+    switch (command?.kind) {
+      case "MarkOrderAsPreparedCommand": {
+        // Check if order exists
+        if (currentState.orderId === null) {
+          throw new Error("Order does not exist!");
+        }
 
-    // Check if order already prepared
-    if (currentState.prepared) {
-      throw new Error("Order already prepared!");
-    }
+        // Check if order already prepared
+        if (currentState.prepared) {
+          throw new Error("Order already prepared!");
+        }
 
-    // Mark order as prepared
-    return [
-      {
-        kind: "OrderPreparedEvent",
-        id: command.orderId,
-        orderId: command.orderId,
-        final: false,
-      },
-    ];
+        // Mark order as prepared
+        return [
+          {
+            kind: "OrderPreparedEvent",
+            id: command.orderId,
+            orderId: command.orderId,
+            final: false,
+          },
+        ];
+      }
+      default: {
+        // Handle null commands gracefully
+        return [];
+      }
+    }
   },
   (currentState, event) => {
-    switch (event.kind) {
+    switch (event?.kind) {
       case "RestaurantOrderPlacedEvent":
         return {
           orderId: event.orderId,
@@ -69,8 +79,7 @@ export const markOrderAsPreparedDecider: DcbDecider<
         };
 
       default: {
-        // Exhaustive matching of the event type
-        const _exhaustiveCheck: never = event;
+        // Handle null events gracefully
         return currentState;
       }
     }

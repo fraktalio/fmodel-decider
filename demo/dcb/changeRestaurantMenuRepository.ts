@@ -41,9 +41,9 @@ export class ChangeRestaurantMenuRepository {
   }
 
   /**
-   * Executes a ChangeRestaurantMenuCommand.
+   * Executes a command.
    *
-   * @param command - The restaurant menu change command
+   * @param command - The command to execute
    * @returns Newly created RestaurantMenuChangedEvent with metadata
    * @throws Error if restaurant does not exist
    * @throws OptimisticLockingError if concurrent modification detected

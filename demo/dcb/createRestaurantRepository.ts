@@ -37,9 +37,9 @@ export class CreateRestaurantRepository {
   }
 
   /**
-   * Executes a CreateRestaurantCommand.
+   * Executes a command.
    *
-   * @param command - The restaurant creation command
+   * @param command - The command to execute
    * @returns Newly created RestaurantCreatedEvent with metadata
    * @throws Error if restaurant already exists
    * @throws OptimisticLockingError if concurrent creation detected

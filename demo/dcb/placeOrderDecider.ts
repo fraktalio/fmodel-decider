@@ -25,6 +25,8 @@ type PlaceOrderState = {
  * - Can only place order if restaurantId is not null
  * - Can only place order if orderId does not exist (not placed already)
  * - Can only place order if all menu items in command are on the menu
+ * - Handles null commands gracefully (returns empty array)
+ * - Handles null events gracefully (returns current state)
  */
 export const placeOrderDecider: DcbDecider<
   PlaceOrderCommand,
@@ -42,48 +44,56 @@ export const placeOrderDecider: DcbDecider<
   RestaurantOrderPlacedEvent
 >(
   (command, currentState) => {
-    // Check if restaurant exists
-    if (currentState.restaurantId === null) {
-      throw new Error("Restaurant does not exist!");
+    switch (command?.kind) {
+      case "PlaceOrderCommand": {
+        // Check if restaurant exists
+        if (currentState.restaurantId === null) {
+          throw new Error("Restaurant does not exist!");
+        }
+
+        // Check if THIS specific order already exists
+        // (Repository filters by order ID, so we only see events for this order)
+        if (currentState.orderPlaced) {
+          throw new Error("Order already exist!");
+        }
+
+        // Check if menu exists
+        if (currentState.menu === null) {
+          throw new Error("Restaurant does not exist!");
+        }
+
+        // Validate all command menu items are on the restaurant menu
+        const menuItemIds = new Set(
+          currentState.menu.menuItems.map((item) => item.menuItemId),
+        );
+        const allItemsOnMenu = command.menuItems.every((item) =>
+          menuItemIds.has(item.menuItemId)
+        );
+
+        if (!allItemsOnMenu) {
+          throw new Error("Menu items not available!");
+        }
+
+        // All checks passed - place the order
+        return [
+          {
+            kind: "RestaurantOrderPlacedEvent",
+            id: command.orderId,
+            restaurantId: command.restaurantId,
+            orderId: command.orderId,
+            menuItems: command.menuItems,
+            final: false,
+          },
+        ];
+      }
+      default: {
+        // Handle null commands gracefully
+        return [];
+      }
     }
-
-    // Check if THIS specific order already exists
-    // (Repository filters by order ID, so we only see events for this order)
-    if (currentState.orderPlaced) {
-      throw new Error("Order already exist!");
-    }
-
-    // Check if menu exists
-    if (currentState.menu === null) {
-      throw new Error("Restaurant does not exist!");
-    }
-
-    // Validate all command menu items are on the restaurant menu
-    const menuItemIds = new Set(
-      currentState.menu.menuItems.map((item) => item.menuItemId),
-    );
-    const allItemsOnMenu = command.menuItems.every((item) =>
-      menuItemIds.has(item.menuItemId)
-    );
-
-    if (!allItemsOnMenu) {
-      throw new Error("Menu items not available!");
-    }
-
-    // All checks passed - place the order
-    return [
-      {
-        kind: "RestaurantOrderPlacedEvent",
-        id: command.orderId,
-        restaurantId: command.restaurantId,
-        orderId: command.orderId,
-        menuItems: command.menuItems,
-        final: false,
-      },
-    ];
   },
   (currentState, event) => {
-    switch (event.kind) {
+    switch (event?.kind) {
       case "RestaurantCreatedEvent":
         return {
           restaurantId: event.restaurantId,
@@ -104,8 +114,7 @@ export const placeOrderDecider: DcbDecider<
         };
 
       default: {
-        // Exhaustive matching of the event type
-        const _exhaustiveCheck: never = event;
+        // Handle null events gracefully
         return currentState;
       }
     }

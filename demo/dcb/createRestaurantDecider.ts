@@ -16,6 +16,8 @@ export type CreateRestaurantState = RestaurantId | null;
  *
  * Requirements:
  * - Can only create a restaurant if it does not already exist
+ * - Handles null commands gracefully (returns empty array)
+ * - Handles null events gracefully (returns current state)
  */
 export const crateRestaurantDecider: DcbDecider<
   CreateRestaurantCommand,
@@ -29,22 +31,36 @@ export const crateRestaurantDecider: DcbDecider<
   RestaurantCreatedEvent
 >(
   (command, currentState) => {
-    if (currentState !== null) {
-      throw new Error("Restaurant already exist!");
+    switch (command?.kind) {
+      case "CreateRestaurantCommand":
+        if (currentState !== null) {
+          throw new Error("Restaurant already exist!");
+        }
+        return [
+          {
+            kind: "RestaurantCreatedEvent",
+            id: command.restaurantId,
+            restaurantId: command.restaurantId,
+            name: command.name,
+            menu: command.menu,
+            final: false,
+          },
+        ];
+      default: {
+        // Handle null commands gracefully
+        return [];
+      }
     }
-    return [
-      {
-        kind: "RestaurantCreatedEvent",
-        id: command.restaurantId,
-        restaurantId: command.restaurantId,
-        name: command.name,
-        menu: command.menu,
-        final: false,
-      },
-    ];
   },
-  (_currentState, event) => {
-    return event.restaurantId;
+  (currentState, event) => {
+    switch (event?.kind) {
+      case "RestaurantCreatedEvent":
+        return event.restaurantId;
+      default: {
+        // Handle null events gracefully
+        return currentState;
+      }
+    }
   },
   null,
 );
