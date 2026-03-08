@@ -611,6 +611,8 @@ restaurant ordering system but differ in how they define consistency boundaries.
 **Consistency Boundary:** Traditional DDD Aggregates with strong consistency
 within each aggregate root.
 
+![Aggregate Pattern](aggregate.jpg)
+
 This approach uses `AggregateDecider<C, S, E>` where each aggregate (Restaurant,
 Order) maintains its own consistency boundary:
 
@@ -661,6 +663,8 @@ const restaurantOrderWorkflow: AggregateWorkflowProcess<
 
 **Consistency Boundary:** Flexible, use-case-driven boundaries that can span
 multiple concepts.
+
+![DCB Pattern](dcb.jpg)
 
 This approach uses `DcbDecider<C, S, Ei, Eo>` where each use case (command)
 defines its own consistency boundary:
