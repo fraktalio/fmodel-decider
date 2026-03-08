@@ -10,7 +10,7 @@ const testMenuItems: MenuItem[] = [
 Deno.test("Mark Order As Prepared - Success", () => {
   const command: MarkOrderAsPreparedCommand = {
     kind: "MarkOrderAsPreparedCommand",
-    id: "order-1",
+    orderId: "order-1",
   };
 
   DeciderEventSourcedSpec.for(markOrderAsPreparedDecider)
@@ -36,7 +36,7 @@ Deno.test("Mark Order As Prepared - Success", () => {
 Deno.test("Mark Order As Prepared - Order Does Not Exist (throws error)", () => {
   const command: MarkOrderAsPreparedCommand = {
     kind: "MarkOrderAsPreparedCommand",
-    id: "order-1",
+    orderId: "order-1",
   };
 
   DeciderEventSourcedSpec.for(markOrderAsPreparedDecider)
@@ -48,7 +48,7 @@ Deno.test("Mark Order As Prepared - Order Does Not Exist (throws error)", () => 
 Deno.test("Mark Order As Prepared - Already Prepared (throws error)", () => {
   const command: MarkOrderAsPreparedCommand = {
     kind: "MarkOrderAsPreparedCommand",
-    id: "order-1",
+    orderId: "order-1",
   };
 
   DeciderEventSourcedSpec.for(markOrderAsPreparedDecider)

@@ -44,27 +44,27 @@ export type Command =
 
 export type CreateRestaurantCommand = {
   readonly kind: "CreateRestaurantCommand";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly name: RestaurantName;
   readonly menu: RestaurantMenu;
 };
 
 export type ChangeRestaurantMenuCommand = {
   readonly kind: "ChangeRestaurantMenuCommand";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly menu: RestaurantMenu;
 };
 
 export type PlaceOrderCommand = {
   readonly kind: "PlaceOrderCommand";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
 };
 
 export type MarkOrderAsPreparedCommand = {
   readonly kind: "MarkOrderAsPreparedCommand";
-  readonly id: OrderId;
+  readonly orderId: OrderId;
 };
 
 // ########################### API (EVENTS) ##################################

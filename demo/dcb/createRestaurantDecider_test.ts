@@ -15,7 +15,7 @@ const testMenu: RestaurantMenu = {
 Deno.test("Create Restaurant - Success", () => {
   const command: CreateRestaurantCommand = {
     kind: "CreateRestaurantCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     name: "Italian Bistro",
     menu: testMenu,
   };
@@ -37,7 +37,7 @@ Deno.test("Create Restaurant - Success", () => {
 Deno.test("Create Restaurant - Already Exists (throws error)", () => {
   const command: CreateRestaurantCommand = {
     kind: "CreateRestaurantCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     name: "Italian Bistro",
     menu: testMenu,
   };

@@ -49,8 +49,8 @@ export class PlaceOrderRepository {
     this.repository = new EventSourcedRepository(
       kv,
       (cmd) => [
-        [cmd.id, "RestaurantCreatedEvent"], // Query by restaurant ID
-        [cmd.id, "RestaurantMenuChangedEvent"], // Query by restaurant ID
+        [cmd.restaurantId, "RestaurantCreatedEvent"], // Query by restaurant ID
+        [cmd.restaurantId, "RestaurantMenuChangedEvent"], // Query by restaurant ID
         [cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
       ],
       (evt) => evt.orderId, // Index RestaurantOrderPlacedEvent by order ID

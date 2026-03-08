@@ -89,7 +89,7 @@ export const all_domain_views = restaurantView
  * ```ts
  * const result = await handleCommandGeneric(
  *   createRestaurantCommand,
- *   async (cmd) => await eventStore.getEvents(cmd.id),
+ *   async (cmd) => await eventStore.getEvents(cmd.restaurantId),
  *   async (evt) => await viewStore.getStateForEvent(evt),
  *   restaurantDecider,
  *   restaurantView
@@ -135,8 +135,8 @@ export const handleCommandGeneric = async <C, S, Ei, Eo, VS>(
  * @example
  * ```ts
  * const result = await handleCommand(
- *   { kind: "CreateRestaurantCommand", id: "r1", name: "Bistro", menu: {...} },
- *   async (cmd) => await eventStore.getEvents(cmd.id),
+ *   { kind: "CreateRestaurantCommand", restaurantId: "r1", name: "Bistro", menu: {...} },
+ *   async (cmd) => await eventStore.getEvents(cmd.restaurantId),
  *   async (evt) => await viewStore.getStateForEvent(evt)
  * );
  * // result.newEvents: [RestaurantCreatedEvent]

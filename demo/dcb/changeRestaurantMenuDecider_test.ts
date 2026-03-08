@@ -23,7 +23,7 @@ Deno.test("Change Restaurant Menu - Success", () => {
 
   const command: ChangeRestaurantMenuCommand = {
     kind: "ChangeRestaurantMenuCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     menu: newMenu,
   };
 
@@ -51,7 +51,7 @@ Deno.test("Change Restaurant Menu - Success", () => {
 Deno.test("Change Restaurant Menu - Restaurant Does Not Exist (throws error)", () => {
   const command: ChangeRestaurantMenuCommand = {
     kind: "ChangeRestaurantMenuCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     menu: testMenu,
   };
 

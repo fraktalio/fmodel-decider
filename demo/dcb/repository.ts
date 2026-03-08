@@ -85,16 +85,16 @@ export class OptimisticLockingError extends Error {
  * **Example - Simple case (CreateRestaurant):**
  * ```typescript
  * getEntityIdEventTypePairs: (cmd) => [
- *   [cmd.id, "RestaurantCreatedEvent"]  // Load RestaurantCreatedEvent by restaurant ID
+ *   [cmd.restaurantId, "RestaurantCreatedEvent"]  // Load RestaurantCreatedEvent by restaurant ID
  * ]
  * ```
  *
  * **Example - Complex case (PlaceOrder spanning multiple entities):**
  * ```typescript
  * getEntityIdEventTypePairs: (cmd) => [
- *   [cmd.id, "RestaurantCreatedEvent"],      // Restaurant events by restaurant ID
- *   [cmd.id, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
- *   [cmd.id, "RestaurantOrderPlacedEvent"],  // Orders by restaurant ID
+ *   [cmd.restaurantId, "RestaurantCreatedEvent"],      // Restaurant events by restaurant ID
+ *   [cmd.restaurantId, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
+ *   [cmd.restaurantId, "RestaurantOrderPlacedEvent"],  // Orders by restaurant ID
  *   [cmd.orderId, "OrderPreparedEvent"]      // Order status by order ID (different entity!)
  * ]
  * ```

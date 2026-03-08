@@ -36,7 +36,7 @@ export const changeRestaurantManuDecider: DcbDecider<
     return [
       {
         kind: "RestaurantMenuChangedEvent",
-        restaurantId: command.id,
+        restaurantId: command.restaurantId,
         menu: command.menu,
         final: false,
       },

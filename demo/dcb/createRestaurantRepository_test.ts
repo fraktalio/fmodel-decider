@@ -30,7 +30,7 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     // Execute command via handler
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -97,7 +97,7 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -136,7 +136,7 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",

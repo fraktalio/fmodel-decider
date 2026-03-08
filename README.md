@@ -318,11 +318,15 @@ integration.
 
 ## DCB Event-Sourced Repository (Deno KV)
 
-The library includes a production-ready event-sourced repository implementation for the DCB pattern using Deno KV. This implementation demonstrates how to build a complete event-sourced infrastructure with optimistic locking, flexible querying, and type-safe event indexing.
+The library includes a production-ready event-sourced repository implementation
+for the DCB pattern using Deno KV. This implementation demonstrates how to build
+a complete event-sourced infrastructure with optimistic locking, flexible
+querying, and type-safe event indexing.
 
 ### Architecture: Two-Index Pattern with Pointers
 
-The repository uses a dual-index architecture optimized for both storage efficiency and query flexibility:
+The repository uses a dual-index architecture optimized for both storage
+efficiency and query flexibility:
 
 ```
 Primary Storage:  ["events", eventId] → full event data
@@ -330,40 +334,46 @@ Type Index:       ["events_by_type", eventType, entityId, eventId] → eventId (
 ```
 
 **Key benefits:**
-- **Storage efficiency:** Event data stored once, indexes store only pointers (ULIDs)
+
+- **Storage efficiency:** Event data stored once, indexes store only pointers
+  (ULIDs)
 - **Flexible queries:** Query by entity ID and event type combinations
-- **Optimistic locking:** Versionstamps on index entries enable conflict detection
+- **Optimistic locking:** Versionstamps on index entries enable conflict
+  detection
 - **Chronological ordering:** Monotonic ULIDs ensure correct event ordering
 
 ### Tuple-Based Query Pattern
 
-The repository's most powerful feature is its tuple-based query pattern, which allows loading events from multiple entities and types in a single operation:
+The repository's most powerful feature is its tuple-based query pattern, which
+allows loading events from multiple entities and types in a single operation:
 
 ```ts
 // Simple case: Single entity, single event type
 (cmd) => [
-  [cmd.id, "RestaurantCreatedEvent"]
+  [cmd.restaurantId, "RestaurantCreatedEvent"]
 ]
 
 // Complex case: Multiple entities, multiple event types
 (cmd) => [
-  [cmd.id, "RestaurantCreatedEvent"],      // Restaurant by restaurant ID
-  [cmd.id, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
+  [cmd.restaurantId, "RestaurantCreatedEvent"],      // Restaurant by restaurant ID
+  [cmd.restaurantId, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
   [cmd.orderId, "RestaurantOrderPlacedEvent"], // Order by ORDER ID (different entity!)
 ]
 ```
 
-This flexibility is essential for DCB patterns where consistency boundaries span multiple entities.
+This flexibility is essential for DCB patterns where consistency boundaries span
+multiple entities.
 
 ### Type-Safe Event Indexing
 
-The repository leverages TypeScript's type system to ensure event types are valid at compile time:
+The repository leverages TypeScript's type system to ensure event types are
+valid at compile time:
 
 ```ts
 export class EventSourcedRepository<
   C,
-  Ei extends { kind: string },  // Input events must have 'kind' discriminator
-  Eo extends { kind: string },  // Output events must have 'kind' discriminator
+  Ei extends { kind: string }, // Input events must have 'kind' discriminator
+  Eo extends { kind: string }, // Output events must have 'kind' discriminator
 > {
   constructor(
     private readonly kv: Deno.Kv,
@@ -378,6 +388,7 @@ export class EventSourcedRepository<
 ```
 
 **Benefits:**
+
 - Autocomplete for event type strings
 - Compile-time validation of event types
 - Impossible to query for non-existent event types
@@ -417,6 +428,7 @@ async execute(
 ```
 
 **Key features:**
+
 - Automatic retry on conflicts
 - Configurable retry limit
 - Atomic operations ensure consistency
@@ -441,8 +453,8 @@ export class PlaceOrderRepository {
       kv,
       // Query pattern: Load restaurant state + check if order exists
       (cmd) => [
-        [cmd.id, "RestaurantCreatedEvent"],
-        [cmd.id, "RestaurantMenuChangedEvent"],
+        [cmd.restaurantId, "RestaurantCreatedEvent"],
+        [cmd.restaurantId, "RestaurantMenuChangedEvent"],
         [cmd.orderId, "RestaurantOrderPlacedEvent"],
       ],
       // Index new events by order ID
@@ -461,7 +473,8 @@ export class PlaceOrderRepository {
 
 ### Integration with Command Handlers
 
-The repository implements `IEventRepository` and integrates seamlessly with command handlers:
+The repository implements `IEventRepository` and integrates seamlessly with
+command handlers:
 
 ```ts
 // Create repository
@@ -476,7 +489,7 @@ const handler = new EventSourcedCommandHandler(
 // Execute command
 const events = await handler.handle({
   kind: "PlaceOrderCommand",
-  id: "restaurant-123",
+  restaurantId: "restaurant-123",
   orderId: "order-456",
   menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "12.99" }],
 });
@@ -484,7 +497,8 @@ const events = await handler.handle({
 
 ### Why This Makes the Library Framework-Like
 
-This implementation elevates the library from a modeling toolkit to a near-framework by providing:
+This implementation elevates the library from a modeling toolkit to a
+near-framework by providing:
 
 1. **Complete infrastructure:** Production-ready event store with Deno KV
 2. **Optimistic locking:** Built-in concurrency control
@@ -495,6 +509,7 @@ This implementation elevates the library from a modeling toolkit to a near-frame
 7. **Testing support:** In-memory Deno KV for fast, isolated tests
 
 **What you get out of the box:**
+
 - ✅ Event store implementation
 - ✅ Optimistic locking with retry
 - ✅ Event indexing and querying
@@ -504,17 +519,20 @@ This implementation elevates the library from a modeling toolkit to a near-frame
 - ✅ Comprehensive test coverage
 
 **What you still control:**
+
 - Domain logic (deciders)
 - Event schema
 - Command schema
 - Consistency boundaries
 - Business rules
 
-This strikes the perfect balance: opinionated infrastructure with flexible domain modeling.
+This strikes the perfect balance: opinionated infrastructure with flexible
+domain modeling.
 
 ### Demo Implementation
 
 See `demo/dcb/` for a complete working example with:
+
 - `repository.ts` - Generic event-sourced repository
 - `createRestaurantRepository.ts` - Restaurant creation
 - `placeOrderRepository.ts` - Order placement (spans multiple entities)

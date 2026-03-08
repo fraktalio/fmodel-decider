@@ -74,7 +74,7 @@ export const placeOrderDecider: DcbDecider<
     return [
       {
         kind: "RestaurantOrderPlacedEvent",
-        restaurantId: command.id,
+        restaurantId: command.restaurantId,
         orderId: command.orderId,
         menuItems: command.menuItems,
         final: false,

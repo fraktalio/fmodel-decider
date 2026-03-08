@@ -48,7 +48,7 @@ export const markOrderAsPreparedDecider: DcbDecider<
     return [
       {
         kind: "OrderPreparedEvent",
-        orderId: command.id,
+        orderId: command.orderId,
         final: false,
       },
     ];
