@@ -692,6 +692,45 @@ const allDomainDecider = createRestaurantDecider
   .combineViaTuples(markOrderAsPreparedDecider);
 ```
 
+**Repository Approaches:**
+
+The DCB pattern supports two valid approaches for organizing repositories:
+
+**1. Sliced Approach (Separate Repositories):**
+```ts
+// Each use case has its own repository
+const createRepo = new CreateRestaurantRepository(kv);
+const placeOrderRepo = new PlaceOrderRepository(kv);
+
+await createRepo.execute(createRestaurantCommand);
+await placeOrderRepo.execute(placeOrderCommand);
+```
+
+- ✅ Only relevant decider processes each command (better performance)
+- ✅ Simple, focused query patterns per use case
+- ✅ Explicit use case boundaries
+- ⚠️ More repository instances to manage
+
+**2. Combined Approach (Single Repository):**
+```ts
+// Single repository handles all commands
+const repository = new AllDeciderRepository(kv);
+
+await repository.execute(createRestaurantCommand);
+await repository.execute(placeOrderCommand);
+```
+
+- ✅ Simpler application code (one repository instance)
+- ✅ Works due to graceful null handling in deciders
+- ⚠️ All deciders process every command (more computation)
+- ⚠️ Complex query pattern must handle all use cases
+
+**Choose based on your needs:**
+- **Sliced:** Better for larger domains, performance-critical applications, clearer boundaries
+- **Combined:** Better for smaller domains, simpler architecture, acceptable overhead
+
+See `demo/dcb/all_deciderRepository.ts` for a complete combined approach example.
+
 **Key Characteristics:**
 
 - **Flexible boundaries:** Each use case defines what it needs
