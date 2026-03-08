@@ -5,7 +5,10 @@
  * to Deno KV storage with optimistic locking.
  */
 
-import { type EventMetadata, EventSourcedRepository } from "./repository.ts";
+import {
+  DenoKvEventSourcedRepository,
+  type EventMetadata,
+} from "../../denoKvRepository.ts";
 import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
 
 /**
@@ -15,7 +18,7 @@ import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
  * Loads events using tuple: `[(restaurantId, "RestaurantCreatedEvent")]`
  */
 export class CreateRestaurantRepository {
-  private readonly repository: EventSourcedRepository<
+  private readonly repository: DenoKvEventSourcedRepository<
     CreateRestaurantCommand,
     RestaurantCreatedEvent,
     RestaurantCreatedEvent
@@ -27,7 +30,7 @@ export class CreateRestaurantRepository {
    * @param kv - Deno KV instance for storage
    */
   constructor(kv: Deno.Kv) {
-    this.repository = new EventSourcedRepository(
+    this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [[cmd.id, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
     );

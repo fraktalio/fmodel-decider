@@ -8,7 +8,10 @@
  * events related to both the restaurant state and existing orders.
  */
 
-import { type EventMetadata, EventSourcedRepository } from "./repository.ts";
+import {
+  DenoKvEventSourcedRepository,
+  type EventMetadata,
+} from "../../denoKvRepository.ts";
 import type {
   PlaceOrderCommand,
   RestaurantCreatedEvent,
@@ -32,7 +35,7 @@ import type {
  * - Future queries: Query by restaurant ID to get all orders for a restaurant
  */
 export class PlaceOrderRepository {
-  private readonly repository: EventSourcedRepository<
+  private readonly repository: DenoKvEventSourcedRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent
     | RestaurantMenuChangedEvent
@@ -46,7 +49,7 @@ export class PlaceOrderRepository {
    * @param kv - Deno KV instance for storage
    */
   constructor(kv: Deno.Kv) {
-    this.repository = new EventSourcedRepository(
+    this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [
         [cmd.restaurantId, "RestaurantCreatedEvent"], // Query by restaurant ID

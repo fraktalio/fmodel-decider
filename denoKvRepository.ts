@@ -7,8 +7,8 @@
  */
 
 import { monotonicUlid } from "@std/ulid";
-import type { IEventComputation } from "../../decider.ts";
-import type { IEventRepository } from "../../application.ts";
+import type { IEventComputation } from "./decider.ts";
+import type { IEventRepository } from "./application.ts";
 
 /**
  * Shape constraint for commands.
@@ -127,7 +127,7 @@ export class OptimisticLockingError extends Error {
  * @typeParam Ei - Input event type (consumed by decider, must conform to EventShape)
  * @typeParam Eo - Output event type (produced by decider, must conform to EventShape)
  */
-export class EventSourcedRepository<
+export class DenoKvEventSourcedRepository<
   C extends CommandShape,
   Ei extends EventShape,
   Eo extends EventShape,
@@ -338,7 +338,7 @@ export class EventSourcedRepository<
 }
 
 // Export concrete repositories
-export { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
-export { ChangeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
-export { PlaceOrderRepository } from "./placeOrderRepository.ts";
-export { MarkOrderAsPreparedRepository } from "./markOrderAsPreparedRepository.ts";
+export { CreateRestaurantRepository } from "./demo/dcb/createRestaurantRepository.ts";
+export { ChangeRestaurantMenuRepository } from "./demo/dcb/changeRestaurantMenuRepository.ts";
+export { PlaceOrderRepository } from "./demo/dcb/placeOrderRepository.ts";
+export { MarkOrderAsPreparedRepository } from "./demo/dcb/markOrderAsPreparedRepository.ts";

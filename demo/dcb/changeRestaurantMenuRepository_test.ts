@@ -11,7 +11,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
 import { ChangeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
-import type { EventMetadata } from "./repository.ts";
+import type { EventMetadata } from "../../denoKvRepository.ts";
 import { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
 import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
 import { crateRestaurantDecider } from "./createRestaurantDecider.ts";

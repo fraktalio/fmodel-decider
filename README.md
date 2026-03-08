@@ -316,12 +316,12 @@ export class EventHandler<E, S, EM, SM> {
 This design keeps domain logic pure while providing flexible infrastructure
 integration.
 
-## DCB Event-Sourced Repository (Deno KV)
+## Deno KV Event-Sourced Repository
 
 The library includes a production-ready event-sourced repository implementation
-for the DCB pattern using Deno KV. This implementation demonstrates how to build
-a complete event-sourced infrastructure with optimistic locking, flexible
-querying, and type-safe event indexing.
+using Deno KV (`DenoKvEventSourcedRepository`). This implementation demonstrates
+how to build a complete event-sourced infrastructure with optimistic locking,
+flexible querying, and type-safe event indexing.
 
 ### Architecture: Two-Index Pattern with Pointers
 
@@ -370,10 +370,10 @@ The repository leverages TypeScript's type system to ensure event types are
 valid at compile time:
 
 ```ts
-export class EventSourcedRepository<
-  C,
-  Ei extends { kind: string }, // Input events must have 'kind' discriminator
-  Eo extends { kind: string }, // Output events must have 'kind' discriminator
+export class DenoKvEventSourcedRepository<
+  C extends CommandShape,
+  Ei extends EventShape,
+  Eo extends EventShape,
 > {
   constructor(
     private readonly kv: Deno.Kv,
@@ -381,7 +381,6 @@ export class EventSourcedRepository<
     private readonly getEntityIdEventTypePairs: (
       command: C,
     ) => [string, Ei["kind"]][],
-    private readonly getEventEntityId: (event: Eo) => string,
     private readonly maxRetries: number = 10,
   ) {}
 }
@@ -440,7 +439,7 @@ Here's how to create a concrete repository for a specific use case:
 
 ```ts
 export class PlaceOrderRepository {
-  private readonly repository: EventSourcedRepository<
+  private readonly repository: DenoKvEventSourcedRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent
     | RestaurantMenuChangedEvent
@@ -449,7 +448,7 @@ export class PlaceOrderRepository {
   >;
 
   constructor(kv: Deno.Kv) {
-    this.repository = new EventSourcedRepository(
+    this.repository = new DenoKvEventSourcedRepository(
       kv,
       // Query pattern: Load restaurant state + check if order exists
       (cmd) => [
@@ -531,7 +530,7 @@ domain modeling.
 
 See `demo/dcb/` for a complete working example with:
 
-- `repository.ts` - Generic event-sourced repository
+- `denoKvRepository.ts` (root level) - Generic Deno KV event-sourced repository
 - `createRestaurantRepository.ts` - Restaurant creation
 - `placeOrderRepository.ts` - Order placement (spans multiple entities)
 - `markOrderAsPreparedRepository.ts` - Order preparation

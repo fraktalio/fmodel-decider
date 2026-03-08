@@ -8,7 +8,10 @@
  * and whether it has already been prepared.
  */
 
-import { type EventMetadata, EventSourcedRepository } from "./repository.ts";
+import {
+  DenoKvEventSourcedRepository,
+  type EventMetadata,
+} from "../../denoKvRepository.ts";
 import type {
   MarkOrderAsPreparedCommand,
   OrderPreparedEvent,
@@ -27,7 +30,7 @@ import type {
  * OrderPreparedEvent is indexed by order ID (primary).
  */
 export class MarkOrderAsPreparedRepository {
-  private readonly repository: EventSourcedRepository<
+  private readonly repository: DenoKvEventSourcedRepository<
     MarkOrderAsPreparedCommand,
     RestaurantOrderPlacedEvent | OrderPreparedEvent,
     OrderPreparedEvent
@@ -39,7 +42,7 @@ export class MarkOrderAsPreparedRepository {
    * @param kv - Deno KV instance for storage
    */
   constructor(kv: Deno.Kv) {
-    this.repository = new EventSourcedRepository(
+    this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [
         [cmd.id, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
