@@ -11,27 +11,26 @@ Deno.test("Mark Order As Prepared - Success", () => {
   const command: MarkOrderAsPreparedCommand = {
     kind: "MarkOrderAsPreparedCommand",
     orderId: "order-1",
-    id: "order-1",
   };
 
   DeciderEventSourcedSpec.for(markOrderAsPreparedDecider)
     .given([
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
     ])
     .when(command)
     .then([
       {
         kind: "OrderPreparedEvent",
-        id: "order-1",
         orderId: "order-1",
         final: false,
+        tagFields: ["orderId"],
       },
     ]);
 });
@@ -40,7 +39,6 @@ Deno.test("Mark Order As Prepared - Order Does Not Exist (throws error)", () => 
   const command: MarkOrderAsPreparedCommand = {
     kind: "MarkOrderAsPreparedCommand",
     orderId: "order-1",
-    id: "order-1",
   };
 
   DeciderEventSourcedSpec.for(markOrderAsPreparedDecider)
@@ -53,24 +51,23 @@ Deno.test("Mark Order As Prepared - Already Prepared (throws error)", () => {
   const command: MarkOrderAsPreparedCommand = {
     kind: "MarkOrderAsPreparedCommand",
     orderId: "order-1",
-    id: "order-1",
   };
 
   DeciderEventSourcedSpec.for(markOrderAsPreparedDecider)
     .given([
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
       {
         kind: "OrderPreparedEvent",
-        id: "order-1",
         orderId: "order-1",
         final: false,
+        tagFields: ["orderId"],
       },
     ])
     .when(command)

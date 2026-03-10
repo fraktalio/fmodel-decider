@@ -52,9 +52,9 @@ export const markOrderAsPreparedDecider: DcbDecider<
         return [
           {
             kind: "OrderPreparedEvent",
-            id: command.orderId,
             orderId: command.orderId,
             final: false,
+            tagFields: ["orderId"],
           },
         ];
       }

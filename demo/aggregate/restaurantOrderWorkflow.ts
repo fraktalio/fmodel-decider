@@ -40,7 +40,7 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
               timestamp: Date.now(),
               metadata: {
                 orderId: event.orderId,
-                restaurantId: event.id,
+                restaurantId: event.restaurantId,
                 menuItems: event.menuItems,
               },
             },
@@ -56,7 +56,7 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
               taskName: "createOrder",
               timestamp: Date.now(),
               metadata: {
-                orderId: event.id,
+                orderId: event.orderId,
               },
             },
           ];
@@ -92,7 +92,7 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
                 {
                   decider: "Order",
                   kind: "CreateOrderCommand",
-                  id: orderId,
+                  orderId: orderId,
                   restaurantId: restaurantId,
                   menuItems: menuItems,
                 },
@@ -139,7 +139,7 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
             actions.push({
               decider: "Order",
               kind: "CreateOrderCommand",
-              id: "pending-order",
+              orderId: "pending-order",
               restaurantId: "pending-restaurant",
               menuItems: [],
             });

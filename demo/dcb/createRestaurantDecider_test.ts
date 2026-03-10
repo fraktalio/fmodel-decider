@@ -15,7 +15,6 @@ const testMenu: RestaurantMenu = {
 Deno.test("Create Restaurant - Success", () => {
   const command: CreateRestaurantCommand = {
     kind: "CreateRestaurantCommand",
-    id: "restaurant-1",
     restaurantId: "restaurant-1",
     name: "Italian Bistro",
     menu: testMenu,
@@ -27,11 +26,11 @@ Deno.test("Create Restaurant - Success", () => {
     .then([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ]);
 });
@@ -40,7 +39,6 @@ Deno.test("Create Restaurant - Already Exists (throws error)", () => {
   const command: CreateRestaurantCommand = {
     kind: "CreateRestaurantCommand",
     restaurantId: "restaurant-1",
-    id: "restaurant-1",
     name: "Italian Bistro",
     menu: testMenu,
   };
@@ -49,11 +47,11 @@ Deno.test("Create Restaurant - Already Exists (throws error)", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Existing Restaurant",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)

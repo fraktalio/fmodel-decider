@@ -95,25 +95,28 @@ export class AllDeciderRepository {
         switch (cmd.kind) {
           case "CreateRestaurantCommand":
             return [
-              ["id:" + cmd.id, "RestaurantCreatedEvent"], // Check if restaurant exists
+              ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Check if restaurant exists
             ];
 
           case "ChangeRestaurantMenuCommand":
             return [
-              ["id:" + cmd.id, "RestaurantCreatedEvent"], // Check if restaurant exists
+              ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Check if restaurant exists
             ];
 
           case "PlaceOrderCommand":
             return [
-              ["id:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Load restaurant state
-              ["id:" + cmd.restaurantId, "RestaurantMenuChangedEvent"], // Load menu changes
-              ["id:" + cmd.id, "RestaurantOrderPlacedEvent"], // Check if order exists (cmd.id = orderId)
+              ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Load restaurant state
+              [
+                "restaurantId:" + cmd.restaurantId,
+                "RestaurantMenuChangedEvent",
+              ], // Load menu changes
+              ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"], // Check if order exists
             ];
 
           case "MarkOrderAsPreparedCommand":
             return [
-              ["id:" + cmd.id, "RestaurantOrderPlacedEvent"], // Check if order exists
-              ["id:" + cmd.id, "OrderPreparedEvent"], // Check if already prepared
+              ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"], // Check if order exists
+              ["orderId:" + cmd.orderId, "OrderPreparedEvent"], // Check if already prepared
             ];
 
           default: {
@@ -123,7 +126,6 @@ export class AllDeciderRepository {
           }
         }
       },
-      ["id"], // Index by id field
     );
   }
 

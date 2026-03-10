@@ -62,7 +62,7 @@ export type RestaurantCommand =
 export type CreateRestaurantCommand = {
   readonly decider: "Restaurant";
   readonly kind: "CreateRestaurantCommand";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly name: RestaurantName;
   readonly menu: RestaurantMenu;
 };
@@ -70,14 +70,14 @@ export type CreateRestaurantCommand = {
 export type ChangeRestaurantMenuCommand = {
   readonly decider: "Restaurant";
   readonly kind: "ChangeRestaurantMenuCommand";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly menu: RestaurantMenu;
 };
 
 export type PlaceOrderCommand = {
   readonly decider: "Restaurant";
   readonly kind: "PlaceOrderCommand";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
 };
@@ -92,27 +92,30 @@ export type RestaurantEvent =
 export type RestaurantCreatedEvent = {
   readonly decider: "Restaurant";
   readonly kind: "RestaurantCreatedEvent";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly name: RestaurantName;
   readonly menu: RestaurantMenu;
   readonly final: boolean;
+  readonly tagFields: readonly ["restaurantId"];
 };
 
 export type RestaurantMenuChangedEvent = {
   readonly decider: "Restaurant";
   readonly kind: "RestaurantMenuChangedEvent";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly menu: RestaurantMenu;
   readonly final: boolean;
+  readonly tagFields: readonly ["restaurantId"];
 };
 
 export type RestaurantOrderPlacedEvent = {
   readonly decider: "Restaurant";
   readonly kind: "RestaurantOrderPlacedEvent";
-  readonly id: RestaurantId;
+  readonly restaurantId: RestaurantId;
   readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
   readonly final: boolean;
+  readonly tagFields: readonly ["restaurantId"];
 };
 
 // ###########################################################################
@@ -142,7 +145,7 @@ export type OrderCommand = CreateOrderCommand | MarkOrderAsPreparedCommand;
 export type CreateOrderCommand = {
   readonly decider: "Order";
   readonly kind: "CreateOrderCommand";
-  readonly id: OrderId;
+  readonly orderId: OrderId;
   readonly restaurantId: RestaurantId;
   readonly menuItems: MenuItem[];
 };
@@ -150,7 +153,7 @@ export type CreateOrderCommand = {
 export type MarkOrderAsPreparedCommand = {
   readonly decider: "Order";
   readonly kind: "MarkOrderAsPreparedCommand";
-  readonly id: OrderId;
+  readonly orderId: OrderId;
 };
 
 // ########################### API (EVENTS) ##################################
@@ -163,18 +166,20 @@ export type OrderCreatedEvent = {
   readonly version: number;
   readonly decider: "Order";
   readonly kind: "OrderCreatedEvent";
-  readonly id: OrderId;
+  readonly orderId: OrderId;
   readonly restaurantId: RestaurantId;
   readonly menuItems: MenuItem[];
   readonly final: boolean;
+  readonly tagFields: readonly ["orderId"];
 };
 
 export type OrderPreparedEvent = {
   readonly version: number;
   readonly decider: "Order";
   readonly kind: "OrderPreparedEvent";
-  readonly id: OrderId;
+  readonly orderId: OrderId;
   readonly final: boolean;
+  readonly tagFields: readonly ["orderId"];
 };
 
 // All variants of commands

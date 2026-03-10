@@ -30,7 +30,7 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -44,7 +44,7 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     assertEquals(events.length, 1);
     const event = events[0] as OrderCreatedEvent & EventMetadata;
     assertEquals(event.kind, "OrderCreatedEvent");
-    assertEquals(event.id, "o1");
+    assertEquals(event.orderId, "o1");
     assertEquals(event.restaurantId, "r1");
     assertEquals(event.menuItems.length, 2);
     assertEquals(event.final, false);
@@ -60,14 +60,14 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as OrderCreatedEvent;
     assertEquals(storedEvent.kind, "OrderCreatedEvent");
-    assertEquals(storedEvent.id, "o1");
+    assertEquals(storedEvent.orderId, "o1");
     assertEquals(storedEvent.restaurantId, "r1");
 
     // Verify events persisted to type index
     const typeIndexKey = [
       "events_by_type",
       "OrderCreatedEvent",
-      "id:o1",
+      "orderId:o1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -88,7 +88,7 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -122,7 +122,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     const createCommand: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -134,7 +134,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     const prepareCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      id: "o1",
+      orderId: "o1",
     };
     const events = await handler.handle(prepareCommand);
 
@@ -142,7 +142,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     assertEquals(events.length, 1);
     const event = events[0] as OrderPreparedEvent & EventMetadata;
     assertEquals(event.kind, "OrderPreparedEvent");
-    assertEquals(event.id, "o1");
+    assertEquals(event.orderId, "o1");
     assertEquals(event.final, false);
   } finally {
     await kv.close();
@@ -159,7 +159,7 @@ Deno.test("OrderRepository - mark non-existent order as prepared", async () => {
     const prepareCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      id: "o1",
+      orderId: "o1",
     };
 
     await assertRejects(
@@ -184,7 +184,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -207,7 +207,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
 
     // Verify only one event was persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "OrderCreatedEvent", "id:o1"],
+      prefix: ["events_by_type", "OrderCreatedEvent", "orderId:o1"],
     });
     const entries = [];
     for await (const entry of iter) {

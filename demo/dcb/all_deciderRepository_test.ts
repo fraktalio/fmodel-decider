@@ -49,7 +49,6 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (but processe
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -85,7 +84,6 @@ Deno.test("AllDeciderRepository - ChangeRestaurantMenuCommand fails (restaurant 
     const changeCommand: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: "r1",
-      id: "r1",
       menu: {
         menuId: "m2",
         cuisine: "FRENCH",
@@ -117,7 +115,6 @@ Deno.test("AllDeciderRepository - PlaceOrderCommand fails (restaurant doesn't ex
       kind: "PlaceOrderCommand",
       restaurantId: "r1",
       orderId: "o1",
-      id: "o1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
       ],
@@ -144,7 +141,6 @@ Deno.test("AllDeciderRepository - MarkOrderAsPreparedCommand fails (order doesn'
     const markCommand: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o1",
-      id: "o1",
     };
 
     // This FAILS because order doesn't exist (domain error)
@@ -169,7 +165,6 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -189,7 +184,6 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
       kind: "PlaceOrderCommand",
       restaurantId: "r1",
       orderId: "o1",
-      id: "o1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
       ],
@@ -203,7 +197,6 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     const markCommand: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o1",
-      id: "o1",
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -237,7 +230,6 @@ Deno.test("AllDeciderRepository - Educational summary: Two valid approaches", as
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",

@@ -25,7 +25,7 @@ Deno.test("Restaurant Decider - Create Restaurant Success", () => {
   const command: CreateRestaurantCommand = {
     decider: "Restaurant",
     kind: "CreateRestaurantCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     name: "Italian Bistro",
     menu: testMenu,
   };
@@ -37,10 +37,11 @@ Deno.test("Restaurant Decider - Create Restaurant Success", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ]);
 });
@@ -49,7 +50,7 @@ Deno.test("Restaurant Decider - Create Restaurant Already Exists", () => {
   const command: CreateRestaurantCommand = {
     decider: "Restaurant",
     kind: "CreateRestaurantCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     name: "Italian Bistro",
     menu: testMenu,
   };
@@ -59,10 +60,11 @@ Deno.test("Restaurant Decider - Create Restaurant Already Exists", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Existing Restaurant",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
@@ -81,7 +83,7 @@ Deno.test("Restaurant Decider - Change Menu Success", () => {
   const command: ChangeRestaurantMenuCommand = {
     decider: "Restaurant",
     kind: "ChangeRestaurantMenuCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     menu: newMenu,
   };
 
@@ -90,10 +92,11 @@ Deno.test("Restaurant Decider - Change Menu Success", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
@@ -101,9 +104,10 @@ Deno.test("Restaurant Decider - Change Menu Success", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ]);
 });
@@ -112,7 +116,7 @@ Deno.test("Restaurant Decider - Change Menu Restaurant Does Not Exist", () => {
   const command: ChangeRestaurantMenuCommand = {
     decider: "Restaurant",
     kind: "ChangeRestaurantMenuCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     menu: testMenu,
   };
 
@@ -126,7 +130,7 @@ Deno.test("Restaurant Decider - Place Order Success", () => {
   const command: PlaceOrderCommand = {
     decider: "Restaurant",
     kind: "PlaceOrderCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     orderId: "order-1",
     menuItems: testMenuItems,
   };
@@ -136,10 +140,11 @@ Deno.test("Restaurant Decider - Place Order Success", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
@@ -147,10 +152,11 @@ Deno.test("Restaurant Decider - Place Order Success", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantOrderPlacedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ]);
 });
@@ -159,7 +165,7 @@ Deno.test("Restaurant Decider - Place Order Restaurant Does Not Exist", () => {
   const command: PlaceOrderCommand = {
     decider: "Restaurant",
     kind: "PlaceOrderCommand",
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     orderId: "order-1",
     menuItems: testMenuItems,
   };

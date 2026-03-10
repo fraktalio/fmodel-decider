@@ -24,7 +24,6 @@ Deno.test("Change Restaurant Menu - Success", () => {
   const command: ChangeRestaurantMenuCommand = {
     kind: "ChangeRestaurantMenuCommand",
     restaurantId: "restaurant-1",
-    id: "restaurant-1",
     menu: newMenu,
   };
 
@@ -32,21 +31,21 @@ Deno.test("Change Restaurant Menu - Success", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
     .then([
       {
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ]);
 });
@@ -55,7 +54,6 @@ Deno.test("Change Restaurant Menu - Restaurant Does Not Exist (throws error)", (
   const command: ChangeRestaurantMenuCommand = {
     kind: "ChangeRestaurantMenuCommand",
     restaurantId: "restaurant-1",
-    id: "restaurant-1",
     menu: testMenu,
   };
 

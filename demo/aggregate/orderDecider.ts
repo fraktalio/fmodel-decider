@@ -29,10 +29,11 @@ export const orderDecider: AggregateDecider<
             version: 1,
             decider: "Order",
             kind: "OrderCreatedEvent",
-            id: command.id,
+            orderId: command.orderId,
             restaurantId: command.restaurantId,
             menuItems: command.menuItems,
             final: false,
+            tagFields: ["orderId"],
           },
         ];
       case "MarkOrderAsPreparedCommand":
@@ -44,8 +45,9 @@ export const orderDecider: AggregateDecider<
             version: 1,
             decider: "Order",
             kind: "OrderPreparedEvent",
-            id: currentState.orderId,
+            orderId: currentState.orderId,
             final: false,
+            tagFields: ["orderId"],
           },
         ];
       default: {
@@ -59,7 +61,7 @@ export const orderDecider: AggregateDecider<
     switch (event.kind) {
       case "OrderCreatedEvent":
         return {
-          orderId: event.id,
+          orderId: event.orderId,
           restaurantId: event.restaurantId,
           menuItems: event.menuItems,
           status: "CREATED",

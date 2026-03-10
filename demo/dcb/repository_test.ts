@@ -38,7 +38,6 @@ Deno.test("EventSourcedRepository - tuple-based query pattern allows flexible en
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",

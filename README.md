@@ -697,6 +697,7 @@ const allDomainDecider = createRestaurantDecider
 The DCB pattern supports two valid approaches for organizing repositories:
 
 **1. Sliced Approach (Separate Repositories):**
+
 ```ts
 // Each use case has its own repository
 const createRepo = new CreateRestaurantRepository(kv);
@@ -712,6 +713,7 @@ await placeOrderRepo.execute(placeOrderCommand);
 - ⚠️ More repository instances to manage
 
 **2. Combined Approach (Single Repository):**
+
 ```ts
 // Single repository handles all commands
 const repository = new AllDeciderRepository(kv);
@@ -726,10 +728,14 @@ await repository.execute(placeOrderCommand);
 - ⚠️ Complex query pattern must handle all use cases
 
 **Choose based on your needs:**
-- **Sliced:** Better for larger domains, performance-critical applications, clearer boundaries
-- **Combined:** Better for smaller domains, simpler architecture, acceptable overhead
 
-See `demo/dcb/all_deciderRepository.ts` for a complete combined approach example.
+- **Sliced:** Better for larger domains, performance-critical applications,
+  clearer boundaries
+- **Combined:** Better for smaller domains, simpler architecture, acceptable
+  overhead
+
+See `demo/dcb/all_deciderRepository.ts` for a complete combined approach
+example.
 
 **Key Characteristics:**
 

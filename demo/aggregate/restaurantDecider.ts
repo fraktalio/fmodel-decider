@@ -28,10 +28,11 @@ export const restaurantDecider: AggregateDecider<
           {
             decider: "Restaurant",
             kind: "RestaurantCreatedEvent",
-            id: command.id,
+            restaurantId: command.restaurantId,
             name: command.name,
             menu: command.menu,
             final: false,
+            tagFields: ["restaurantId"],
           },
         ];
       case "ChangeRestaurantMenuCommand":
@@ -42,9 +43,10 @@ export const restaurantDecider: AggregateDecider<
           {
             decider: "Restaurant",
             kind: "RestaurantMenuChangedEvent",
-            id: currentState.restaurantId,
+            restaurantId: currentState.restaurantId,
             menu: command.menu,
             final: false,
+            tagFields: ["restaurantId"],
           },
         ];
       case "PlaceOrderCommand":
@@ -55,10 +57,11 @@ export const restaurantDecider: AggregateDecider<
           {
             decider: "Restaurant",
             kind: "RestaurantOrderPlacedEvent",
-            id: command.id,
+            restaurantId: command.restaurantId,
             orderId: command.orderId,
             menuItems: command.menuItems,
             final: false,
+            tagFields: ["restaurantId"],
           },
         ];
       default: {
@@ -71,7 +74,11 @@ export const restaurantDecider: AggregateDecider<
   (currentState, event) => {
     switch (event.kind) {
       case "RestaurantCreatedEvent":
-        return { restaurantId: event.id, name: event.name, menu: event.menu };
+        return {
+          restaurantId: event.restaurantId,
+          name: event.name,
+          menu: event.menu,
+        };
       case "RestaurantMenuChangedEvent":
         return currentState !== null
           ? {

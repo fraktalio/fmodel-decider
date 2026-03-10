@@ -14,7 +14,7 @@ Deno.test("Order Decider - Create Order Success", () => {
   const command: CreateOrderCommand = {
     decider: "Order",
     kind: "CreateOrderCommand",
-    id: "order-1",
+    orderId: "order-1",
     restaurantId: "restaurant-1",
     menuItems: testMenuItems,
   };
@@ -27,10 +27,11 @@ Deno.test("Order Decider - Create Order Success", () => {
         version: 1,
         decider: "Order",
         kind: "OrderCreatedEvent",
-        id: "order-1",
+        orderId: "order-1",
         restaurantId: "restaurant-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["orderId"],
       },
     ]);
 });
@@ -39,7 +40,7 @@ Deno.test("Order Decider - Create Order Already Exists", () => {
   const command: CreateOrderCommand = {
     decider: "Order",
     kind: "CreateOrderCommand",
-    id: "order-1",
+    orderId: "order-1",
     restaurantId: "restaurant-1",
     menuItems: testMenuItems,
   };
@@ -50,10 +51,11 @@ Deno.test("Order Decider - Create Order Already Exists", () => {
         version: 1,
         decider: "Order",
         kind: "OrderCreatedEvent",
-        id: "order-1",
+        orderId: "order-1",
         restaurantId: "restaurant-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["orderId"],
       },
     ])
     .when(command)
@@ -64,7 +66,7 @@ Deno.test("Order Decider - Mark Order As Prepared Success", () => {
   const command: MarkOrderAsPreparedCommand = {
     decider: "Order",
     kind: "MarkOrderAsPreparedCommand",
-    id: "order-1",
+    orderId: "order-1",
   };
 
   DeciderEventSourcedSpec.for(orderDecider)
@@ -73,10 +75,11 @@ Deno.test("Order Decider - Mark Order As Prepared Success", () => {
         version: 1,
         decider: "Order",
         kind: "OrderCreatedEvent",
-        id: "order-1",
+        orderId: "order-1",
         restaurantId: "restaurant-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["orderId"],
       },
     ])
     .when(command)
@@ -85,8 +88,9 @@ Deno.test("Order Decider - Mark Order As Prepared Success", () => {
         version: 1,
         decider: "Order",
         kind: "OrderPreparedEvent",
-        id: "order-1",
+        orderId: "order-1",
         final: false,
+        tagFields: ["orderId"],
       },
     ]);
 });
@@ -95,7 +99,7 @@ Deno.test("Order Decider - Mark Order As Prepared Order Does Not Exist", () => {
   const command: MarkOrderAsPreparedCommand = {
     decider: "Order",
     kind: "MarkOrderAsPreparedCommand",
-    id: "order-1",
+    orderId: "order-1",
   };
 
   DeciderEventSourcedSpec.for(orderDecider)

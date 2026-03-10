@@ -35,10 +35,9 @@ export class OrderRepository {
     this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [
-        ["id:" + cmd.id, "OrderCreatedEvent"],
-        ["id:" + cmd.id, "OrderPreparedEvent"],
+        ["orderId:" + cmd.orderId, "OrderCreatedEvent"],
+        ["orderId:" + cmd.orderId, "OrderPreparedEvent"],
       ],
-      ["id"], // Index by id field
     );
   }
 

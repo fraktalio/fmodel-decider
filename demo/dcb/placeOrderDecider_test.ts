@@ -20,7 +20,6 @@ Deno.test("Place Order - Success", () => {
   const command: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
     restaurantId: "restaurant-1",
-    id: "order-1",
     orderId: "order-1",
     menuItems: testMenuItems,
   };
@@ -29,22 +28,22 @@ Deno.test("Place Order - Success", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
     .then([
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
     ]);
 });
@@ -53,7 +52,6 @@ Deno.test("Place Order - Restaurant Does Not Exist (throws error)", () => {
   const command: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
     restaurantId: "restaurant-1",
-    id: "order-1",
     orderId: "order-1",
     menuItems: testMenuItems,
   };
@@ -68,7 +66,6 @@ Deno.test("Place Order - Order Already Exists (throws error)", () => {
   const command: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
     restaurantId: "restaurant-1",
-    id: "restaurant-1",
     orderId: "order-1",
     menuItems: testMenuItems,
   };
@@ -77,19 +74,19 @@ Deno.test("Place Order - Order Already Exists (throws error)", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
     ])
     .when(command)
@@ -104,7 +101,6 @@ Deno.test("Place Order - Menu Items Not Available (throws error)", () => {
   const command: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
     restaurantId: "restaurant-1",
-    id: "order-1",
     orderId: "order-1",
     menuItems: invalidMenuItems,
   };
@@ -113,11 +109,11 @@ Deno.test("Place Order - Menu Items Not Available (throws error)", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
@@ -136,7 +132,6 @@ Deno.test("Place Order - After Menu Change", () => {
   const command: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
     restaurantId: "restaurant-1",
-    id: "order-1",
     orderId: "order-1",
     menuItems: [{ menuItemId: "item-3", name: "Tacos", price: "8.00" }],
   };
@@ -145,29 +140,29 @@ Deno.test("Place Order - After Menu Change", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
       {
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .when(command)
     .then([
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: [{ menuItemId: "item-3", name: "Tacos", price: "8.00" }],
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
     ]);
 });

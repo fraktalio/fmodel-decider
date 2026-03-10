@@ -78,11 +78,11 @@ export const placeOrderDecider: DcbDecider<
         return [
           {
             kind: "RestaurantOrderPlacedEvent",
-            id: command.orderId,
             restaurantId: command.restaurantId,
             orderId: command.orderId,
             menuItems: command.menuItems,
             final: false,
+            tagFields: ["restaurantId", "orderId"],
           },
         ];
       }

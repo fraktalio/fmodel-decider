@@ -20,7 +20,7 @@ export const orderView: Projection<OrderView | null, OrderEvent> =
       switch (event.kind) {
         case "OrderCreatedEvent":
           return {
-            orderId: event.id,
+            orderId: event.orderId,
             restaurantId: event.restaurantId,
             menuItems: event.menuItems,
             status: "CREATED",

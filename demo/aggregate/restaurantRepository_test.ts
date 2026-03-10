@@ -33,7 +33,7 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -51,7 +51,7 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantCreatedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantCreatedEvent");
-    assertEquals(event.id, "r1");
+    assertEquals(event.restaurantId, "r1");
     assertEquals(event.name, "Bistro");
     assertEquals(event.menu.menuId, "m1");
     assertEquals(event.menu.cuisine, "ITALIAN");
@@ -69,14 +69,14 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as RestaurantCreatedEvent;
     assertEquals(storedEvent.kind, "RestaurantCreatedEvent");
-    assertEquals(storedEvent.id, "r1");
+    assertEquals(storedEvent.restaurantId, "r1");
     assertEquals(storedEvent.name, "Bistro");
 
     // Verify events persisted to type index
     const typeIndexKey = [
       "events_by_type",
       "RestaurantCreatedEvent",
-      "id:r1",
+      "restaurantId:r1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -100,7 +100,7 @@ Deno.test("RestaurantRepository - duplicate restaurant rejection (domain error)"
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -141,7 +141,7 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
     const createCommand: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -157,7 +157,7 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
     const changeMenuCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      id: "r1",
+      restaurantId: "r1",
       menu: {
         menuId: "m2",
         cuisine: "FRENCH",
@@ -172,7 +172,7 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantMenuChangedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantMenuChangedEvent");
-    assertEquals(event.id, "r1");
+    assertEquals(event.restaurantId, "r1");
     assertEquals(event.menu.menuId, "m2");
     assertEquals(event.menu.cuisine, "FRENCH");
   } finally {
@@ -193,7 +193,7 @@ Deno.test("RestaurantRepository - menu change on non-existent restaurant", async
     const changeMenuCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      id: "r1",
+      restaurantId: "r1",
       menu: {
         menuId: "m2",
         cuisine: "FRENCH",
@@ -228,7 +228,7 @@ Deno.test("RestaurantRepository - concurrent modification detection", async () =
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -255,7 +255,7 @@ Deno.test("RestaurantRepository - concurrent modification detection", async () =
 
     // Verify only one event was persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "RestaurantCreatedEvent", "id:r1"],
+      prefix: ["events_by_type", "RestaurantCreatedEvent", "restaurantId:r1"],
     });
     const entries = [];
     for await (const entry of iter) {

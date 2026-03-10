@@ -32,8 +32,7 @@ export class CreateRestaurantRepository {
   constructor(kv: Deno.Kv) {
     this.repository = new DenoKvEventSourcedRepository(
       kv,
-      (cmd) => [["id:" + cmd.id, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
-      ["id"], // Index by id field
+      (cmd) => [["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
     );
   }
 

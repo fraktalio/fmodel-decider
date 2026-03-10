@@ -16,11 +16,11 @@ Deno.test("Restaurant View - Restaurant Created Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then({
@@ -43,18 +43,18 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
       {
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then({
@@ -69,19 +69,19 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "10.00" }],
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
     ])
     .then({
@@ -104,10 +104,10 @@ Deno.test("Restaurant View - Menu Changed Event with Null State", () => {
     .given([
       {
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
         restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then(null);

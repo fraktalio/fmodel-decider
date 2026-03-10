@@ -17,10 +17,11 @@ Deno.test("Restaurant View - Restaurant Created Event", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then({
@@ -44,17 +45,19 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
       {
         decider: "Restaurant",
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then({
@@ -70,18 +73,20 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantCreatedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
       {
         decider: "Restaurant",
         kind: "RestaurantOrderPlacedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         orderId: "order-1",
         menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "10.00" }],
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then({
@@ -105,9 +110,10 @@ Deno.test("Restaurant View - Menu Changed Event with Null State", () => {
       {
         decider: "Restaurant",
         kind: "RestaurantMenuChangedEvent",
-        id: "restaurant-1",
+        restaurantId: "restaurant-1",
         menu: newMenu,
         final: false,
+        tagFields: ["restaurantId"],
       },
     ])
     .then(null);

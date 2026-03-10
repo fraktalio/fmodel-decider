@@ -35,7 +35,6 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -58,7 +57,6 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     const changeCommand: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: "r1",
-      id: "r1",
       menu: {
         menuId: "m2",
         cuisine: "MEXICAN",
@@ -100,7 +98,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     const typeIndexKey = [
       "events_by_type",
       "RestaurantMenuChangedEvent",
-      "id:r1",
+      "restaurantId:r1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -125,7 +123,6 @@ Deno.test("ChangeRestaurantMenuRepository - non-existent restaurant rejection (d
     const command: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: "r999",
-      id: "r999",
       menu: {
         menuId: "m2",
         cuisine: "MEXICAN",
@@ -162,7 +159,6 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -185,7 +181,6 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
     const changeCommand1: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: "r1",
-      id: "r1",
       menu: {
         menuId: "m2",
         cuisine: "MEXICAN",
@@ -198,7 +193,6 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
     const changeCommand2: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: "r1",
-      id: "r1",
       menu: {
         menuId: "m3",
         cuisine: "CHINESE",
@@ -228,7 +222,11 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
 
     // Verify both menu change events were persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "RestaurantMenuChangedEvent", "id:r1"],
+      prefix: [
+        "events_by_type",
+        "RestaurantMenuChangedEvent",
+        "restaurantId:r1",
+      ],
     });
     const entries = [];
     for await (const entry of iter) {

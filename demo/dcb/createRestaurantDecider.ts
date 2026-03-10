@@ -39,11 +39,11 @@ export const crateRestaurantDecider: DcbDecider<
         return [
           {
             kind: "RestaurantCreatedEvent",
-            id: command.restaurantId,
             restaurantId: command.restaurantId,
             name: command.name,
             menu: command.menu,
             final: false,
+            tagFields: ["restaurantId"],
           },
         ];
       default: {

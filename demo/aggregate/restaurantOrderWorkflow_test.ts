@@ -10,10 +10,11 @@ Deno.test("Restaurant Order Workflow - Restaurant Order Placed Event", () => {
   const event = {
     decider: "Restaurant" as const,
     kind: "RestaurantOrderPlacedEvent" as const,
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     orderId: "order-1",
     menuItems: testMenuItems,
     final: false,
+    tagFields: ["restaurantId"] as const,
   };
 
   const initialState = { tasks: {} };
@@ -31,10 +32,11 @@ Deno.test("Restaurant Order Workflow - Order Created Event", () => {
     version: 1,
     decider: "Order" as const,
     kind: "OrderCreatedEvent" as const,
-    id: "order-1",
+    orderId: "order-1",
     restaurantId: "restaurant-1",
     menuItems: testMenuItems,
     final: false,
+    tagFields: ["orderId"] as const,
   };
 
   const stateWithStartedTask = {
@@ -73,7 +75,7 @@ Deno.test("Restaurant Order Workflow - Task Started React", () => {
   assertEquals(commands.length, 1);
   assertEquals(commands[0].kind, "CreateOrderCommand");
   if (commands[0].kind === "CreateOrderCommand") {
-    assertEquals(commands[0].id, "order-1");
+    assertEquals(commands[0].orderId, "order-1");
     assertEquals(commands[0].restaurantId, "restaurant-1");
   }
 });
@@ -82,10 +84,11 @@ Deno.test("Restaurant Order Workflow - Idempotency Check", () => {
   const event = {
     decider: "Restaurant" as const,
     kind: "RestaurantOrderPlacedEvent" as const,
-    id: "restaurant-1",
+    restaurantId: "restaurant-1",
     orderId: "order-1",
     menuItems: testMenuItems,
     final: false,
+    tagFields: ["restaurantId"] as const,
   };
 
   const stateWithExistingTask = {
@@ -109,7 +112,9 @@ Deno.test("Restaurant Order Workflow - Pending Actions", () => {
 
   assertEquals(pendingActions.length, 1);
   assertEquals(pendingActions[0].kind, "CreateOrderCommand");
-  assertEquals(pendingActions[0].id, "pending-order");
+  if (pendingActions[0].kind === "CreateOrderCommand") {
+    assertEquals(pendingActions[0].orderId, "pending-order");
+  }
 });
 
 Deno.test("Restaurant Order Workflow - No Pending Actions for Empty State", () => {

@@ -44,7 +44,6 @@ export type Command =
 
 export type CreateRestaurantCommand = {
   readonly kind: "CreateRestaurantCommand";
-  readonly id: RestaurantId;
   readonly restaurantId: RestaurantId;
   readonly name: RestaurantName;
   readonly menu: RestaurantMenu;
@@ -52,14 +51,12 @@ export type CreateRestaurantCommand = {
 
 export type ChangeRestaurantMenuCommand = {
   readonly kind: "ChangeRestaurantMenuCommand";
-  readonly id: RestaurantId;
   readonly restaurantId: RestaurantId;
   readonly menu: RestaurantMenu;
 };
 
 export type PlaceOrderCommand = {
   readonly kind: "PlaceOrderCommand";
-  readonly id: OrderId;
   readonly restaurantId: RestaurantId;
   readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
@@ -67,7 +64,6 @@ export type PlaceOrderCommand = {
 
 export type MarkOrderAsPreparedCommand = {
   readonly kind: "MarkOrderAsPreparedCommand";
-  readonly id: OrderId;
   readonly orderId: OrderId;
 };
 
@@ -81,33 +77,33 @@ export type Event =
 
 export type RestaurantCreatedEvent = {
   readonly kind: "RestaurantCreatedEvent";
-  readonly id: RestaurantId;
   readonly restaurantId: RestaurantId;
   readonly name: RestaurantName;
   readonly menu: RestaurantMenu;
   readonly final: boolean;
+  readonly tagFields: readonly ["restaurantId"];
 };
 
 export type RestaurantMenuChangedEvent = {
   readonly kind: "RestaurantMenuChangedEvent";
-  readonly id: RestaurantId;
   readonly restaurantId: RestaurantId;
   readonly menu: RestaurantMenu;
   readonly final: boolean;
+  readonly tagFields: readonly ["restaurantId"];
 };
 
 export type RestaurantOrderPlacedEvent = {
   readonly kind: "RestaurantOrderPlacedEvent";
-  readonly id: OrderId;
   readonly restaurantId: RestaurantId;
   readonly orderId: OrderId;
   readonly menuItems: MenuItem[];
   readonly final: boolean;
+  readonly tagFields: readonly ["restaurantId", "orderId"];
 };
 
 export type OrderPreparedEvent = {
   readonly kind: "OrderPreparedEvent";
-  readonly id: OrderId;
   readonly orderId: OrderId;
   readonly final: boolean;
+  readonly tagFields: readonly ["orderId"];
 };

@@ -11,11 +11,11 @@ Deno.test("Order View - Order Created Event", () => {
     .given([
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         orderId: "order-1",
         restaurantId: "restaurant-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
     ])
     .then({
@@ -31,17 +31,17 @@ Deno.test("Order View - Order Prepared Event", () => {
     .given([
       {
         kind: "RestaurantOrderPlacedEvent",
-        id: "order-1",
         orderId: "order-1",
         restaurantId: "restaurant-1",
         menuItems: testMenuItems,
         final: false,
+        tagFields: ["restaurantId", "orderId"],
       },
       {
         kind: "OrderPreparedEvent",
-        id: "order-1",
         orderId: "order-1",
         final: false,
+        tagFields: ["orderId"],
       },
     ])
     .then({
@@ -57,9 +57,9 @@ Deno.test("Order View - Order Prepared Event with Null State", () => {
     .given([
       {
         kind: "OrderPreparedEvent",
-        id: "order-1",
         orderId: "order-1",
         final: false,
+        tagFields: ["orderId"],
       },
     ])
     .then(null);

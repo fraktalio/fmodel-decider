@@ -31,7 +31,6 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -74,7 +73,7 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     const typeIndexKey = [
       "events_by_type",
       "RestaurantCreatedEvent",
-      "id:r1",
+      "restaurantId:r1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -99,7 +98,6 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -139,7 +137,6 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
       restaurantId: "r1",
-      id: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -167,7 +164,7 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
 
     // Verify only one event was persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "RestaurantCreatedEvent", "id:r1"],
+      prefix: ["events_by_type", "RestaurantCreatedEvent", "restaurantId:r1"],
     });
     const entries = [];
     for await (const entry of iter) {

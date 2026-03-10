@@ -18,7 +18,11 @@ export const restaurantView: Projection<
   (currentState, event) => {
     switch (event.kind) {
       case "RestaurantCreatedEvent":
-        return { restaurantId: event.id, name: event.name, menu: event.menu };
+        return {
+          restaurantId: event.restaurantId,
+          name: event.name,
+          menu: event.menu,
+        };
       case "RestaurantMenuChangedEvent":
         return currentState !== null
           ? {

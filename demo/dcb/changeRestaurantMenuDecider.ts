@@ -40,10 +40,10 @@ export const changeRestaurantManuDecider: DcbDecider<
         return [
           {
             kind: "RestaurantMenuChangedEvent",
-            id: command.restaurantId,
             restaurantId: command.restaurantId,
             menu: command.menu,
             final: false,
+            tagFields: ["restaurantId"],
           },
         ];
       default: {

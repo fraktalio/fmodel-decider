@@ -43,7 +43,6 @@ async function setupRestaurantAndOrder(
   const createCommand: CreateRestaurantCommand = {
     kind: "CreateRestaurantCommand",
     restaurantId: restaurantId,
-    id: restaurantId,
     name: "Test Bistro",
     menu: {
       menuId: "m1",
@@ -66,7 +65,6 @@ async function setupRestaurantAndOrder(
   const placeCommand: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
     restaurantId: restaurantId,
-    id: restaurantId,
     orderId: orderId,
     menuItems: [
       { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -93,7 +91,6 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
     const command: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o-prep-1",
-      id: "o-prep-1",
     };
 
     const events = await handler.handle(command);
@@ -122,7 +119,7 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
     const typeIndexKey = [
       "events_by_type",
       "OrderPreparedEvent",
-      "id:o-prep-1",
+      "orderId:o-prep-1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -145,8 +142,7 @@ Deno.test("MarkOrderAsPreparedRepository - non-existent order rejection (domain 
 
     const command: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-nonexist-999",
-      id: "o-nonexist-999", // Non-existent order
+      orderId: "o-nonexist-999", // Non-existent order
     };
 
     // Should fail with domain error
@@ -179,7 +175,6 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
     const command: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o-already-1",
-      id: "o-already-1",
     };
 
     // First preparation should succeed
@@ -216,7 +211,6 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
     const placeCommand: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-concurrent-1",
-      id: "r-concurrent-1",
       orderId: "o-concurrent-2",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -235,13 +229,11 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
     const command1: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o-concurrent-1",
-      id: "o-concurrent-1",
     };
 
     const command2: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o-concurrent-2",
-      id: "o-concurrent-2",
     };
 
     const result1 = await handler.handle(command1);
@@ -281,7 +273,6 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
     const placeCommand: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
       restaurantId: "r-index-1",
-      id: "r-index-1",
       orderId: "o-index-2",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -300,18 +291,16 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
     await handler.handle({
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o-index-1",
-      id: "o-index-1",
     });
 
     await handler.handle({
       kind: "MarkOrderAsPreparedCommand",
       orderId: "o-index-2",
-      id: "o-index-2",
     });
 
     // Query events by order ID - should find specific order
     const iterByOrder1 = kv.list({
-      prefix: ["events_by_type", "OrderPreparedEvent", "id:o-index-1"],
+      prefix: ["events_by_type", "OrderPreparedEvent", "orderId:o-index-1"],
     });
     const entriesByOrder1 = [];
     for await (const entry of iterByOrder1) {
@@ -320,7 +309,7 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
     assertEquals(entriesByOrder1.length, 1);
 
     const iterByOrder2 = kv.list({
-      prefix: ["events_by_type", "OrderPreparedEvent", "id:o-index-2"],
+      prefix: ["events_by_type", "OrderPreparedEvent", "orderId:o-index-2"],
     });
     const entriesByOrder2 = [];
     for await (const entry of iterByOrder2) {

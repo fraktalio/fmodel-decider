@@ -104,16 +104,22 @@ export class AllDeciderRepository {
           case "Restaurant":
             // Load all restaurant events for this restaurant ID
             return [
-              ["id:" + cmd.id, "RestaurantCreatedEvent"],
-              ["id:" + cmd.id, "RestaurantMenuChangedEvent"],
-              ["id:" + cmd.id, "RestaurantOrderPlacedEvent"],
+              ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+              [
+                "restaurantId:" + cmd.restaurantId,
+                "RestaurantMenuChangedEvent",
+              ],
+              [
+                "restaurantId:" + cmd.restaurantId,
+                "RestaurantOrderPlacedEvent",
+              ],
             ];
 
           case "Order":
             // Load all order events for this order ID
             return [
-              ["id:" + cmd.id, "OrderCreatedEvent"],
-              ["id:" + cmd.id, "OrderPreparedEvent"],
+              ["orderId:" + cmd.orderId, "OrderCreatedEvent"],
+              ["orderId:" + cmd.orderId, "OrderPreparedEvent"],
             ];
 
           default: {
@@ -123,7 +129,6 @@ export class AllDeciderRepository {
           }
         }
       },
-      ["id"], // Index by id field
     );
   }
 

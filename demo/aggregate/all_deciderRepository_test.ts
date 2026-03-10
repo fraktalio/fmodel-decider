@@ -58,7 +58,7 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (processed by
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -92,7 +92,7 @@ Deno.test("AllDeciderRepository - CreateOrderCommand succeeds (processed by all 
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -122,7 +122,7 @@ Deno.test("AllDeciderRepository - duplicate restaurant rejection (domain error)"
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -156,7 +156,7 @@ Deno.test("AllDeciderRepository - duplicate order rejection (domain error)", asy
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },
@@ -186,7 +186,7 @@ Deno.test("AllDeciderRepository - change menu on non-existent restaurant", async
     const changeCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      id: "r1",
+      restaurantId: "r1",
       menu: {
         menuId: "m2",
         cuisine: "FRENCH",
@@ -216,7 +216,7 @@ Deno.test("AllDeciderRepository - mark non-existent order as prepared", async ()
     const markCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      id: "o1",
+      orderId: "o1",
     };
 
     // Fails because order doesn't exist
@@ -240,7 +240,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const createRestaurantCommand: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -259,7 +259,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const changeMenuCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      id: "r1",
+      restaurantId: "r1",
       menu: {
         menuId: "m2",
         cuisine: "FRENCH",
@@ -277,7 +277,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const createOrderCommand: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item2", name: "Croissant", price: "5.99" },
@@ -292,7 +292,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const markCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      id: "o1",
+      orderId: "o1",
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -327,7 +327,7 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
     const restaurantCommand: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      id: "r1",
+      restaurantId: "r1",
       name: "Bistro",
       menu: {
         menuId: "m1",
@@ -341,7 +341,7 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
     const orderCommand: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      id: "o1",
+      orderId: "o1",
       restaurantId: "r1",
       menuItems: [
         { menuItemId: "item1", name: "Pizza", price: "12.99" },

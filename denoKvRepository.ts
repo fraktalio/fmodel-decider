@@ -13,23 +13,21 @@ import type { IEventRepository } from "./application.ts";
 /**
  * Shape constraint for commands.
  *
- * Commands must have an `id` field identifying the target entity
- * and a `kind` field identifying the command type.
+ * Commands must have a `kind` field identifying the command type.
  */
 export type CommandShape = {
-  readonly id: string; // The ID of the entity that the command is targeting
   readonly kind: string; // The kind/type/name of the command
 };
 
 /**
  * Shape constraint for events.
  *
- * Events must have an `id` field identifying the entity that produced the event
- * and a `kind` field identifying the event type.
+ * Events must have a `kind` field identifying the event type.
+ * Events can optionally declare `tagFields` - an array of field names to be indexed as tags.
  */
 export type EventShape = {
-  readonly id: string; // The ID of the entity that produced the event
   readonly kind: string; // The kind/type/name of the event
+  readonly tagFields?: readonly string[]; // Optional: fields to index as tags
 };
 /**
  * Query tuple type supporting zero or more tags followed by event type.
@@ -115,7 +113,7 @@ export class OptimisticLockingError extends Error {
 
 /**
  * Error thrown when tag field configuration is invalid.
- * 
+ *
  * This error is thrown at repository construction time when the number
  * of configured tag fields exceeds the maximum allowed (5 fields).
  */
@@ -127,7 +125,7 @@ export class TagFieldConfigurationError extends Error {
   ) {
     super(
       `Tag field count exceeds maximum: ${fieldCount} > ${maxCount}. ` +
-      `Configured fields: [${fields.join(", ")}]`
+        `Configured fields: [${fields.join(", ")}]`,
     );
     this.name = "TagFieldConfigurationError";
   }
@@ -196,26 +194,15 @@ export class DenoKvEventSourcedRepository<
    *
    * @param kv - Deno KV instance for storage
    * @param getQueryTuples - Returns array of query tuples to load for this command
-   * @param tagFields - Event fields to extract as tags (must be string-typed, max 5 fields)
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
-   * @throws TagFieldConfigurationError if tagFields.length > 5
    */
   constructor(
     private readonly kv: Deno.Kv,
     private readonly getQueryTuples: (
       command: C,
     ) => QueryTuple<Ei>[],
-    private readonly tagFields: ReadonlyArray<StringFields<Eo>> = [],
     private readonly maxRetries: number = 10,
   ) {
-    // Validate tag field count
-    if (tagFields.length > 5) {
-      throw new TagFieldConfigurationError(
-        tagFields.length,
-        5,
-        tagFields as readonly string[]
-      );
-    }
   }
 
   /**
@@ -268,8 +255,8 @@ export class DenoKvEventSourcedRepository<
       // Conflict detected (persistedEvents is null), retry
     }
 
-    // Extract first entity ID for error message (from command)
-    throw new OptimisticLockingError(attempts, command.id);
+    // Extract first entity ID for error message (no generic id field available)
+    throw new OptimisticLockingError(attempts, "unknown");
   }
 
   /**
@@ -301,16 +288,16 @@ export class DenoKvEventSourcedRepository<
       for (const tuple of queryTuples) {
         // Extract event type (last element)
         const eventType = tuple[tuple.length - 1] as Ei["kind"];
-        
+
         // Extract tags (all elements except last)
         const tags = tuple.slice(0, -1) as string[];
-        
+
         // Sort extracted tags alphabetically
         const sortedTags = this.sortTags(tags);
-        
+
         // Build index prefix
         const prefix: Deno.KvKey = ["events_by_type", eventType, ...sortedTags];
-        
+
         // Scan index
         const iter = this.kv.list({ prefix });
 
@@ -384,14 +371,23 @@ export class DenoKvEventSourcedRepository<
       for (const event of events) {
         const eventId = monotonicUlid();
         const eventType = (event as { kind: string }).kind;
-        const entityId = event.id; // Use id from EventShape
 
         // Primary storage
         atomic.set(["events", eventId], event);
 
-        // Tag-based indexes
-        if (this.tagFields.length > 0) {
-          const tags = this.extractTags(event, this.tagFields);
+        // Tag-based indexes - extract tagFields from the event itself
+        const tagFields = event.tagFields;
+        if (tagFields && tagFields.length > 0) {
+          // Validate tag field count
+          if (tagFields.length > 5) {
+            throw new TagFieldConfigurationError(
+              tagFields.length,
+              5,
+              tagFields as readonly string[],
+            );
+          }
+
+          const tags = this.extractTags(event, tagFields as readonly string[]);
           const sortedTags = this.sortTags(tags);
           const subsets = this.generateSubsets(sortedTags);
 
@@ -439,12 +435,12 @@ export class DenoKvEventSourcedRepository<
    */
   private extractTags(
     event: Eo,
-    tagFields: ReadonlyArray<StringFields<Eo>>,
+    tagFields: readonly string[],
   ): Tag[] {
     const tags: Tag[] = [];
 
     for (const field of tagFields) {
-      const value = event[field];
+      const value = (event as Record<string, unknown>)[field];
 
       // Skip undefined, null, or empty string values
       if (value === undefined || value === null || value === "") {
@@ -511,8 +507,6 @@ export class DenoKvEventSourcedRepository<
 
     return subsets;
   }
-
-
 }
 
 // Export concrete repositories
