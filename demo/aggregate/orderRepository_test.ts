@@ -67,7 +67,7 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     const typeIndexKey = [
       "events_by_type",
       "OrderCreatedEvent",
-      "o1",
+      "id:o1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -207,7 +207,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
 
     // Verify only one event was persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "OrderCreatedEvent", "o1"],
+      prefix: ["events_by_type", "OrderCreatedEvent", "id:o1"],
     });
     const entries = [];
     for await (const entry of iter) {

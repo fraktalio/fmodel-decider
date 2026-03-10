@@ -45,9 +45,10 @@ export class MarkOrderAsPreparedRepository {
     this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [
-        [cmd.id, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
-        [cmd.id, "OrderPreparedEvent"], // Query by order ID to check if already prepared
+        ["id:" + cmd.id, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
+        ["id:" + cmd.id, "OrderPreparedEvent"], // Query by order ID to check if already prepared
       ],
+      ["id"], // Index by id field
     );
   }
 

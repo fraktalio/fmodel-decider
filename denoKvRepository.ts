@@ -31,6 +31,30 @@ export type EventShape = {
   readonly id: string; // The ID of the entity that produced the event
   readonly kind: string; // The kind/type/name of the event
 };
+/**
+ * Query tuple type supporting zero or more tags followed by event type.
+ *
+ * Examples:
+ * - ["RestaurantOrderPlacedEvent"] - no tags
+ * - ["tenant:acme", "RestaurantOrderPlacedEvent"] - one tag
+ * - ["tenant:acme", "priority:high", "RestaurantOrderPlacedEvent"] - two tags
+ */
+export type QueryTuple<Ei extends EventShape> = [...string[], Ei["kind"]];
+
+/**
+ * Extracts string-typed field names from an event type.
+ *
+ * This mapped type filters event fields to only those with string values,
+ * enabling type-safe tag field configuration.
+ */
+export type StringFields<E> = {
+  [K in keyof E]: E[K] extends string ? K : never;
+}[keyof E];
+
+/**
+ * Tag in "fieldName:fieldValue" format.
+ */
+export type Tag = string;
 
 /**
  * Metadata attached to persisted events.
@@ -90,38 +114,72 @@ export class OptimisticLockingError extends Error {
 }
 
 /**
+ * Error thrown when tag field configuration is invalid.
+ * 
+ * This error is thrown at repository construction time when the number
+ * of configured tag fields exceeds the maximum allowed (5 fields).
+ */
+export class TagFieldConfigurationError extends Error {
+  constructor(
+    public readonly fieldCount: number,
+    public readonly maxCount: number,
+    public readonly fields: readonly string[],
+  ) {
+    super(
+      `Tag field count exceeds maximum: ${fieldCount} > ${maxCount}. ` +
+      `Configured fields: [${fields.join(", ")}]`
+    );
+    this.name = "TagFieldConfigurationError";
+  }
+}
+
+/**
  * Generic event-sourced repository implementation using Deno KV.
  *
  * Implements the two-index architecture with pointer pattern:
  * - Primary storage: ["events", eventId] → full event data
- * - Type index: ["events_by_type", eventType, entityId, eventId] → eventId (pointer)
+ * - Tag indexes: ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
  *
  * Provides optimistic locking with automatic retry for concurrent modifications.
  *
- * **Tuple-Based Query Pattern:**
+ * **Query Tuple Pattern:**
  *
  * The repository uses a flexible tuple-based approach for loading events, where each
- * tuple specifies an (entityId, eventType) pair. This allows querying events from
- * multiple entities and types in a single operation, which is essential for DCB patterns.
+ * tuple specifies zero or more tags followed by an event type. This allows querying
+ * events by type and tag combinations in a single operation.
  *
- * **Example - Simple case (CreateRestaurant):**
+ * **Example - No tags (all events of type):**
  * ```typescript
- * getEntityIdEventTypePairs: (cmd) => [
- *   [cmd.id, "RestaurantCreatedEvent"]  // Load RestaurantCreatedEvent by restaurant ID
+ * getQueryTuples: (cmd) => [
+ *   ["RestaurantCreatedEvent"]  // Load all RestaurantCreatedEvent
  * ]
  * ```
  *
- * **Example - Complex case (PlaceOrder spanning multiple entities):**
+ * **Example - Single tag:**
  * ```typescript
- * getEntityIdEventTypePairs: (cmd) => [
- *   [cmd.restaurantId, "RestaurantCreatedEvent"],      // Restaurant events by restaurant ID
- *   [cmd.restaurantId, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
- *   [cmd.id, "RestaurantOrderPlacedEvent"],  // Orders by order ID (cmd.id = orderId)
+ * getQueryTuples: (cmd) => [
+ *   ["tenant:acme", "RestaurantOrderPlacedEvent"]  // Orders for tenant acme
  * ]
  * ```
  *
- * This flexibility allows DCB deciders to define consistency boundaries that span
- * multiple entities while maintaining type safety and optimistic locking.
+ * **Example - Multiple tags:**
+ * ```typescript
+ * getQueryTuples: (cmd) => [
+ *   ["tenant:acme", "priority:high", "RestaurantOrderPlacedEvent"]  // High priority orders for tenant acme
+ * ]
+ * ```
+ *
+ * **Tag-Based Indexing:**
+ *
+ * Tags are automatically extracted from event fields specified in the `tagFields`
+ * constructor parameter. Only string-typed fields can be configured as tag fields.
+ * The repository generates all possible tag subset combinations (2^n - 1) as index
+ * entries, trading write amplification for O(1) query performance.
+ *
+ * To query by entityId, include "id" in your tagFields configuration.
+ *
+ * Maximum 5 tag fields are allowed to bound write amplification to 31 index entries
+ * per event (2^5 - 1 tag subsets).
  *
  * @typeParam C - Command type (must conform to CommandShape)
  * @typeParam Ei - Input event type (consumed by decider, must conform to EventShape)
@@ -137,16 +195,28 @@ export class DenoKvEventSourcedRepository<
    * Creates a new EventSourcedRepository.
    *
    * @param kv - Deno KV instance for storage
-   * @param getEntityIdEventTypePairs - Returns array of [entityId, eventType] tuples to load for this command
+   * @param getQueryTuples - Returns array of query tuples to load for this command
+   * @param tagFields - Event fields to extract as tags (must be string-typed, max 5 fields)
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
+   * @throws TagFieldConfigurationError if tagFields.length > 5
    */
   constructor(
     private readonly kv: Deno.Kv,
-    private readonly getEntityIdEventTypePairs: (
+    private readonly getQueryTuples: (
       command: C,
-    ) => [string, Ei["kind"]][],
+    ) => QueryTuple<Ei>[],
+    private readonly tagFields: ReadonlyArray<StringFields<Eo>> = [],
     private readonly maxRetries: number = 10,
-  ) {}
+  ) {
+    // Validate tag field count
+    if (tagFields.length > 5) {
+      throw new TagFieldConfigurationError(
+        tagFields.length,
+        5,
+        tagFields as readonly string[]
+      );
+    }
+  }
 
   /**
    * Executes a command by loading events, computing new events, and persisting them.
@@ -173,9 +243,9 @@ export class DenoKvEventSourcedRepository<
       attempts++;
 
       // 1. Load events with index keys
-      const entityIdEventTypePairs = this.getEntityIdEventTypePairs(command);
+      const queryTuples = this.getQueryTuples(command);
       const { events, indexKeys } = await this.loadEvents(
-        entityIdEventTypePairs,
+        queryTuples,
       );
 
       // 2. Compute new events using decider
@@ -198,25 +268,27 @@ export class DenoKvEventSourcedRepository<
       // Conflict detected (persistedEvents is null), retry
     }
 
-    // Extract first entity ID for error message
-    const pairs = this.getEntityIdEventTypePairs(command);
-    const firstEntityId = pairs.length > 0 ? pairs[0][0] : "unknown";
-    throw new OptimisticLockingError(attempts, firstEntityId);
+    // Extract first entity ID for error message (from command)
+    throw new OptimisticLockingError(attempts, command.id);
   }
 
   /**
-   * Loads events using the double-read pattern.
+   * Loads events using query tuples.
    *
-   * 1. Scan type indexes to collect ULIDs and versionstamps for each (entityId, eventType) pair
+   * For backward compatibility, this implementation treats query tuples as
+   * [entityId, eventType] pairs (ignoring any additional tags for now).
+   * Full tag-based querying will be implemented in subsequent tasks.
+   *
+   * 1. Scan type indexes to collect ULIDs and versionstamps for each query tuple
    * 2. Fetch full events from primary storage
    * 3. Sort events by ULID for chronological ordering
    *
-   * @param entityIdEventTypePairs - Array of [entityId, eventType] tuples to query
+   * @param queryTuples - Array of query tuples to process
    * @returns Loaded events with versionstamps
    * @throws RepositoryError if load operation fails
    */
   private async loadEvents(
-    entityIdEventTypePairs: [string, Ei["kind"]][],
+    queryTuples: QueryTuple<Ei>[],
   ): Promise<LoadedEvents<Ei>> {
     try {
       const indexKeys: {
@@ -225,11 +297,22 @@ export class DenoKvEventSourcedRepository<
         eventId: string;
       }[] = [];
 
-      // Scan type indexes for all (entityId, eventType) pairs
-      for (const [entityId, eventType] of entityIdEventTypePairs) {
-        const iter = this.kv.list({
-          prefix: ["events_by_type", eventType, entityId],
-        });
+      // Process each query tuple
+      for (const tuple of queryTuples) {
+        // Extract event type (last element)
+        const eventType = tuple[tuple.length - 1] as Ei["kind"];
+        
+        // Extract tags (all elements except last)
+        const tags = tuple.slice(0, -1) as string[];
+        
+        // Sort extracted tags alphabetically
+        const sortedTags = this.sortTags(tags);
+        
+        // Build index prefix
+        const prefix: Deno.KvKey = ["events_by_type", eventType, ...sortedTags];
+        
+        // Scan index
+        const iter = this.kv.list({ prefix });
 
         for await (const entry of iter) {
           const eventId = entry.value as string; // Pointer pattern
@@ -306,11 +389,19 @@ export class DenoKvEventSourcedRepository<
         // Primary storage
         atomic.set(["events", eventId], event);
 
-        // Type index (pointer)
-        atomic.set(
-          ["events_by_type", eventType, entityId, eventId],
-          eventId, // Store ULID as value (pointer pattern)
-        );
+        // Tag-based indexes
+        if (this.tagFields.length > 0) {
+          const tags = this.extractTags(event, this.tagFields);
+          const sortedTags = this.sortTags(tags);
+          const subsets = this.generateSubsets(sortedTags);
+
+          for (const subset of subsets) {
+            atomic.set(
+              ["events_by_type", eventType, ...subset, eventId],
+              eventId, // Store ULID as value (pointer pattern)
+            );
+          }
+        }
 
         eventsWithMetadata.push({
           ...event,
@@ -335,6 +426,93 @@ export class DenoKvEventSourcedRepository<
       throw new RepositoryError("persist", error as Error);
     }
   }
+  /**
+   * Extracts tags from event fields in "fieldName:fieldValue" format.
+   *
+   * Iterates through configured tag fields and extracts string values from the event.
+   * Skips undefined, null, and empty string values. Each tag is formatted as
+   * "fieldName:fieldValue" with exactly one colon separator.
+   *
+   * @param event - Event to extract tags from
+   * @param tagFields - Fields to extract as tags
+   * @returns Array of tags in "fieldName:fieldValue" format
+   */
+  private extractTags(
+    event: Eo,
+    tagFields: ReadonlyArray<StringFields<Eo>>,
+  ): Tag[] {
+    const tags: Tag[] = [];
+
+    for (const field of tagFields) {
+      const value = event[field];
+
+      // Skip undefined, null, or empty string values
+      if (value === undefined || value === null || value === "") {
+        continue;
+      }
+
+      // Type assertion safe due to StringFields constraint
+      const stringValue = value as string;
+      tags.push(`${String(field)}:${stringValue}`);
+    }
+
+    return tags;
+  }
+
+  /**
+   * Sorts tags alphabetically for deterministic index keys.
+   *
+   * @param tags - Tags to sort
+   * @returns Sorted tags in ascending lexicographic order
+   */
+  private sortTags(tags: Tag[]): Tag[] {
+    return [...tags].sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
+   * Generates all non-empty subsets of tags using binary enumeration.
+   *
+   * Algorithm: For n tags, iterate from 1 to 2^n - 1. Each number's binary
+   * representation indicates which tags to include in that subset.
+   *
+   * Example: tags = ["a", "b", "c"]
+   * - 001 (1) → ["a"]
+   * - 010 (2) → ["b"]
+   * - 011 (3) → ["a", "b"]
+   * - 100 (4) → ["c"]
+   * - 101 (5) → ["a", "c"]
+   * - 110 (6) → ["b", "c"]
+   * - 111 (7) → ["a", "b", "c"]
+   *
+   * @param tags - Sorted tags to generate subsets from
+   * @returns Array of tag subsets, each maintaining sorted order
+   */
+  private generateSubsets(tags: Tag[]): Tag[][] {
+    if (tags.length === 0) {
+      return [];
+    }
+
+    const subsets: Tag[][] = [];
+    const n = tags.length;
+    const totalSubsets = Math.pow(2, n) - 1; // Exclude empty set
+
+    for (let i = 1; i <= totalSubsets; i++) {
+      const subset: Tag[] = [];
+
+      for (let j = 0; j < n; j++) {
+        // Check if j-th bit is set in i
+        if ((i & (1 << j)) !== 0) {
+          subset.push(tags[j]);
+        }
+      }
+
+      subsets.push(subset);
+    }
+
+    return subsets;
+  }
+
+
 }
 
 // Export concrete repositories

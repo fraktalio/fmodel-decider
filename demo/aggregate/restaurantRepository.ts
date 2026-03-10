@@ -36,10 +36,11 @@ export class RestaurantRepository {
     this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [
-        [cmd.id, "RestaurantCreatedEvent"],
-        [cmd.id, "RestaurantMenuChangedEvent"],
-        [cmd.id, "RestaurantOrderPlacedEvent"],
+        ["id:" + cmd.id, "RestaurantCreatedEvent"],
+        ["id:" + cmd.id, "RestaurantMenuChangedEvent"],
+        ["id:" + cmd.id, "RestaurantOrderPlacedEvent"],
       ],
+      ["id"], // Index by id field
     );
   }
 

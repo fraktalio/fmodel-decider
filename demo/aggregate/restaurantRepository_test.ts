@@ -76,7 +76,7 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     const typeIndexKey = [
       "events_by_type",
       "RestaurantCreatedEvent",
-      "r1",
+      "id:r1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -255,7 +255,7 @@ Deno.test("RestaurantRepository - concurrent modification detection", async () =
 
     // Verify only one event was persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "RestaurantCreatedEvent", "r1"],
+      prefix: ["events_by_type", "RestaurantCreatedEvent", "id:r1"],
     });
     const entries = [];
     for await (const entry of iter) {

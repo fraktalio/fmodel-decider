@@ -122,7 +122,7 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
     const typeIndexKey = [
       "events_by_type",
       "OrderPreparedEvent",
-      "o-prep-1",
+      "id:o-prep-1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -311,7 +311,7 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
 
     // Query events by order ID - should find specific order
     const iterByOrder1 = kv.list({
-      prefix: ["events_by_type", "OrderPreparedEvent", "o-index-1"],
+      prefix: ["events_by_type", "OrderPreparedEvent", "id:o-index-1"],
     });
     const entriesByOrder1 = [];
     for await (const entry of iterByOrder1) {
@@ -320,7 +320,7 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
     assertEquals(entriesByOrder1.length, 1);
 
     const iterByOrder2 = kv.list({
-      prefix: ["events_by_type", "OrderPreparedEvent", "o-index-2"],
+      prefix: ["events_by_type", "OrderPreparedEvent", "id:o-index-2"],
     });
     const entriesByOrder2 = [];
     for await (const entry of iterByOrder2) {

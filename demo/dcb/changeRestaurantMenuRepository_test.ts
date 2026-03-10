@@ -100,7 +100,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     const typeIndexKey = [
       "events_by_type",
       "RestaurantMenuChangedEvent",
-      "r1",
+      "id:r1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -228,7 +228,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
 
     // Verify both menu change events were persisted
     const iter = kv.list({
-      prefix: ["events_by_type", "RestaurantMenuChangedEvent", "r1"],
+      prefix: ["events_by_type", "RestaurantMenuChangedEvent", "id:r1"],
     });
     const entries = [];
     for await (const entry of iter) {

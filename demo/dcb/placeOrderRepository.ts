@@ -52,10 +52,11 @@ export class PlaceOrderRepository {
     this.repository = new DenoKvEventSourcedRepository(
       kv,
       (cmd) => [
-        [cmd.restaurantId, "RestaurantCreatedEvent"], // Query by restaurant ID
-        [cmd.restaurantId, "RestaurantMenuChangedEvent"], // Query by restaurant ID
-        [cmd.id, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
+        ["id:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Query by restaurant ID
+        ["id:" + cmd.restaurantId, "RestaurantMenuChangedEvent"], // Query by restaurant ID
+        ["id:" + cmd.id, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
       ],
+      ["id"], // Index by id field
     );
   }
 

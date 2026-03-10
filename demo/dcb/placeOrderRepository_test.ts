@@ -100,7 +100,7 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     const typeIndexKey = [
       "events_by_type",
       "RestaurantOrderPlacedEvent",
-      "o-happy-1",
+      "id:o-happy-1",
       event.eventId,
     ];
     const typeIndexResult = await kv.get(typeIndexKey);
@@ -418,7 +418,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
 
     // Verify both orders were persisted (indexed by order ID)
     const iterByOrder1 = kv.list({
-      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-retry-1"],
+      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "id:o-retry-1"],
     });
     const entriesByOrder1 = [];
     for await (const entry of iterByOrder1) {
@@ -427,7 +427,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     assertEquals(entriesByOrder1.length, 1, "First order should be persisted");
 
     const iterByOrder2 = kv.list({
-      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-retry-2"],
+      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "id:o-retry-2"],
     });
     const entriesByOrder2 = [];
     for await (const entry of iterByOrder2) {
@@ -498,7 +498,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
 
     // Query events by order ID (each order indexed separately)
     const iterByOrder1 = kv.list({
-      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-index-1"],
+      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "id:o-index-1"],
     });
     const entriesByOrder1 = [];
     for await (const entry of iterByOrder1) {
@@ -507,7 +507,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
     assertEquals(entriesByOrder1.length, 1);
 
     const iterByOrder2 = kv.list({
-      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "o-index-2"],
+      prefix: ["events_by_type", "RestaurantOrderPlacedEvent", "id:o-index-2"],
     });
     const entriesByOrder2 = [];
     for await (const entry of iterByOrder2) {
