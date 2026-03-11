@@ -33,7 +33,7 @@ architectures with progressive type refinement.
   - [Deciders](#deciders)
   - [Views](#views)
   - [Process Managers](#process-managers)
-- [Key Differences](#key-differences)
+  - [Key Differences](#key-differences)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
   - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
   - [Scenario 2: Dynamic Consistency Boundary (DCB) Pattern](#scenario-2-dynamic-consistency-boundary-dcb-pattern-demodcb)
@@ -952,9 +952,9 @@ Process managers follow the same progressive refinement pattern as Deciders:
 | `DcbProcess<AR, S, Ei, Eo, A>`   | `Si = So = S`                | `EventComputation<AR, Ei, Eo>`                          | event-sourced               |
 | `AggregateProcess<AR, S, E, A>`  | `Si = So = S`, `Ei = Eo = E` | `EventComputation<AR, E, E>`, `StateComputation<AR, S>` | event-sourced, state-stored |
 
-## Key Differences
+### Key Differences
 
-### Deciders
+#### Deciders
 
 | Concept           | `DcbDecider`           | `AggregateDecider`              |
 | ----------------- | ---------------------- | ------------------------------- |
@@ -962,14 +962,14 @@ Process managers follow the same progressive refinement pattern as Deciders:
 | **State-stored**  | ❌ Not possible        | ✅ Supported                    |
 | **Use case**      | Cross-concept boundary | Single-concept / DDD Aggregate  |
 
-### Views
+#### Views
 
 | Concept                  | `Projection`                    |
 | ------------------------ | ------------------------------- |
 | **State transformation** | ✅ Constrained Si = So = S      |
 | **Use case**             | Read models / Event projections |
 
-### Process Managers
+#### Process Managers
 
 | Concept                   | `DcbProcess`     | `AggregateProcess`                   |
 | ------------------------- | ---------------- | ------------------------------------ |
