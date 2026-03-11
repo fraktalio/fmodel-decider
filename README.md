@@ -581,14 +581,14 @@ Result: 3 non-empty subsets = 2^2 - 1
 The repository trades write amplification for O(1) query performance. Here's how
 the number of indexes grows with tag count:
 
-| Tag Fields | Index Entries | Formula  | Example Event                    |
-| ---------- | ------------- | -------- | -------------------------------- |
-| 0          | 0             | 2^0 - 1  | No tags                          |
-| 1          | 1             | 2^1 - 1  | `["orderId"]`                    |
-| 2          | 3             | 2^2 - 1  | `["orderId", "restaurantId"]`    |
-| 3          | 7             | 2^3 - 1  | `["orderId", "restaurantId", "customerId"]` |
-| 4          | 15            | 2^4 - 1  | Add `"status"`                   |
-| 5          | 31            | 2^5 - 1  | Add `"priority"` (maximum)       |
+| Tag Fields | Index Entries | Formula | Example Event                               |
+| ---------- | ------------- | ------- | ------------------------------------------- |
+| 0          | 0             | 2^0 - 1 | No tags                                     |
+| 1          | 1             | 2^1 - 1 | `["orderId"]`                               |
+| 2          | 3             | 2^2 - 1 | `["orderId", "restaurantId"]`               |
+| 3          | 7             | 2^3 - 1 | `["orderId", "restaurantId", "customerId"]` |
+| 4          | 15            | 2^4 - 1 | Add `"status"`                              |
+| 5          | 31            | 2^5 - 1 | Add `"priority"` (maximum)                  |
 
 **Concrete example with 3 tags:**
 
@@ -614,13 +614,29 @@ const event = {
 };
 
 // Repository generates 7 index entries (2^3 - 1):
-["events_by_type", "OrderPlacedEvent", "customerId:c1", eventId]
-["events_by_type", "OrderPlacedEvent", "orderId:o1", eventId]
-["events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId]
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", eventId]
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1", eventId]
-["events_by_type", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1", eventId]
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", "restaurantId:r1", eventId]
+[
+  "events_by_type",
+  "OrderPlacedEvent",
+  "customerId:c1",
+  eventId,
+]["events_by_type", "OrderPlacedEvent", "orderId:o1", eventId][
+  "events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId
+]["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", eventId][
+  "events_by_type",
+    "OrderPlacedEvent",
+    "customerId:c1",
+    "restaurantId:r1",
+    eventId
+][
+  "events_by_type", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1", eventId
+][
+  "events_by_type",
+    "OrderPlacedEvent",
+    "customerId:c1",
+    "orderId:o1",
+    "restaurantId:r1",
+    eventId
+];
 
 // This enables flexible queries:
 // - Query by customer: ["customerId:c1", "OrderPlacedEvent"]
@@ -639,9 +655,9 @@ const event = {
 - ⚠️ **Write cost:** Each event write creates multiple index entries
 - ⚠️ **Storage cost:** More index entries consume more storage
 
-**Configurable limit:** The maximum number of tag fields per event is configurable
-via the `maxTagFields` constructor parameter (default: 5, generating 2^5-1=31
-index entries). You can adjust this based on your needs:
+**Configurable limit:** The maximum number of tag fields per event is
+configurable via the `maxTagFields` constructor parameter (default: 5,
+generating 2^5-1=31 index entries). You can adjust this based on your needs:
 
 ```ts
 // Default: 5 tag fields max (31 indexes per event)
