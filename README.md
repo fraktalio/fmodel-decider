@@ -1,13 +1,44 @@
 # fmodel-decider
 
+**A complete spec-driven development framework** where the type system provides
+formal constraints and the Given-When-Then DSL provides executable examples -
+together forming a powerful foundation for building correct systems with AI
+assistance.
+
 TypeScript library for modeling deciders (`command handlers`), process managers,
 and views (`event handlers`) in domain-driven, event-sourced, or state-stored
 architectures with progressive type refinement.
 
 ![fmodel](fmodel.webp)
 
+## Why fmodel-decider?
+
+fmodel-decider is more than a library - it's a **formal specification framework**
+encoded in TypeScript's type system:
+
+- **Type System as Specification**: Interfaces like `IDcbDecider` and
+  `IAggregateDecider` are executable specifications that constrain
+  implementations and guide AI code generation
+- **Given-When-Then as Executable Examples**: Tests are specifications by
+  example that serve as living documentation and formal requirements
+- **Progressive Refinement**: Start with flexible types, add constraints
+  incrementally as requirements clarify - from "vibing" to "viable"
+- **AI-Friendly**: Formal types and concrete examples reduce hallucinations and
+  guide AI tools to generate correct implementations
+- **Production-Ready Infrastructure**: Complete event-sourced repository with
+  Deno KV, optimistic locking, and flexible querying
+
+**From informal requirements to production code:**
+
+1. Define types (formal specification)
+2. Write Given-When-Then tests (executable examples)
+3. Implement with AI assistance (guided by specifications)
+4. Deploy with confidence (verified by type system and tests)
+
 ## Table of Contents
 
+- [Why fmodel-decider?](#why-fmodel-decider)
+- [Spec-Driven Development](#spec-driven-development)
 - [Progressive Type Refinement Philosophy](#progressive-type-refinement-philosophy)
 - [Educational Purpose](#educational-purpose)
 - [What is a View?](#what-is-a-view)
@@ -44,6 +75,148 @@ architectures with progressive type refinement.
 - [Publish to JSR](#publish-to-jsr-dry-run)
 - [Further Reading](#further-reading)
 - [Credits](#credits)
+
+## Spec-Driven Development
+
+fmodel-decider positions **specification as code** through two complementary
+mechanisms:
+
+### 1. Type System as Formal Specification
+
+The type hierarchy encodes domain modeling patterns as executable specifications:
+
+```ts
+// Formal specification: Event-sourced computation
+interface EventComputation<C, Ei, Eo> {
+  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+}
+
+// Formal specification: Dynamic consistency boundary
+interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
+  // Gains EventComputation capability
+  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
+}
+```
+
+**Benefits:**
+
+- Compile-time verification of correctness
+- AI tools constrained to generate valid implementations
+- Self-documenting through types
+- Impossible states eliminated by design
+
+### 2. Given-When-Then as Executable Examples
+
+Tests are specifications by example that formally define behavior:
+
+```ts
+// Specification: "Given a restaurant exists, when placing an order, then order placed event is produced"
+DeciderEventSourcedSpec.for(placeOrderDecider)
+  .given([
+    {
+      kind: "RestaurantCreatedEvent",
+      restaurantId: "restaurant-1",
+      name: "Italian Bistro",
+      menu: testMenu,
+    },
+  ])
+  .when({
+    kind: "PlaceOrderCommand",
+    restaurantId: "restaurant-1",
+    orderId: "order-1",
+    menuItems: testMenuItems,
+  })
+  .then([
+    {
+      kind: "RestaurantOrderPlacedEvent",
+      restaurantId: "restaurant-1",
+      orderId: "order-1",
+      menuItems: testMenuItems,
+    },
+  ]);
+
+// Specification: "Given no restaurant exists, when placing an order, then throw RestaurantNotFoundError"
+DeciderEventSourcedSpec.for(placeOrderDecider)
+  .given([])
+  .when(placeOrderCommand)
+  .thenThrows((error) => error instanceof RestaurantNotFoundError);
+```
+
+**Benefits:**
+
+- Living documentation that never goes stale
+- Concrete examples clarify abstract requirements
+- AI-friendly format for code generation
+- Business rules encoded as executable tests
+
+### The Workflow: From Vibing to Viable
+
+**Step 1: Define Types (Formal Specification)**
+
+```ts
+type PlaceOrderCommand = {
+  kind: "PlaceOrderCommand";
+  restaurantId: string;
+  orderId: string;
+  menuItems: MenuItem[];
+};
+
+const placeOrderDecider: IDcbDecider<
+  PlaceOrderCommand,
+  PlaceOrderState,
+  RestaurantEvent | OrderEvent,
+  RestaurantOrderPlacedEvent
+>;
+```
+
+**Step 2: Write Given-When-Then Tests (Executable Examples)**
+
+```ts
+Deno.test("Place Order - Success", () => {
+  DeciderEventSourcedSpec.for(placeOrderDecider)
+    .given([restaurantCreatedEvent])
+    .when(placeOrderCommand)
+    .then([restaurantOrderPlacedEvent]);
+});
+```
+
+**Step 3: Implement with AI Assistance**
+
+The formal types and concrete examples guide AI to generate correct
+implementations:
+
+```
+AI Prompt: "Implement placeOrderDecider that satisfies:
+- Type: IDcbDecider<PlaceOrderCommand, PlaceOrderState, RestaurantEvent | OrderEvent, RestaurantOrderPlacedEvent>
+- Given [RestaurantCreatedEvent], when PlaceOrderCommand, then [RestaurantOrderPlacedEvent]
+- Given [], when PlaceOrderCommand, then throw RestaurantNotFoundError"
+```
+
+**Step 4: Verify and Deploy**
+
+- Type system verifies at compile-time
+- Tests verify at runtime
+- Deploy with confidence
+
+### Why This Matters for AI-Assisted Development
+
+**Constrained Generation Space:**
+
+- Formal types eliminate invalid implementations
+- AI can't generate code that violates specifications
+- Fewer hallucinations, more correct code
+
+**Compositional Specifications:**
+
+- Types compose to form larger specifications
+- Tests compose to cover complex scenarios
+- AI learns patterns from existing specifications
+
+**Refactoring Safety:**
+
+- Change implementation without changing specifications
+- Type system catches breaking changes
+- Tests prevent regressions
 
 ## Progressive Type Refinement Philosophy
 
