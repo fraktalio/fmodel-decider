@@ -1085,7 +1085,7 @@ await createRepo.execute(createRestaurantCommand);
 await placeOrderRepo.execute(placeOrderCommand);
 ```
 
-- ✅ Only relevant decider processes each command (better performance)
+- ✅ Only relevant decider processes each command
 - ✅ Simple, focused query patterns per use case
 - ✅ Explicit use case boundaries
 - ⚠️ More repository instances to manage
@@ -1103,14 +1103,20 @@ await repository.execute(placeOrderCommand);
 - ✅ Simpler application code (one repository instance)
 - ✅ Works due to graceful null handling in deciders
 - ⚠️ All deciders process every command (more computation)
-- ⚠️ Complex query pattern must handle all use cases
+- ⚠️ Complex query pattern must handle all use cases in a single place
 
 **Choose based on your needs:**
 
-- **Sliced:** Better for larger domains, performance-critical applications,
-  clearer boundaries
-- **Combined:** Better for smaller domains, simpler architecture, acceptable
-  overhead
+- **Sliced (Recommended):** Aligns with vertical slice architecture principles
+  - Each use case is independently deployable and testable
+  - Reduces cognitive load - engineers work on focused, isolated slices
+  - Enables better team organization - teams can own specific slices
+  - Clearer boundaries and explicit dependencies
+  - Easier to understand and maintain
+- **Combined:** Simpler for small domains or prototyping
+  - Single repository instance to manage
+  - Good for small teams or simple domains
+  - Acceptable when all use cases are tightly coupled
 
 See `demo/dcb/all_deciderRepository.ts` for a complete combined approach
 example.
