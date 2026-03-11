@@ -47,7 +47,6 @@ architectures with progressive type refinement.
 
 ## Progressive Type Refinement Philosophy
 
-
 This library demonstrates how to evolve from **general, flexible types** to
 **specific, constrained types** that better represent real-world information
 systems. Starting with the most generic interfaces that support all possible

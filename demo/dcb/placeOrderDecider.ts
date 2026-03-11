@@ -1,11 +1,14 @@
 import { DcbDecider } from "../../decider.ts";
-import type {
-  PlaceOrderCommand,
-  RestaurantCreatedEvent,
-  RestaurantId,
-  RestaurantMenu,
-  RestaurantMenuChangedEvent,
-  RestaurantOrderPlacedEvent,
+import {
+  MenuItemsNotAvailableError,
+  OrderAlreadyExistsError,
+  type PlaceOrderCommand,
+  type RestaurantCreatedEvent,
+  type RestaurantId,
+  type RestaurantMenu,
+  type RestaurantMenuChangedEvent,
+  RestaurantNotFoundError,
+  type RestaurantOrderPlacedEvent,
 } from "./api.ts";
 
 /**
@@ -48,30 +51,30 @@ export const placeOrderDecider: DcbDecider<
       case "PlaceOrderCommand": {
         // Check if restaurant exists
         if (currentState.restaurantId === null) {
-          throw new Error("Restaurant does not exist!");
+          throw new RestaurantNotFoundError(command.restaurantId);
         }
 
         // Check if THIS specific order already exists
         // (Repository filters by order ID, so we only see events for this order)
         if (currentState.orderPlaced) {
-          throw new Error("Order already exist!");
+          throw new OrderAlreadyExistsError(command.orderId);
         }
 
         // Check if menu exists
         if (currentState.menu === null) {
-          throw new Error("Restaurant does not exist!");
+          throw new RestaurantNotFoundError(command.restaurantId);
         }
 
         // Validate all command menu items are on the restaurant menu
         const menuItemIds = new Set(
           currentState.menu.menuItems.map((item) => item.menuItemId),
         );
-        const allItemsOnMenu = command.menuItems.every((item) =>
-          menuItemIds.has(item.menuItemId)
-        );
+        const unavailableItems = command.menuItems
+          .filter((item) => !menuItemIds.has(item.menuItemId))
+          .map((item) => item.menuItemId);
 
-        if (!allItemsOnMenu) {
-          throw new Error("Menu items not available!");
+        if (unavailableItems.length > 0) {
+          throw new MenuItemsNotAvailableError(unavailableItems);
         }
 
         // All checks passed - place the order

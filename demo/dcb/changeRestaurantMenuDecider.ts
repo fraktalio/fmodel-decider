@@ -1,9 +1,10 @@
 import { DcbDecider } from "../../decider.ts";
-import type {
-  ChangeRestaurantMenuCommand,
-  RestaurantCreatedEvent,
-  RestaurantId,
-  RestaurantMenuChangedEvent,
+import {
+  type ChangeRestaurantMenuCommand,
+  type RestaurantCreatedEvent,
+  type RestaurantId,
+  type RestaurantMenuChangedEvent,
+  RestaurantNotFoundError,
 } from "./api.ts";
 
 /**
@@ -35,7 +36,7 @@ export const changeRestaurantManuDecider: DcbDecider<
     switch (command?.kind) {
       case "ChangeRestaurantMenuCommand":
         if (currentState === null) {
-          throw new Error("Restaurant does not exist!");
+          throw new RestaurantNotFoundError(command.restaurantId);
         }
         return [
           {

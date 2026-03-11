@@ -1,17 +1,17 @@
 import { assertEquals } from "@std/assert";
 import { restaurantOrderWorkflow } from "./restaurantOrderWorkflow.ts";
-import type { MenuItem } from "./api.ts";
+import { type MenuItem, menuItemId, orderId, restaurantId } from "./api.ts";
 
 const testMenuItems: MenuItem[] = [
-  { menuItemId: "item-1", name: "Pizza", price: "10.00" },
+  { menuItemId: menuItemId("item-1"), name: "Pizza", price: "10.00" },
 ];
 
 Deno.test("Restaurant Order Workflow - Restaurant Order Placed Event", () => {
   const event = {
     decider: "Restaurant" as const,
     kind: "RestaurantOrderPlacedEvent" as const,
-    restaurantId: "restaurant-1",
-    orderId: "order-1",
+    restaurantId: restaurantId("restaurant-1"),
+    orderId: orderId("order-1"),
     menuItems: testMenuItems,
     final: false,
     tagFields: ["restaurantId"] as const,
@@ -23,8 +23,11 @@ Deno.test("Restaurant Order Workflow - Restaurant Order Placed Event", () => {
   assertEquals(workflowEvents.length, 1);
   assertEquals(workflowEvents[0].type, "TaskStarted");
   assertEquals(workflowEvents[0].taskName, "createOrder");
-  assertEquals(workflowEvents[0].metadata?.orderId, "order-1");
-  assertEquals(workflowEvents[0].metadata?.restaurantId, "restaurant-1");
+  assertEquals(workflowEvents[0].metadata?.orderId, orderId("order-1"));
+  assertEquals(
+    workflowEvents[0].metadata?.restaurantId,
+    restaurantId("restaurant-1"),
+  );
 });
 
 Deno.test("Restaurant Order Workflow - Order Created Event", () => {
@@ -32,8 +35,8 @@ Deno.test("Restaurant Order Workflow - Order Created Event", () => {
     version: 1,
     decider: "Order" as const,
     kind: "OrderCreatedEvent" as const,
-    orderId: "order-1",
-    restaurantId: "restaurant-1",
+    orderId: orderId("order-1"),
+    restaurantId: restaurantId("restaurant-1"),
     menuItems: testMenuItems,
     final: false,
     tagFields: ["orderId"] as const,
@@ -51,7 +54,7 @@ Deno.test("Restaurant Order Workflow - Order Created Event", () => {
   assertEquals(workflowEvents.length, 1);
   assertEquals(workflowEvents[0].type, "TaskCompleted");
   assertEquals(workflowEvents[0].taskName, "createOrder");
-  assertEquals(workflowEvents[0].metadata?.orderId, "order-1");
+  assertEquals(workflowEvents[0].metadata?.orderId, orderId("order-1"));
 });
 
 Deno.test("Restaurant Order Workflow - Task Started React", () => {
@@ -60,8 +63,8 @@ Deno.test("Restaurant Order Workflow - Task Started React", () => {
     taskName: "createOrder" as const,
     timestamp: Date.now(),
     metadata: {
-      orderId: "order-1",
-      restaurantId: "restaurant-1",
+      orderId: orderId("order-1"),
+      restaurantId: restaurantId("restaurant-1"),
       menuItems: testMenuItems,
     },
   };
@@ -75,8 +78,8 @@ Deno.test("Restaurant Order Workflow - Task Started React", () => {
   assertEquals(commands.length, 1);
   assertEquals(commands[0].kind, "CreateOrderCommand");
   if (commands[0].kind === "CreateOrderCommand") {
-    assertEquals(commands[0].orderId, "order-1");
-    assertEquals(commands[0].restaurantId, "restaurant-1");
+    assertEquals(commands[0].orderId, orderId("order-1"));
+    assertEquals(commands[0].restaurantId, restaurantId("restaurant-1"));
   }
 });
 
@@ -84,8 +87,8 @@ Deno.test("Restaurant Order Workflow - Idempotency Check", () => {
   const event = {
     decider: "Restaurant" as const,
     kind: "RestaurantOrderPlacedEvent" as const,
-    restaurantId: "restaurant-1",
-    orderId: "order-1",
+    restaurantId: restaurantId("restaurant-1"),
+    orderId: orderId("order-1"),
     menuItems: testMenuItems,
     final: false,
     tagFields: ["restaurantId"] as const,

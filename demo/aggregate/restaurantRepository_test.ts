@@ -13,11 +13,16 @@ import { EventSourcedCommandHandler } from "../../application.ts";
 import { restaurantRepository } from "./restaurantRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { restaurantDecider } from "./restaurantDecider.ts";
-import type {
-  ChangeRestaurantMenuCommand,
-  CreateRestaurantCommand,
-  RestaurantCreatedEvent,
-  RestaurantMenuChangedEvent,
+import {
+  type ChangeRestaurantMenuCommand,
+  type CreateRestaurantCommand,
+  menuItemId,
+  RestaurantAlreadyExistsError,
+  type RestaurantCreatedEvent,
+  restaurantId,
+  type RestaurantMenuChangedEvent,
+  restaurantMenuId,
+  RestaurantNotFoundError,
 } from "./api.ts";
 
 Deno.test("RestaurantRepository - successful restaurant creation (happy path)", async () => {
@@ -33,14 +38,14 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
-          { menuItemId: "item2", name: "Pasta", price: "10.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
         ],
       },
     };
@@ -51,9 +56,9 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantCreatedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantCreatedEvent");
-    assertEquals(event.restaurantId, "r1");
+    assertEquals(event.restaurantId, restaurantId("r1"));
     assertEquals(event.name, "Bistro");
-    assertEquals(event.menu.menuId, "m1");
+    assertEquals(event.menu.menuId, restaurantMenuId("m1"));
     assertEquals(event.menu.cuisine, "ITALIAN");
     assertEquals(event.menu.menuItems.length, 2);
     assertEquals(event.final, false);
@@ -69,7 +74,7 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as RestaurantCreatedEvent;
     assertEquals(storedEvent.kind, "RestaurantCreatedEvent");
-    assertEquals(storedEvent.restaurantId, "r1");
+    assertEquals(storedEvent.restaurantId, restaurantId("r1"));
     assertEquals(storedEvent.name, "Bistro");
 
     // Verify events persisted to type index
@@ -100,13 +105,13 @@ Deno.test("RestaurantRepository - duplicate restaurant rejection (domain error)"
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -119,8 +124,7 @@ Deno.test("RestaurantRepository - duplicate restaurant rejection (domain error)"
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Restaurant already exist!",
+      RestaurantAlreadyExistsError,
     );
   } finally {
     await kv.close();
@@ -141,13 +145,13 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
     const createCommand: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -157,12 +161,12 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
     const changeMenuCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "FRENCH",
         menuItems: [
-          { menuItemId: "item3", name: "Croissant", price: "5.99" },
+          { menuItemId: menuItemId("item3"), name: "Croissant", price: "5.99" },
         ],
       },
     };
@@ -172,8 +176,8 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantMenuChangedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantMenuChangedEvent");
-    assertEquals(event.restaurantId, "r1");
-    assertEquals(event.menu.menuId, "m2");
+    assertEquals(event.restaurantId, restaurantId("r1"));
+    assertEquals(event.menu.menuId, restaurantMenuId("m2"));
     assertEquals(event.menu.cuisine, "FRENCH");
   } finally {
     await kv.close();
@@ -193,12 +197,12 @@ Deno.test("RestaurantRepository - menu change on non-existent restaurant", async
     const changeMenuCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "FRENCH",
         menuItems: [
-          { menuItemId: "item3", name: "Croissant", price: "5.99" },
+          { menuItemId: menuItemId("item3"), name: "Croissant", price: "5.99" },
         ],
       },
     };
@@ -207,8 +211,7 @@ Deno.test("RestaurantRepository - menu change on non-existent restaurant", async
       async () => {
         await handler.handle(changeMenuCommand);
       },
-      Error,
-      "Restaurant does not exist!",
+      RestaurantNotFoundError,
     );
   } finally {
     await kv.close();
@@ -228,13 +231,13 @@ Deno.test("RestaurantRepository - concurrent modification detection", async () =
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -249,8 +252,7 @@ Deno.test("RestaurantRepository - concurrent modification detection", async () =
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Restaurant already exist!",
+      RestaurantAlreadyExistsError,
     );
 
     // Verify only one event was persisted

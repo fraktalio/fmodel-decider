@@ -12,8 +12,15 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
 import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
-import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
+import { createRestaurantDecider } from "./createRestaurantDecider.ts";
+import {
+  type CreateRestaurantCommand,
+  menuItemId,
+  RestaurantAlreadyExistsError,
+  type RestaurantCreatedEvent,
+  restaurantId,
+  restaurantMenuId,
+} from "./api.ts";
 
 Deno.test("CreateRestaurantRepository - successful restaurant creation via handler.handle() (happy path)", async () => {
   // Use in-memory Deno KV
@@ -23,21 +30,21 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     // Create repository and handler
     const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       repository,
     );
 
     // Execute command via handler
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
-          { menuItemId: "item2", name: "Pasta", price: "10.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
         ],
       },
     };
@@ -48,9 +55,9 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantCreatedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantCreatedEvent");
-    assertEquals(event.restaurantId, "r1");
+    assertEquals(event.restaurantId, restaurantId("r1"));
     assertEquals(event.name, "Bistro");
-    assertEquals(event.menu.menuId, "m1");
+    assertEquals(event.menu.menuId, restaurantMenuId("m1"));
     assertEquals(event.menu.cuisine, "ITALIAN");
     assertEquals(event.menu.menuItems.length, 2);
     assertEquals(event.final, false);
@@ -66,7 +73,7 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as RestaurantCreatedEvent;
     assertEquals(storedEvent.kind, "RestaurantCreatedEvent");
-    assertEquals(storedEvent.restaurantId, "r1");
+    assertEquals(storedEvent.restaurantId, restaurantId("r1"));
     assertEquals(storedEvent.name, "Bistro");
 
     // Verify events persisted to type index (pointer pattern)
@@ -91,19 +98,19 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
   try {
     const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       repository,
     );
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -116,8 +123,7 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Restaurant already exist!",
+      RestaurantAlreadyExistsError,
     );
   } finally {
     await kv.close();
@@ -130,19 +136,19 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
   try {
     const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       repository,
     );
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -158,8 +164,7 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Restaurant already exist!",
+      RestaurantAlreadyExistsError,
     );
 
     // Verify only one event was persisted

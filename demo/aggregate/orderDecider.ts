@@ -1,5 +1,11 @@
 import { AggregateDecider } from "../../decider.ts";
-import type { Order, OrderCommand, OrderEvent } from "./api.ts";
+import {
+  type Order,
+  OrderAlreadyExistsError,
+  type OrderCommand,
+  type OrderEvent,
+  OrderNotFoundError,
+} from "./api.ts";
 
 /**
  * Order `pure` event-sourced command handler / a decision-making component
@@ -22,7 +28,7 @@ export const orderDecider: AggregateDecider<
     switch (command.kind) {
       case "CreateOrderCommand":
         if (currentState !== null && currentState.orderId !== undefined) {
-          throw new Error("Order already exist!");
+          throw new OrderAlreadyExistsError(command.orderId);
         }
         return [
           {
@@ -38,7 +44,7 @@ export const orderDecider: AggregateDecider<
         ];
       case "MarkOrderAsPreparedCommand":
         if (currentState === null) {
-          throw new Error("Order does not exist!");
+          throw new OrderNotFoundError(command.orderId);
         }
         return [
           {

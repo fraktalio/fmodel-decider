@@ -34,13 +34,13 @@
  * - Cross-concept operations (PlaceOrder spans Restaurant + Order)
  */
 
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
+import { createRestaurantDecider } from "./createRestaurantDecider.ts";
 import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
 import { placeOrderDecider } from "./placeOrderDecider.ts";
 import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 
 // Export individual deciders for use through repositories
-export { crateRestaurantDecider } from "./createRestaurantDecider.ts";
+export { createRestaurantDecider as crateRestaurantDecider } from "./createRestaurantDecider.ts";
 export { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
 export { placeOrderDecider } from "./placeOrderDecider.ts";
 export { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
@@ -62,7 +62,7 @@ export type { CreateRestaurantState } from "./createRestaurantDecider.ts";
  *
  * **Do NOT use this directly**. Instead, use individual deciders through repositories.
  */
-export const all_domain_decider = crateRestaurantDecider
+export const all_domain_decider = createRestaurantDecider
   .combineViaTuples(changeRestaurantManuDecider)
   .combineViaTuples(placeOrderDecider)
   .combineViaTuples(markOrderAsPreparedDecider);

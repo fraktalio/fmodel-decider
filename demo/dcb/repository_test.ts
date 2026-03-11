@@ -8,8 +8,13 @@
 import { assertEquals } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
 import { createRestaurantRepository } from "./createRestaurantRepository.ts";
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
-import type { CreateRestaurantCommand } from "./api.ts";
+import { createRestaurantDecider } from "./createRestaurantDecider.ts";
+import {
+  type CreateRestaurantCommand,
+  menuItemId,
+  restaurantId,
+  restaurantMenuId,
+} from "./api.ts";
 
 Deno.test("EventSourcedRepository - tuple-based query pattern allows flexible entity/event type combinations", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -31,19 +36,19 @@ Deno.test("EventSourcedRepository - tuple-based query pattern allows flexible en
     // For this test, we'll verify the CreateRestaurantRepository works with the new tuple approach
     const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       repository,
     );
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };

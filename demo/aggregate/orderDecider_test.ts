@@ -1,21 +1,26 @@
 import { DeciderEventSourcedSpec } from "../../test_specification.ts";
 import { orderDecider } from "./orderDecider.ts";
-import type {
-  CreateOrderCommand,
-  MarkOrderAsPreparedCommand,
-  MenuItem,
+import {
+  type CreateOrderCommand,
+  type MarkOrderAsPreparedCommand,
+  type MenuItem,
+  menuItemId,
+  OrderAlreadyExistsError,
+  orderId,
+  OrderNotFoundError,
+  restaurantId,
 } from "./api.ts";
 
 const testMenuItems: MenuItem[] = [
-  { menuItemId: "item-1", name: "Pizza", price: "10.00" },
+  { menuItemId: menuItemId("item-1"), name: "Pizza", price: "10.00" },
 ];
 
 Deno.test("Order Decider - Create Order Success", () => {
   const command: CreateOrderCommand = {
     decider: "Order",
     kind: "CreateOrderCommand",
-    orderId: "order-1",
-    restaurantId: "restaurant-1",
+    orderId: orderId("order-1"),
+    restaurantId: restaurantId("restaurant-1"),
     menuItems: testMenuItems,
   };
 
@@ -27,8 +32,8 @@ Deno.test("Order Decider - Create Order Success", () => {
         version: 1,
         decider: "Order",
         kind: "OrderCreatedEvent",
-        orderId: "order-1",
-        restaurantId: "restaurant-1",
+        orderId: orderId("order-1"),
+        restaurantId: restaurantId("restaurant-1"),
         menuItems: testMenuItems,
         final: false,
         tagFields: ["orderId"],
@@ -40,8 +45,8 @@ Deno.test("Order Decider - Create Order Already Exists", () => {
   const command: CreateOrderCommand = {
     decider: "Order",
     kind: "CreateOrderCommand",
-    orderId: "order-1",
-    restaurantId: "restaurant-1",
+    orderId: orderId("order-1"),
+    restaurantId: restaurantId("restaurant-1"),
     menuItems: testMenuItems,
   };
 
@@ -51,22 +56,22 @@ Deno.test("Order Decider - Create Order Already Exists", () => {
         version: 1,
         decider: "Order",
         kind: "OrderCreatedEvent",
-        orderId: "order-1",
-        restaurantId: "restaurant-1",
+        orderId: orderId("order-1"),
+        restaurantId: restaurantId("restaurant-1"),
         menuItems: testMenuItems,
         final: false,
         tagFields: ["orderId"],
       },
     ])
     .when(command)
-    .thenThrows((error) => error.message === "Order already exist!");
+    .thenThrows((error) => error instanceof OrderAlreadyExistsError);
 });
 
 Deno.test("Order Decider - Mark Order As Prepared Success", () => {
   const command: MarkOrderAsPreparedCommand = {
     decider: "Order",
     kind: "MarkOrderAsPreparedCommand",
-    orderId: "order-1",
+    orderId: orderId("order-1"),
   };
 
   DeciderEventSourcedSpec.for(orderDecider)
@@ -75,8 +80,8 @@ Deno.test("Order Decider - Mark Order As Prepared Success", () => {
         version: 1,
         decider: "Order",
         kind: "OrderCreatedEvent",
-        orderId: "order-1",
-        restaurantId: "restaurant-1",
+        orderId: orderId("order-1"),
+        restaurantId: restaurantId("restaurant-1"),
         menuItems: testMenuItems,
         final: false,
         tagFields: ["orderId"],
@@ -88,7 +93,7 @@ Deno.test("Order Decider - Mark Order As Prepared Success", () => {
         version: 1,
         decider: "Order",
         kind: "OrderPreparedEvent",
-        orderId: "order-1",
+        orderId: orderId("order-1"),
         final: false,
         tagFields: ["orderId"],
       },
@@ -99,11 +104,11 @@ Deno.test("Order Decider - Mark Order As Prepared Order Does Not Exist", () => {
   const command: MarkOrderAsPreparedCommand = {
     decider: "Order",
     kind: "MarkOrderAsPreparedCommand",
-    orderId: "order-1",
+    orderId: orderId("order-1"),
   };
 
   DeciderEventSourcedSpec.for(orderDecider)
     .given([])
     .when(command)
-    .thenThrows((error) => error.message === "Order does not exist!");
+    .thenThrows((error) => error instanceof OrderNotFoundError);
 });

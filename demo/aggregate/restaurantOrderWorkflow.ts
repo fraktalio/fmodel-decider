@@ -1,5 +1,13 @@
 import { AggregateWorkflowProcess } from "../../process_workflow.ts";
-import type { Command, Event, MenuItem, OrderId, RestaurantId } from "./api.ts";
+import {
+  type Command,
+  type Event,
+  type MenuItem,
+  type OrderId,
+  orderId,
+  type RestaurantId,
+  restaurantId,
+} from "./api.ts";
 
 /**
  * Task names for the restaurant order workflow
@@ -139,8 +147,8 @@ export const restaurantOrderWorkflow: AggregateWorkflowProcess<
             actions.push({
               decider: "Order",
               kind: "CreateOrderCommand",
-              orderId: "pending-order",
-              restaurantId: "pending-restaurant",
+              orderId: orderId("pending-order"),
+              restaurantId: restaurantId("pending-restaurant"),
               menuItems: [],
             });
             break;

@@ -14,11 +14,15 @@ import { changeRestaurantMenuRepository } from "./changeRestaurantMenuRepository
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
-import type {
-  ChangeRestaurantMenuCommand,
-  CreateRestaurantCommand,
-  RestaurantMenuChangedEvent,
+import { createRestaurantDecider } from "./createRestaurantDecider.ts";
+import {
+  type ChangeRestaurantMenuCommand,
+  type CreateRestaurantCommand,
+  menuItemId,
+  restaurantId,
+  type RestaurantMenuChangedEvent,
+  restaurantMenuId,
+  RestaurantNotFoundError,
 } from "./api.ts";
 
 Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.handle() (happy path)", async () => {
@@ -28,19 +32,19 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     // First create a restaurant
     const createRepository = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepository,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -56,13 +60,13 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
 
     const changeCommand: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "MEXICAN",
         menuItems: [
-          { menuItemId: "item3", name: "Tacos", price: "8.99" },
-          { menuItemId: "item4", name: "Burrito", price: "11.99" },
+          { menuItemId: menuItemId("item3"), name: "Tacos", price: "8.99" },
+          { menuItemId: menuItemId("item4"), name: "Burrito", price: "11.99" },
         ],
       },
     };
@@ -73,8 +77,8 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantMenuChangedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantMenuChangedEvent");
-    assertEquals(event.restaurantId, "r1");
-    assertEquals(event.menu.menuId, "m2");
+    assertEquals(event.restaurantId, restaurantId("r1"));
+    assertEquals(event.menu.menuId, restaurantMenuId("m2"));
     assertEquals(event.menu.cuisine, "MEXICAN");
     assertEquals(event.menu.menuItems.length, 2);
     assertEquals(event.menu.menuItems[0].name, "Tacos");
@@ -91,8 +95,8 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as RestaurantMenuChangedEvent;
     assertEquals(storedEvent.kind, "RestaurantMenuChangedEvent");
-    assertEquals(storedEvent.restaurantId, "r1");
-    assertEquals(storedEvent.menu.menuId, "m2");
+    assertEquals(storedEvent.restaurantId, restaurantId("r1"));
+    assertEquals(storedEvent.menu.menuId, restaurantMenuId("m2"));
 
     // Verify events persisted to type index (pointer pattern)
     const typeIndexKey = [
@@ -122,12 +126,12 @@ Deno.test("ChangeRestaurantMenuRepository - non-existent restaurant rejection (d
 
     const command: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r999",
+      restaurantId: restaurantId("r999"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "MEXICAN",
         menuItems: [
-          { menuItemId: "item3", name: "Tacos", price: "8.99" },
+          { menuItemId: menuItemId("item3"), name: "Tacos", price: "8.99" },
         ],
       },
     };
@@ -137,8 +141,7 @@ Deno.test("ChangeRestaurantMenuRepository - non-existent restaurant rejection (d
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Restaurant does not exist!",
+      RestaurantNotFoundError,
     );
   } finally {
     await kv.close();
@@ -152,19 +155,19 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
     // First create a restaurant
     const createRepository = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepository,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -180,24 +183,28 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
 
     const changeCommand1: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "MEXICAN",
         menuItems: [
-          { menuItemId: "item3", name: "Tacos", price: "8.99" },
+          { menuItemId: menuItemId("item3"), name: "Tacos", price: "8.99" },
         ],
       },
     };
 
     const changeCommand2: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m3",
+        menuId: restaurantMenuId("m3"),
         cuisine: "CHINESE",
         menuItems: [
-          { menuItemId: "item5", name: "Fried Rice", price: "9.99" },
+          {
+            menuItemId: menuItemId("item5"),
+            name: "Fried Rice",
+            price: "9.99",
+          },
         ],
       },
     };

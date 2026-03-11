@@ -42,11 +42,19 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { AllDeciderRepository } from "./all_deciderRepository.ts";
-import type {
-  ChangeRestaurantMenuCommand,
-  CreateOrderCommand,
-  CreateRestaurantCommand,
-  MarkOrderAsPreparedCommand,
+import {
+  type ChangeRestaurantMenuCommand,
+  type CreateOrderCommand,
+  type CreateRestaurantCommand,
+  type MarkOrderAsPreparedCommand,
+  menuItemId,
+  OrderAlreadyExistsError,
+  orderId,
+  OrderNotFoundError,
+  RestaurantAlreadyExistsError,
+  restaurantId,
+  restaurantMenuId,
+  RestaurantNotFoundError,
 } from "./api.ts";
 
 Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (processed by all deciders)", async () => {
@@ -58,13 +66,13 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (processed by
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -92,10 +100,10 @@ Deno.test("AllDeciderRepository - CreateOrderCommand succeeds (processed by all 
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -122,13 +130,13 @@ Deno.test("AllDeciderRepository - duplicate restaurant rejection (domain error)"
     const command: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -139,8 +147,7 @@ Deno.test("AllDeciderRepository - duplicate restaurant rejection (domain error)"
     // Second creation fails with domain error
     await assertRejects(
       async () => await repository.execute(command),
-      Error,
-      "Restaurant already exist!",
+      RestaurantAlreadyExistsError,
     );
   } finally {
     kv.close();
@@ -156,10 +163,10 @@ Deno.test("AllDeciderRepository - duplicate order rejection (domain error)", asy
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -169,8 +176,7 @@ Deno.test("AllDeciderRepository - duplicate order rejection (domain error)", asy
     // Second creation fails with domain error
     await assertRejects(
       async () => await repository.execute(command),
-      Error,
-      "Order already exist!",
+      OrderAlreadyExistsError,
     );
   } finally {
     kv.close();
@@ -186,12 +192,12 @@ Deno.test("AllDeciderRepository - change menu on non-existent restaurant", async
     const changeCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "FRENCH",
         menuItems: [
-          { menuItemId: "item3", name: "Croissant", price: "5.99" },
+          { menuItemId: menuItemId("item3"), name: "Croissant", price: "5.99" },
         ],
       },
     };
@@ -199,8 +205,7 @@ Deno.test("AllDeciderRepository - change menu on non-existent restaurant", async
     // Fails because restaurant doesn't exist
     await assertRejects(
       async () => await repository.execute(changeCommand),
-      Error,
-      "Restaurant does not exist!",
+      RestaurantNotFoundError,
     );
   } finally {
     kv.close();
@@ -216,14 +221,13 @@ Deno.test("AllDeciderRepository - mark non-existent order as prepared", async ()
     const markCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o1",
+      orderId: orderId("o1"),
     };
 
     // Fails because order doesn't exist
     await assertRejects(
       async () => await repository.execute(markCommand),
-      Error,
-      "Order does not exist!",
+      OrderNotFoundError,
     );
   } finally {
     kv.close();
@@ -240,13 +244,13 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const createRestaurantCommand: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -259,12 +263,12 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const changeMenuCommand: ChangeRestaurantMenuCommand = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "FRENCH",
         menuItems: [
-          { menuItemId: "item2", name: "Croissant", price: "5.99" },
+          { menuItemId: menuItemId("item2"), name: "Croissant", price: "5.99" },
         ],
       },
     };
@@ -277,10 +281,10 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const createOrderCommand: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item2", name: "Croissant", price: "5.99" },
+        { menuItemId: menuItemId("item2"), name: "Croissant", price: "5.99" },
       ],
     };
 
@@ -292,7 +296,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const markCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o1",
+      orderId: orderId("o1"),
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -327,13 +331,13 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
     const restaurantCommand: CreateRestaurantCommand = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -341,10 +345,10 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
     const orderCommand: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 

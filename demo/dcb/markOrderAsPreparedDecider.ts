@@ -1,9 +1,11 @@
 import { DcbDecider } from "../../decider.ts";
-import type {
-  MarkOrderAsPreparedCommand,
-  OrderId,
-  OrderPreparedEvent,
-  RestaurantOrderPlacedEvent,
+import {
+  type MarkOrderAsPreparedCommand,
+  OrderAlreadyPreparedError,
+  type OrderId,
+  OrderNotFoundError,
+  type OrderPreparedEvent,
+  type RestaurantOrderPlacedEvent,
 } from "./api.ts";
 
 /**
@@ -40,12 +42,12 @@ export const markOrderAsPreparedDecider: DcbDecider<
       case "MarkOrderAsPreparedCommand": {
         // Check if order exists
         if (currentState.orderId === null) {
-          throw new Error("Order does not exist!");
+          throw new OrderNotFoundError(command.orderId);
         }
 
         // Check if order already prepared
         if (currentState.prepared) {
-          throw new Error("Order already prepared!");
+          throw new OrderAlreadyPreparedError(command.orderId);
         }
 
         // Mark order as prepared

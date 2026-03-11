@@ -16,13 +16,20 @@ import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import { changeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { placeOrderDecider } from "./placeOrderDecider.ts";
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
+import { createRestaurantDecider } from "./createRestaurantDecider.ts";
 import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
-import type {
-  ChangeRestaurantMenuCommand,
-  CreateRestaurantCommand,
-  PlaceOrderCommand,
-  RestaurantOrderPlacedEvent,
+import {
+  type ChangeRestaurantMenuCommand,
+  type CreateRestaurantCommand,
+  menuItemId,
+  MenuItemsNotAvailableError,
+  OrderAlreadyExistsError,
+  orderId,
+  type PlaceOrderCommand,
+  restaurantId,
+  restaurantMenuId,
+  RestaurantNotFoundError,
+  type RestaurantOrderPlacedEvent,
 } from "./api.ts";
 
 Deno.test("PlaceOrderRepository - successful order placement via handler.handle() (happy path)", async () => {
@@ -32,20 +39,20 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     // Create restaurant first
     const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepo,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r-happy-1",
+      restaurantId: restaurantId("r-happy-1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
-          { menuItemId: "item2", name: "Pasta", price: "10.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
         ],
       },
     };
@@ -61,10 +68,10 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
 
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-happy-1",
-      orderId: "o-happy-1",
+      restaurantId: restaurantId("r-happy-1"),
+      orderId: orderId("o-happy-1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -74,10 +81,10 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     assertEquals(events.length, 1);
     const event = events[0] as RestaurantOrderPlacedEvent & EventMetadata;
     assertEquals(event.kind, "RestaurantOrderPlacedEvent");
-    assertEquals(event.restaurantId, "r-happy-1");
-    assertEquals(event.orderId, "o-happy-1");
+    assertEquals(event.restaurantId, restaurantId("r-happy-1"));
+    assertEquals(event.orderId, orderId("o-happy-1"));
     assertEquals(event.menuItems.length, 1);
-    assertEquals(event.menuItems[0].menuItemId, "item1");
+    assertEquals(event.menuItems[0].menuItemId, menuItemId("item1"));
     assertEquals(event.final, false);
 
     // Verify event metadata
@@ -91,8 +98,8 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as RestaurantOrderPlacedEvent;
     assertEquals(storedEvent.kind, "RestaurantOrderPlacedEvent");
-    assertEquals(storedEvent.restaurantId, "r-happy-1");
-    assertEquals(storedEvent.orderId, "o-happy-1");
+    assertEquals(storedEvent.restaurantId, restaurantId("r-happy-1"));
+    assertEquals(storedEvent.orderId, orderId("o-happy-1"));
 
     // Verify events persisted to type index (pointer pattern) - indexed by order ID
     const typeIndexKey = [
@@ -121,10 +128,10 @@ Deno.test("PlaceOrderRepository - non-existent restaurant rejection (domain erro
 
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-nonexist-999", // Non-existent restaurant
-      orderId: "o-nonexist-1",
+      restaurantId: restaurantId("r-nonexist-999"), // Non-existent restaurant
+      orderId: orderId("o-nonexist-1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -133,8 +140,7 @@ Deno.test("PlaceOrderRepository - non-existent restaurant rejection (domain erro
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Restaurant does not exist!",
+      RestaurantNotFoundError,
     );
   } finally {
     kv.close();
@@ -148,19 +154,19 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
     // Create restaurant first
     const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepo,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r-invalid-1",
+      restaurantId: restaurantId("r-invalid-1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -176,10 +182,14 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
 
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-invalid-1",
-      orderId: "o-invalid-1",
+      restaurantId: restaurantId("r-invalid-1"),
+      orderId: orderId("o-invalid-1"),
       menuItems: [
-        { menuItemId: "item999", name: "Invalid Item", price: "99.99" }, // Not on menu
+        {
+          menuItemId: menuItemId("item999"),
+          name: "Invalid Item",
+          price: "99.99",
+        }, // Not on menu
       ],
     };
 
@@ -188,8 +198,7 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Menu items not available!",
+      MenuItemsNotAvailableError,
     );
   } finally {
     kv.close();
@@ -203,19 +212,19 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
     // Create restaurant first
     const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepo,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r-dup-1",
+      restaurantId: restaurantId("r-dup-1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -231,10 +240,10 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
 
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-dup-1",
-      orderId: "o-dup-1",
+      restaurantId: restaurantId("r-dup-1"),
+      orderId: orderId("o-dup-1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -247,8 +256,7 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Order already exist!",
+      OrderAlreadyExistsError,
     );
   } finally {
     kv.close();
@@ -262,20 +270,20 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     // Create restaurant first
     const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepo,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r-menu-1",
+      restaurantId: restaurantId("r-menu-1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
-          { menuItemId: "item2", name: "Pasta", price: "10.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
         ],
       },
     };
@@ -291,14 +299,14 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
 
     const changeCommand: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r-menu-1",
+      restaurantId: restaurantId("r-menu-1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "13.99" }, // Price changed
-          { menuItemId: "item2", name: "Pasta", price: "11.99" },
-          { menuItemId: "item3", name: "Salad", price: "8.99" }, // New item
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "13.99" }, // Price changed
+          { menuItemId: menuItemId("item2"), name: "Pasta", price: "11.99" },
+          { menuItemId: menuItemId("item3"), name: "Salad", price: "8.99" }, // New item
         ],
       },
     };
@@ -314,10 +322,10 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
 
     const command: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-menu-1",
-      orderId: "o-menu-1",
+      restaurantId: restaurantId("r-menu-1"),
+      orderId: orderId("o-menu-1"),
       menuItems: [
-        { menuItemId: "item3", name: "Salad", price: "8.99" }, // New item from updated menu
+        { menuItemId: menuItemId("item3"), name: "Salad", price: "8.99" }, // New item from updated menu
       ],
     };
 
@@ -326,10 +334,13 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     // Verify order was placed successfully
     assertEquals(events.length, 1);
     assertEquals(events[0].kind, "RestaurantOrderPlacedEvent");
-    assertEquals((events[0] as RestaurantOrderPlacedEvent).orderId, "o-menu-1");
+    assertEquals(
+      (events[0] as RestaurantOrderPlacedEvent).orderId,
+      orderId("o-menu-1"),
+    );
     assertEquals(
       (events[0] as RestaurantOrderPlacedEvent).menuItems[0].menuItemId,
-      "item3",
+      menuItemId("item3"),
     );
   } finally {
     kv.close();
@@ -343,19 +354,19 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     // Create restaurant first
     const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepo,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r-retry-1",
+      restaurantId: restaurantId("r-retry-1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -372,10 +383,10 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     // Place first order
     const command1: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-retry-1",
-      orderId: "o-retry-1",
+      restaurantId: restaurantId("r-retry-1"),
+      orderId: orderId("o-retry-1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -383,16 +394,16 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     assertEquals(result1.length, 1);
     assertEquals(
       (result1[0] as RestaurantOrderPlacedEvent).orderId,
-      "o-retry-1",
+      orderId("o-retry-1"),
     );
 
     // Place second order - should succeed with retry logic handling any conflicts
     const command2: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-retry-1",
-      orderId: "o-retry-2",
+      restaurantId: restaurantId("r-retry-1"),
+      orderId: orderId("o-retry-2"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -400,7 +411,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     assertEquals(result2.length, 1);
     assertEquals(
       (result2[0] as RestaurantOrderPlacedEvent).orderId,
-      "o-retry-2",
+      orderId("o-retry-2"),
     );
 
     // Verify both orders were persisted (indexed by order ID)
@@ -454,19 +465,19 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
     // Create restaurant
     const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
-      crateRestaurantDecider,
+      createRestaurantDecider,
       createRepo,
     );
 
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r-index-1",
+      restaurantId: restaurantId("r-index-1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -482,19 +493,19 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
 
     const order1: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-index-1",
-      orderId: "o-index-1",
+      restaurantId: restaurantId("r-index-1"),
+      orderId: orderId("o-index-1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
     const order2: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-index-1",
-      orderId: "o-index-2",
+      restaurantId: restaurantId("r-index-1"),
+      orderId: orderId("o-index-2"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -542,7 +553,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
       assertEquals(primaryResult.value !== null, true);
       const event = primaryResult.value as RestaurantOrderPlacedEvent;
       assertEquals(event.kind, "RestaurantOrderPlacedEvent");
-      assertEquals(event.restaurantId, "r-index-1");
+      assertEquals(event.restaurantId, restaurantId("r-index-1"));
     }
   } finally {
     kv.close();

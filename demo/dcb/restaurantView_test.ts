@@ -1,13 +1,19 @@
 import { ViewSpecification } from "../../test_specification.ts";
 import { restaurantView } from "./restaurantView.ts";
-import type { RestaurantMenu } from "./api.ts";
+import {
+  menuItemId,
+  orderId,
+  restaurantId,
+  type RestaurantMenu,
+  restaurantMenuId,
+} from "./api.ts";
 
 const testMenu: RestaurantMenu = {
-  menuId: "menu-1",
+  menuId: restaurantMenuId("menu-1"),
   cuisine: "ITALIAN",
   menuItems: [
-    { menuItemId: "item-1", name: "Pizza", price: "10.00" },
-    { menuItemId: "item-2", name: "Pasta", price: "12.00" },
+    { menuItemId: menuItemId("item-1"), name: "Pizza", price: "10.00" },
+    { menuItemId: menuItemId("item-2"), name: "Pasta", price: "12.00" },
   ],
 };
 
@@ -16,7 +22,7 @@ Deno.test("Restaurant View - Restaurant Created Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        restaurantId: "restaurant-1",
+        restaurantId: restaurantId("restaurant-1"),
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
@@ -24,7 +30,7 @@ Deno.test("Restaurant View - Restaurant Created Event", () => {
       },
     ])
     .then({
-      restaurantId: "restaurant-1",
+      restaurantId: restaurantId("restaurant-1"),
       name: "Italian Bistro",
       menu: testMenu,
     });
@@ -32,10 +38,10 @@ Deno.test("Restaurant View - Restaurant Created Event", () => {
 
 Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
   const newMenu: RestaurantMenu = {
-    menuId: "menu-2",
+    menuId: restaurantMenuId("menu-2"),
     cuisine: "MEXICAN",
     menuItems: [
-      { menuItemId: "item-3", name: "Tacos", price: "8.00" },
+      { menuItemId: menuItemId("item-3"), name: "Tacos", price: "8.00" },
     ],
   };
 
@@ -43,7 +49,7 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        restaurantId: "restaurant-1",
+        restaurantId: restaurantId("restaurant-1"),
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
@@ -51,14 +57,14 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
       },
       {
         kind: "RestaurantMenuChangedEvent",
-        restaurantId: "restaurant-1",
+        restaurantId: restaurantId("restaurant-1"),
         menu: newMenu,
         final: false,
         tagFields: ["restaurantId"],
       },
     ])
     .then({
-      restaurantId: "restaurant-1",
+      restaurantId: restaurantId("restaurant-1"),
       name: "Italian Bistro",
       menu: newMenu,
     });
@@ -69,7 +75,7 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
     .given([
       {
         kind: "RestaurantCreatedEvent",
-        restaurantId: "restaurant-1",
+        restaurantId: restaurantId("restaurant-1"),
         name: "Italian Bistro",
         menu: testMenu,
         final: false,
@@ -77,15 +83,19 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
       },
       {
         kind: "RestaurantOrderPlacedEvent",
-        restaurantId: "restaurant-1",
-        orderId: "order-1",
-        menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "10.00" }],
+        restaurantId: restaurantId("restaurant-1"),
+        orderId: orderId("order-1"),
+        menuItems: [{
+          menuItemId: menuItemId("item-1"),
+          name: "Pizza",
+          price: "10.00",
+        }],
         final: false,
         tagFields: ["restaurantId", "orderId"],
       },
     ])
     .then({
-      restaurantId: "restaurant-1",
+      restaurantId: restaurantId("restaurant-1"),
       name: "Italian Bistro",
       menu: testMenu,
     });
@@ -93,10 +103,10 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
 
 Deno.test("Restaurant View - Menu Changed Event with Null State", () => {
   const newMenu: RestaurantMenu = {
-    menuId: "menu-2",
+    menuId: restaurantMenuId("menu-2"),
     cuisine: "MEXICAN",
     menuItems: [
-      { menuItemId: "item-3", name: "Tacos", price: "8.00" },
+      { menuItemId: menuItemId("item-3"), name: "Tacos", price: "8.00" },
     ],
   };
 
@@ -104,7 +114,7 @@ Deno.test("Restaurant View - Menu Changed Event with Null State", () => {
     .given([
       {
         kind: "RestaurantMenuChangedEvent",
-        restaurantId: "restaurant-1",
+        restaurantId: restaurantId("restaurant-1"),
         menu: newMenu,
         final: false,
         tagFields: ["restaurantId"],

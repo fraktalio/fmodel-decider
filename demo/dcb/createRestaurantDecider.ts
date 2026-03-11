@@ -1,8 +1,9 @@
 import { DcbDecider } from "../../decider.ts";
-import type {
-  CreateRestaurantCommand,
-  RestaurantCreatedEvent,
-  RestaurantId,
+import {
+  type CreateRestaurantCommand,
+  RestaurantAlreadyExistsError,
+  type RestaurantCreatedEvent,
+  type RestaurantId,
 } from "./api.ts";
 
 /**
@@ -19,7 +20,7 @@ export type CreateRestaurantState = RestaurantId | null;
  * - Handles null commands gracefully (returns empty array)
  * - Handles null events gracefully (returns current state)
  */
-export const crateRestaurantDecider: DcbDecider<
+export const createRestaurantDecider: DcbDecider<
   CreateRestaurantCommand,
   CreateRestaurantState,
   RestaurantCreatedEvent,
@@ -34,7 +35,7 @@ export const crateRestaurantDecider: DcbDecider<
     switch (command?.kind) {
       case "CreateRestaurantCommand":
         if (currentState !== null) {
-          throw new Error("Restaurant already exist!");
+          throw new RestaurantAlreadyExistsError(command.restaurantId);
         }
         return [
           {

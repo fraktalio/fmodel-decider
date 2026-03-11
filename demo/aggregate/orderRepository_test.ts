@@ -13,11 +13,16 @@ import { EventSourcedCommandHandler } from "../../application.ts";
 import { orderRepository } from "./orderRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { orderDecider } from "./orderDecider.ts";
-import type {
-  CreateOrderCommand,
-  MarkOrderAsPreparedCommand,
-  OrderCreatedEvent,
-  OrderPreparedEvent,
+import {
+  type CreateOrderCommand,
+  type MarkOrderAsPreparedCommand,
+  menuItemId,
+  OrderAlreadyExistsError,
+  type OrderCreatedEvent,
+  orderId,
+  OrderNotFoundError,
+  type OrderPreparedEvent,
+  restaurantId,
 } from "./api.ts";
 
 Deno.test("OrderRepository - successful order creation (happy path)", async () => {
@@ -30,11 +35,11 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
-        { menuItemId: "item2", name: "Pasta", price: "10.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
       ],
     };
 
@@ -44,8 +49,8 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     assertEquals(events.length, 1);
     const event = events[0] as OrderCreatedEvent & EventMetadata;
     assertEquals(event.kind, "OrderCreatedEvent");
-    assertEquals(event.orderId, "o1");
-    assertEquals(event.restaurantId, "r1");
+    assertEquals(event.orderId, orderId("o1"));
+    assertEquals(event.restaurantId, restaurantId("r1"));
     assertEquals(event.menuItems.length, 2);
     assertEquals(event.final, false);
 
@@ -60,8 +65,8 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as OrderCreatedEvent;
     assertEquals(storedEvent.kind, "OrderCreatedEvent");
-    assertEquals(storedEvent.orderId, "o1");
-    assertEquals(storedEvent.restaurantId, "r1");
+    assertEquals(storedEvent.orderId, orderId("o1"));
+    assertEquals(storedEvent.restaurantId, restaurantId("r1"));
 
     // Verify events persisted to type index
     const typeIndexKey = [
@@ -88,10 +93,10 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -103,8 +108,7 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Order already exist!",
+      OrderAlreadyExistsError,
     );
   } finally {
     await kv.close();
@@ -122,10 +126,10 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     const createCommand: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
     await handler.handle(createCommand);
@@ -134,7 +138,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     const prepareCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o1",
+      orderId: orderId("o1"),
     };
     const events = await handler.handle(prepareCommand);
 
@@ -142,7 +146,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     assertEquals(events.length, 1);
     const event = events[0] as OrderPreparedEvent & EventMetadata;
     assertEquals(event.kind, "OrderPreparedEvent");
-    assertEquals(event.orderId, "o1");
+    assertEquals(event.orderId, orderId("o1"));
     assertEquals(event.final, false);
   } finally {
     await kv.close();
@@ -159,15 +163,14 @@ Deno.test("OrderRepository - mark non-existent order as prepared", async () => {
     const prepareCommand: MarkOrderAsPreparedCommand = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o1",
+      orderId: orderId("o1"),
     };
 
     await assertRejects(
       async () => {
         await handler.handle(prepareCommand);
       },
-      Error,
-      "Order does not exist!",
+      OrderNotFoundError,
     );
   } finally {
     await kv.close();
@@ -184,10 +187,10 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
     const command: CreateOrderCommand = {
       decider: "Order",
       kind: "CreateOrderCommand",
-      orderId: "o1",
-      restaurantId: "r1",
+      orderId: orderId("o1"),
+      restaurantId: restaurantId("r1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -201,8 +204,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Order already exist!",
+      OrderAlreadyExistsError,
     );
 
     // Verify only one event was persisted

@@ -17,12 +17,20 @@ import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 import { placeOrderDecider } from "./placeOrderDecider.ts";
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
-import type {
-  CreateRestaurantCommand,
-  MarkOrderAsPreparedCommand,
-  OrderPreparedEvent,
-  PlaceOrderCommand,
+import { createRestaurantDecider } from "./createRestaurantDecider.ts";
+import {
+  type CreateRestaurantCommand,
+  type MarkOrderAsPreparedCommand,
+  menuItemId,
+  OrderAlreadyPreparedError,
+  type OrderId,
+  orderId,
+  OrderNotFoundError,
+  type OrderPreparedEvent,
+  type PlaceOrderCommand,
+  type RestaurantId,
+  restaurantId,
+  restaurantMenuId,
 } from "./api.ts";
 
 /**
@@ -30,25 +38,25 @@ import type {
  */
 async function setupRestaurantAndOrder(
   kv: Deno.Kv,
-  restaurantId: string,
-  orderId: string,
+  restId: RestaurantId,
+  ordId: OrderId,
 ): Promise<void> {
   // Create restaurant
   const createRepo = createRestaurantRepository(kv);
   const createHandler = new EventSourcedCommandHandler(
-    crateRestaurantDecider,
+    createRestaurantDecider,
     createRepo,
   );
 
   const createCommand: CreateRestaurantCommand = {
     kind: "CreateRestaurantCommand",
-    restaurantId: restaurantId,
+    restaurantId: restId,
     name: "Test Bistro",
     menu: {
-      menuId: "m1",
+      menuId: restaurantMenuId("m1"),
       cuisine: "ITALIAN",
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     },
   };
@@ -64,10 +72,10 @@ async function setupRestaurantAndOrder(
 
   const placeCommand: PlaceOrderCommand = {
     kind: "PlaceOrderCommand",
-    restaurantId: restaurantId,
-    orderId: orderId,
+    restaurantId: restId,
+    orderId: ordId,
     menuItems: [
-      { menuItemId: "item1", name: "Pizza", price: "12.99" },
+      { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
     ],
   };
 
@@ -79,7 +87,11 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
 
   try {
     // Set up restaurant and order
-    await setupRestaurantAndOrder(kv, "r-prep-1", "o-prep-1");
+    await setupRestaurantAndOrder(
+      kv,
+      restaurantId("r-prep-1"),
+      orderId("o-prep-1"),
+    );
 
     // Mark order as prepared
     const repository = markOrderAsPreparedRepository(kv);
@@ -90,7 +102,7 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
 
     const command: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-prep-1",
+      orderId: orderId("o-prep-1"),
     };
 
     const events = await handler.handle(command);
@@ -99,7 +111,7 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
     assertEquals(events.length, 1);
     const event = events[0] as OrderPreparedEvent & EventMetadata;
     assertEquals(event.kind, "OrderPreparedEvent");
-    assertEquals(event.orderId, "o-prep-1");
+    assertEquals(event.orderId, orderId("o-prep-1"));
     assertEquals(event.final, false);
 
     // Verify event metadata
@@ -113,7 +125,7 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
     assertEquals(primaryResult.value !== null, true);
     const storedEvent = primaryResult.value as OrderPreparedEvent;
     assertEquals(storedEvent.kind, "OrderPreparedEvent");
-    assertEquals(storedEvent.orderId, "o-prep-1");
+    assertEquals(storedEvent.orderId, orderId("o-prep-1"));
 
     // Verify events persisted to type index (pointer pattern)
     const typeIndexKey = [
@@ -142,7 +154,7 @@ Deno.test("MarkOrderAsPreparedRepository - non-existent order rejection (domain 
 
     const command: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-nonexist-999", // Non-existent order
+      orderId: orderId("o-nonexist-999"), // Non-existent order
     };
 
     // Should fail with domain error
@@ -150,8 +162,7 @@ Deno.test("MarkOrderAsPreparedRepository - non-existent order rejection (domain 
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Order does not exist!",
+      OrderNotFoundError,
     );
   } finally {
     kv.close();
@@ -163,7 +174,11 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
 
   try {
     // Set up restaurant and order
-    await setupRestaurantAndOrder(kv, "r-already-1", "o-already-1");
+    await setupRestaurantAndOrder(
+      kv,
+      restaurantId("r-already-1"),
+      orderId("o-already-1"),
+    );
 
     // Mark order as prepared
     const repository = markOrderAsPreparedRepository(kv);
@@ -174,7 +189,7 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
 
     const command: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-already-1",
+      orderId: orderId("o-already-1"),
     };
 
     // First preparation should succeed
@@ -186,8 +201,7 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
       async () => {
         await handler.handle(command);
       },
-      Error,
-      "Order already prepared!",
+      OrderAlreadyPreparedError,
     );
   } finally {
     kv.close();
@@ -199,7 +213,11 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
 
   try {
     // Set up restaurant and multiple orders
-    await setupRestaurantAndOrder(kv, "r-concurrent-1", "o-concurrent-1");
+    await setupRestaurantAndOrder(
+      kv,
+      restaurantId("r-concurrent-1"),
+      orderId("o-concurrent-1"),
+    );
 
     // Create a second order for the same restaurant
     const placeRepo = placeOrderRepository(kv);
@@ -210,10 +228,10 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
 
     const placeCommand: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-concurrent-1",
-      orderId: "o-concurrent-2",
+      restaurantId: restaurantId("r-concurrent-1"),
+      orderId: orderId("o-concurrent-2"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -228,21 +246,27 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
 
     const command1: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-concurrent-1",
+      orderId: orderId("o-concurrent-1"),
     };
 
     const command2: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-concurrent-2",
+      orderId: orderId("o-concurrent-2"),
     };
 
     const result1 = await handler.handle(command1);
     assertEquals(result1.length, 1);
-    assertEquals((result1[0] as OrderPreparedEvent).orderId, "o-concurrent-1");
+    assertEquals(
+      (result1[0] as OrderPreparedEvent).orderId,
+      orderId("o-concurrent-1"),
+    );
 
     const result2 = await handler.handle(command2);
     assertEquals(result2.length, 1);
-    assertEquals((result2[0] as OrderPreparedEvent).orderId, "o-concurrent-2");
+    assertEquals(
+      (result2[0] as OrderPreparedEvent).orderId,
+      orderId("o-concurrent-2"),
+    );
 
     // Verify both orders were marked as prepared
     const iter = kv.list({ prefix: ["events_by_type", "OrderPreparedEvent"] });
@@ -261,7 +285,11 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
 
   try {
     // Set up restaurant and multiple orders
-    await setupRestaurantAndOrder(kv, "r-index-1", "o-index-1");
+    await setupRestaurantAndOrder(
+      kv,
+      restaurantId("r-index-1"),
+      orderId("o-index-1"),
+    );
 
     // Create a second order
     const placeRepo = placeOrderRepository(kv);
@@ -272,10 +300,10 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
 
     const placeCommand: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r-index-1",
-      orderId: "o-index-2",
+      restaurantId: restaurantId("r-index-1"),
+      orderId: orderId("o-index-2"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -290,12 +318,12 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
 
     await handler.handle({
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-index-1",
+      orderId: orderId("o-index-1"),
     });
 
     await handler.handle({
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o-index-2",
+      orderId: orderId("o-index-2"),
     });
 
     // Query events by order ID - should find specific order

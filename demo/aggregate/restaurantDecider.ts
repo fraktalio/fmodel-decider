@@ -1,5 +1,11 @@
 import { AggregateDecider } from "../../decider.ts";
-import type { Restaurant, RestaurantCommand, RestaurantEvent } from "./api.ts";
+import {
+  type Restaurant,
+  RestaurantAlreadyExistsError,
+  type RestaurantCommand,
+  type RestaurantEvent,
+  RestaurantNotFoundError,
+} from "./api.ts";
 
 /**
  * Restaurant `pure` event-sourced command handler / a decision-making component
@@ -22,7 +28,7 @@ export const restaurantDecider: AggregateDecider<
     switch (command.kind) {
       case "CreateRestaurantCommand":
         if (currentState !== null && currentState.restaurantId !== undefined) {
-          throw new Error("Restaurant already exist!");
+          throw new RestaurantAlreadyExistsError(command.restaurantId);
         }
         return [
           {
@@ -37,7 +43,7 @@ export const restaurantDecider: AggregateDecider<
         ];
       case "ChangeRestaurantMenuCommand":
         if (currentState === null) {
-          throw new Error("Restaurant does not exist!");
+          throw new RestaurantNotFoundError(command.restaurantId);
         }
         return [
           {
@@ -51,7 +57,7 @@ export const restaurantDecider: AggregateDecider<
         ];
       case "PlaceOrderCommand":
         if (currentState === null) {
-          throw new Error("Restaurant does not exist!");
+          throw new RestaurantNotFoundError(command.restaurantId);
         }
         return [
           {

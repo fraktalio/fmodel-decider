@@ -32,11 +32,17 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { AllDeciderRepository } from "./all_deciderRepository.ts";
-import type {
-  ChangeRestaurantMenuCommand,
-  CreateRestaurantCommand,
-  MarkOrderAsPreparedCommand,
-  PlaceOrderCommand,
+import {
+  type ChangeRestaurantMenuCommand,
+  type CreateRestaurantCommand,
+  type MarkOrderAsPreparedCommand,
+  menuItemId,
+  orderId,
+  OrderNotFoundError,
+  type PlaceOrderCommand,
+  restaurantId,
+  restaurantMenuId,
+  RestaurantNotFoundError,
 } from "./api.ts";
 
 Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (but processes through all deciders)", async () => {
@@ -48,13 +54,13 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (but processe
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -83,22 +89,21 @@ Deno.test("AllDeciderRepository - ChangeRestaurantMenuCommand fails (restaurant 
 
     const changeCommand: ChangeRestaurantMenuCommand = {
       kind: "ChangeRestaurantMenuCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       menu: {
-        menuId: "m2",
+        menuId: restaurantMenuId("m2"),
         cuisine: "FRENCH",
         menuItems: [
-          { menuItemId: "item3", name: "Croissant", price: "5.99" },
+          { menuItemId: menuItemId("item3"), name: "Croissant", price: "5.99" },
         ],
       },
     };
 
     // This FAILS because restaurant doesn't exist (domain error)
-    // - changeRestaurantManuDecider throws "Restaurant does not exist!"
+    // - changeRestaurantManuDecider throws RestaurantNotFoundError
     await assertRejects(
       async () => await repository.execute(changeCommand),
-      Error,
-      "Restaurant does not exist!",
+      RestaurantNotFoundError,
     );
   } finally {
     kv.close();
@@ -113,19 +118,18 @@ Deno.test("AllDeciderRepository - PlaceOrderCommand fails (restaurant doesn't ex
 
     const placeOrderCommand: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r1",
-      orderId: "o1",
+      restaurantId: restaurantId("r1"),
+      orderId: orderId("o1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
     // This FAILS because restaurant doesn't exist (domain error)
-    // - placeOrderDecider throws "Restaurant does not exist!"
+    // - placeOrderDecider throws RestaurantNotFoundError
     await assertRejects(
       async () => await repository.execute(placeOrderCommand),
-      Error,
-      "Restaurant does not exist!",
+      RestaurantNotFoundError,
     );
   } finally {
     kv.close();
@@ -140,15 +144,14 @@ Deno.test("AllDeciderRepository - MarkOrderAsPreparedCommand fails (order doesn'
 
     const markCommand: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o1",
+      orderId: orderId("o1"),
     };
 
     // This FAILS because order doesn't exist (domain error)
-    // - markOrderAsPreparedDecider throws "Order does not exist!"
+    // - markOrderAsPreparedDecider throws OrderNotFoundError
     await assertRejects(
       async () => await repository.execute(markCommand),
-      Error,
-      "Order does not exist!",
+      OrderNotFoundError,
     );
   } finally {
     kv.close();
@@ -164,13 +167,13 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     // 1. Create restaurant
     const createCommand: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
@@ -182,10 +185,10 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     // 2. Place order
     const placeOrderCommand: PlaceOrderCommand = {
       kind: "PlaceOrderCommand",
-      restaurantId: "r1",
-      orderId: "o1",
+      restaurantId: restaurantId("r1"),
+      orderId: orderId("o1"),
       menuItems: [
-        { menuItemId: "item1", name: "Pizza", price: "12.99" },
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     };
 
@@ -196,7 +199,7 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     // 3. Mark order as prepared
     const markCommand: MarkOrderAsPreparedCommand = {
       kind: "MarkOrderAsPreparedCommand",
-      orderId: "o1",
+      orderId: orderId("o1"),
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -229,13 +232,13 @@ Deno.test("AllDeciderRepository - Educational summary: Two valid approaches", as
 
     const command: CreateRestaurantCommand = {
       kind: "CreateRestaurantCommand",
-      restaurantId: "r1",
+      restaurantId: restaurantId("r1"),
       name: "Bistro",
       menu: {
-        menuId: "m1",
+        menuId: restaurantMenuId("m1"),
         cuisine: "ITALIAN",
         menuItems: [
-          { menuItemId: "item1", name: "Pizza", price: "12.99" },
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
     };
