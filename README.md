@@ -639,8 +639,20 @@ const event = {
 - ⚠️ **Write cost:** Each event write creates multiple index entries
 - ⚠️ **Storage cost:** More index entries consume more storage
 
-**Limit:** Maximum 5 tag fields per event (31 index entries) to bound write
-amplification
+**Configurable limit:** The maximum number of tag fields per event is configurable
+via the `maxTagFields` constructor parameter (default: 5, generating 2^5-1=31
+index entries). You can adjust this based on your needs:
+
+```ts
+// Default: 5 tag fields max (31 indexes per event)
+const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples);
+
+// Conservative: 3 tag fields max (7 indexes per event) - less write amplification
+const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 3);
+
+// Aggressive: 7 tag fields max (127 indexes per event) - more query flexibility
+const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 7);
+```
 
 #### Query Tuple Type Safety
 

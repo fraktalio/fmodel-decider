@@ -212,15 +212,15 @@ export class TagFieldConfigurationError extends Error {
  *
  * **Tag-Based Indexing:**
  *
- * Tags are automatically extracted from event fields specified in the `tagFields`
- * constructor parameter. Only string-typed fields can be configured as tag fields.
+ * Tags are automatically extracted from event fields specified in the event's `tagFields`
+ * property. Only string-typed fields can be configured as tag fields.
  * The repository generates all possible tag subset combinations (2^n - 1) as index
  * entries, trading write amplification for O(1) query performance.
  *
- * To query by entityId, include "id" in your tagFields configuration.
+ * To query by entityId, include "id" in your event's tagFields configuration.
  *
- * Maximum 5 tag fields are allowed to bound write amplification to 31 index entries
- * per event (2^5 - 1 tag subsets).
+ * The maximum number of tag fields per event is configurable via the `maxTagFields`
+ * constructor parameter (default: 5, which generates 2^5-1=31 index entries per event).
  *
  * @typeParam C - Command type (must conform to CommandShape)
  * @typeParam Ei - Input event type (consumed by decider, must conform to EventShape)
@@ -238,6 +238,7 @@ export class DenoKvEventSourcedRepository<
    * @param kv - Deno KV instance for storage
    * @param getQueryTuples - Returns array of query tuples to load for this command
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
+   * @param maxTagFields - Maximum number of tag fields per event (default: 5, generates 2^5-1=31 indexes)
    */
   constructor(
     private readonly kv: Deno.Kv,
@@ -245,6 +246,7 @@ export class DenoKvEventSourcedRepository<
       command: C,
     ) => QueryTuple<Ei>[],
     private readonly maxRetries: number = 10,
+    private readonly maxTagFields: number = 5,
   ) {
   }
 
@@ -422,10 +424,10 @@ export class DenoKvEventSourcedRepository<
         const tagFields = event.tagFields;
         if (tagFields && tagFields.length > 0) {
           // Validate tag field count
-          if (tagFields.length > 5) {
+          if (tagFields.length > this.maxTagFields) {
             throw new TagFieldConfigurationError(
               tagFields.length,
-              5,
+              this.maxTagFields,
               tagFields as readonly string[],
             );
           }
