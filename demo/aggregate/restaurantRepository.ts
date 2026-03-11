@@ -5,56 +5,38 @@
  * to Deno KV storage with optimistic locking.
  */
 
-import {
-  DenoKvEventSourcedRepository,
-  type EventMetadata,
-} from "../../denoKvRepository.ts";
+import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
 import type { RestaurantCommand, RestaurantEvent } from "./api.ts";
-import { restaurantDecider } from "./restaurantDecider.ts";
 
 /**
- * Repository for Restaurant aggregate.
+ * Creates a repository for Restaurant aggregate.
  *
  * **Query Pattern:**
  * Loads events using tuples:
  * - `[(restaurantId, "RestaurantCreatedEvent")]`
  * - `[(restaurantId, "RestaurantMenuChangedEvent")]`
  * - `[(restaurantId, "RestaurantOrderPlacedEvent")]`
+ *
+ * @param kv - Deno KV instance for storage
+ * @returns Repository instance for handling RestaurantCommand
+ *
+ * @example
+ * ```typescript
+ * const kv = await Deno.openKv();
+ * const repository = restaurantRepository(kv);
+ * const events = await repository.execute(command, restaurantDecider);
+ * ```
  */
-export class RestaurantRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+export const restaurantRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
     RestaurantCommand,
     RestaurantEvent,
     RestaurantEvent
-  >;
-
-  /**
-   * Creates a new RestaurantRepository.
-   *
-   * @param kv - Deno KV instance for storage
-   */
-  constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
-      kv,
-      (cmd) => [
-        ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
-        ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
-        ["restaurantId:" + cmd.restaurantId, "RestaurantOrderPlacedEvent"],
-      ],
-    );
-  }
-
-  /**
-   * Executes a command.
-   *
-   * @param command - The command to execute
-   * @returns Newly created RestaurantEvent with metadata
-   * @throws Error if restaurant validation fails
-   * @throws OptimisticLockingError if concurrent modification detected
-   */
-  execute(
-    command: RestaurantCommand,
-  ): Promise<readonly (RestaurantEvent & EventMetadata)[]> {
-    return this.repository.execute(command, restaurantDecider);
-  }
-}
+  >(
+    kv,
+    (cmd) => [
+      ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+      ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+      ["restaurantId:" + cmd.restaurantId, "RestaurantOrderPlacedEvent"],
+    ],
+  );

@@ -8,19 +8,15 @@
  * and whether it has already been prepared.
  */
 
-import {
-  DenoKvEventSourcedRepository,
-  type EventMetadata,
-} from "../../denoKvRepository.ts";
+import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
 import type {
   MarkOrderAsPreparedCommand,
   OrderPreparedEvent,
   RestaurantOrderPlacedEvent,
 } from "./api.ts";
-import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 
 /**
- * Repository for MarkOrderAsPrepared decider.
+ * Creates a repository for MarkOrderAsPrepared decider.
  *
  * **Query Pattern:**
  * Loads events using tuples:
@@ -29,41 +25,26 @@ import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
  *
  * **Indexing Strategy:**
  * OrderPreparedEvent is indexed by order ID (primary).
+ *
+ * @param kv - Deno KV instance for storage
+ * @returns Repository instance for handling MarkOrderAsPreparedCommand
+ *
+ * @example
+ * ```typescript
+ * const kv = await Deno.openKv();
+ * const repository = markOrderAsPreparedRepository(kv);
+ * const events = await repository.execute(command, markOrderAsPreparedDecider);
+ * ```
  */
-export class MarkOrderAsPreparedRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+export const markOrderAsPreparedRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
     MarkOrderAsPreparedCommand,
     RestaurantOrderPlacedEvent | OrderPreparedEvent,
     OrderPreparedEvent
-  >;
-
-  /**
-   * Creates a new MarkOrderAsPreparedRepository.
-   *
-   * @param kv - Deno KV instance for storage
-   */
-  constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
-      kv,
-      (cmd) => [
-        ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
-        ["orderId:" + cmd.orderId, "OrderPreparedEvent"], // Query by order ID to check if already prepared
-      ],
-    );
-  }
-
-  /**
-   * Executes a command.
-   *
-   * @param command - The command to execute
-   * @returns Newly created OrderPreparedEvent with metadata
-   * @throws Error if order does not exist
-   * @throws Error if order already prepared
-   * @throws OptimisticLockingError if concurrent modification detected
-   */
-  execute(
-    command: MarkOrderAsPreparedCommand,
-  ): Promise<readonly (OrderPreparedEvent & EventMetadata)[]> {
-    return this.repository.execute(command, markOrderAsPreparedDecider);
-  }
-}
+  >(
+    kv,
+    (cmd) => [
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by order ID to check if order exists
+      ["orderId:" + cmd.orderId, "OrderPreparedEvent"], // Query by order ID to check if already prepared
+    ],
+  );

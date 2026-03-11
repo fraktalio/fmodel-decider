@@ -11,9 +11,9 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { PlaceOrderRepository } from "./placeOrderRepository.ts";
-import { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
-import { ChangeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
+import { placeOrderRepository } from "./placeOrderRepository.ts";
+import { createRestaurantRepository } from "./createRestaurantRepository.ts";
+import { changeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { placeOrderDecider } from "./placeOrderDecider.ts";
 import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
@@ -30,7 +30,7 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
 
   try {
     // Create restaurant first
-    const createRepo = new CreateRestaurantRepository(kv);
+    const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepo,
@@ -53,7 +53,7 @@ Deno.test("PlaceOrderRepository - successful order placement via handler.handle(
     await createHandler.handle(createCommand);
 
     // Place order
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,
@@ -113,7 +113,7 @@ Deno.test("PlaceOrderRepository - non-existent restaurant rejection (domain erro
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,
@@ -146,7 +146,7 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
 
   try {
     // Create restaurant first
-    const createRepo = new CreateRestaurantRepository(kv);
+    const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepo,
@@ -168,7 +168,7 @@ Deno.test("PlaceOrderRepository - invalid menu items rejection (domain error pro
     await createHandler.handle(createCommand);
 
     // Try to place order with invalid menu item
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,
@@ -201,7 +201,7 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
 
   try {
     // Create restaurant first
-    const createRepo = new CreateRestaurantRepository(kv);
+    const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepo,
@@ -223,7 +223,7 @@ Deno.test("PlaceOrderRepository - duplicate order rejection (domain error propag
     await createHandler.handle(createCommand);
 
     // Place order
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,
@@ -260,7 +260,7 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
 
   try {
     // Create restaurant first
-    const createRepo = new CreateRestaurantRepository(kv);
+    const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepo,
@@ -283,7 +283,7 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     await createHandler.handle(createCommand);
 
     // Change menu
-    const changeRepo = new ChangeRestaurantMenuRepository(kv);
+    const changeRepo = changeRestaurantMenuRepository(kv);
     const changeHandler = new EventSourcedCommandHandler(
       changeRestaurantManuDecider,
       changeRepo,
@@ -306,7 +306,7 @@ Deno.test("PlaceOrderRepository - order placement after menu change (menu evolut
     await changeHandler.handle(changeCommand);
 
     // Place order with item from updated menu - should succeed
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,
@@ -341,7 +341,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
 
   try {
     // Create restaurant first
-    const createRepo = new CreateRestaurantRepository(kv);
+    const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepo,
@@ -363,7 +363,7 @@ Deno.test("PlaceOrderRepository - maximum retry limit enforcement", async () => 
     await createHandler.handle(createCommand);
 
     // Place multiple orders to verify retry mechanism works
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,
@@ -452,7 +452,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
 
   try {
     // Create restaurant
-    const createRepo = new CreateRestaurantRepository(kv);
+    const createRepo = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepo,
@@ -474,7 +474,7 @@ Deno.test("PlaceOrderRepository - verify events indexed by order ID correctly", 
     await createHandler.handle(createCommand);
 
     // Place multiple orders
-    const repository = new PlaceOrderRepository(kv);
+    const repository = placeOrderRepository(kv);
     const handler = new EventSourcedCommandHandler(
       placeOrderDecider,
       repository,

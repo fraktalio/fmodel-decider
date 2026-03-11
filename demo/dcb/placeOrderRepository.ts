@@ -8,20 +8,16 @@
  * events related to both the restaurant state and existing orders.
  */
 
-import {
-  DenoKvEventSourcedRepository,
-  type EventMetadata,
-} from "../../denoKvRepository.ts";
+import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
 import type {
   PlaceOrderCommand,
   RestaurantCreatedEvent,
   RestaurantMenuChangedEvent,
   RestaurantOrderPlacedEvent,
 } from "./api.ts";
-import { placeOrderDecider } from "./placeOrderDecider.ts";
 
 /**
- * Repository for PlaceOrder decider.
+ * Creates a repository for PlaceOrder decider.
  *
  * **Query Pattern:**
  * Loads events using tuples:
@@ -34,45 +30,29 @@ import { placeOrderDecider } from "./placeOrderDecider.ts";
  * This supports:
  * - PlaceOrder use case: Query by order ID to check if order exists
  * - Future queries: Query by restaurant ID to get all orders for a restaurant
+ *
+ * @param kv - Deno KV instance for storage
+ * @returns Repository instance for handling PlaceOrderCommand
+ *
+ * @example
+ * ```typescript
+ * const kv = await Deno.openKv();
+ * const repository = placeOrderRepository(kv);
+ * const events = await repository.execute(command, placeOrderDecider);
+ * ```
  */
-export class PlaceOrderRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+export const placeOrderRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent
     | RestaurantMenuChangedEvent
     | RestaurantOrderPlacedEvent,
     RestaurantOrderPlacedEvent
-  >;
-
-  /**
-   * Creates a new PlaceOrderRepository.
-   *
-   * @param kv - Deno KV instance for storage
-   */
-  constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
-      kv,
-      (cmd) => [
-        ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Query by restaurant ID
-        ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"], // Query by restaurant ID
-        ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
-      ],
-    );
-  }
-
-  /**
-   * Executes a command.
-   *
-   * @param command - The command to execute
-   * @returns Newly created RestaurantOrderPlacedEvent with metadata
-   * @throws Error if restaurant does not exist
-   * @throws Error if menu items are invalid
-   * @throws Error if order already exists
-   * @throws OptimisticLockingError if concurrent modification detected
-   */
-  execute(
-    command: PlaceOrderCommand,
-  ): Promise<readonly (RestaurantOrderPlacedEvent & EventMetadata)[]> {
-    return this.repository.execute(command, placeOrderDecider);
-  }
-}
+  >(
+    kv,
+    (cmd) => [
+      ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"], // Query by restaurant ID
+      ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"], // Query by restaurant ID
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"], // Query by ORDER ID to check if this order exists
+    ],
+  );

@@ -5,54 +5,36 @@
  * to Deno KV storage with optimistic locking.
  */
 
-import {
-  DenoKvEventSourcedRepository,
-  type EventMetadata,
-} from "../../denoKvRepository.ts";
+import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
 import type { OrderCommand, OrderEvent } from "./api.ts";
-import { orderDecider } from "./orderDecider.ts";
 
 /**
- * Repository for Order aggregate.
+ * Creates a repository for Order aggregate.
  *
  * **Query Pattern:**
  * Loads events using tuples:
  * - `[(orderId, "OrderCreatedEvent")]`
  * - `[(orderId, "OrderPreparedEvent")]`
+ *
+ * @param kv - Deno KV instance for storage
+ * @returns Repository instance for handling OrderCommand
+ *
+ * @example
+ * ```typescript
+ * const kv = await Deno.openKv();
+ * const repository = orderRepository(kv);
+ * const events = await repository.execute(command, orderDecider);
+ * ```
  */
-export class OrderRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+export const orderRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
     OrderCommand,
     OrderEvent,
     OrderEvent
-  >;
-
-  /**
-   * Creates a new OrderRepository.
-   *
-   * @param kv - Deno KV instance for storage
-   */
-  constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
-      kv,
-      (cmd) => [
-        ["orderId:" + cmd.orderId, "OrderCreatedEvent"],
-        ["orderId:" + cmd.orderId, "OrderPreparedEvent"],
-      ],
-    );
-  }
-
-  /**
-   * Executes a command.
-   *
-   * @param command - The command to execute
-   * @returns Newly created OrderEvent with metadata
-   * @throws Error if order validation fails
-   * @throws OptimisticLockingError if concurrent modification detected
-   */
-  execute(
-    command: OrderCommand,
-  ): Promise<readonly (OrderEvent & EventMetadata)[]> {
-    return this.repository.execute(command, orderDecider);
-  }
-}
+  >(
+    kv,
+    (cmd) => [
+      ["orderId:" + cmd.orderId, "OrderCreatedEvent"],
+      ["orderId:" + cmd.orderId, "OrderPreparedEvent"],
+    ],
+  );

@@ -5,49 +5,31 @@
  * to Deno KV storage with optimistic locking.
  */
 
-import {
-  DenoKvEventSourcedRepository,
-  type EventMetadata,
-} from "../../denoKvRepository.ts";
+import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
 import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
-import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
 
 /**
- * Repository for CreateRestaurant decider.
+ * Creates a repository for CreateRestaurant decider.
  *
  * **Query Pattern:**
  * Loads events using tuple: `[(restaurantId, "RestaurantCreatedEvent")]`
+ *
+ * @param kv - Deno KV instance for storage
+ * @returns Repository instance for handling CreateRestaurantCommand
+ *
+ * @example
+ * ```typescript
+ * const kv = await Deno.openKv();
+ * const repository = createRestaurantRepository(kv);
+ * const events = await repository.execute(command, crateRestaurantDecider);
+ * ```
  */
-export class CreateRestaurantRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+export const createRestaurantRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
     CreateRestaurantCommand,
     RestaurantCreatedEvent,
     RestaurantCreatedEvent
-  >;
-
-  /**
-   * Creates a new CreateRestaurantRepository.
-   *
-   * @param kv - Deno KV instance for storage
-   */
-  constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
-      kv,
-      (cmd) => [["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
-    );
-  }
-
-  /**
-   * Executes a command.
-   *
-   * @param command - The command to execute
-   * @returns Newly created RestaurantCreatedEvent with metadata
-   * @throws Error if restaurant already exists
-   * @throws OptimisticLockingError if concurrent creation detected
-   */
-  execute(
-    command: CreateRestaurantCommand,
-  ): Promise<readonly (RestaurantCreatedEvent & EventMetadata)[]> {
-    return this.repository.execute(command, crateRestaurantDecider);
-  }
-}
+  >(
+    kv,
+    (cmd) => [["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"]], // Load RestaurantCreatedEvent by restaurant ID
+  );

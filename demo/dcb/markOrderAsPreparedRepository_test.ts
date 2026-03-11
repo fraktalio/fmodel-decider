@@ -11,9 +11,9 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { MarkOrderAsPreparedRepository } from "./markOrderAsPreparedRepository.ts";
-import { PlaceOrderRepository } from "./placeOrderRepository.ts";
-import { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
+import { markOrderAsPreparedRepository } from "./markOrderAsPreparedRepository.ts";
+import { placeOrderRepository } from "./placeOrderRepository.ts";
+import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 import { placeOrderDecider } from "./placeOrderDecider.ts";
@@ -34,7 +34,7 @@ async function setupRestaurantAndOrder(
   orderId: string,
 ): Promise<void> {
   // Create restaurant
-  const createRepo = new CreateRestaurantRepository(kv);
+  const createRepo = createRestaurantRepository(kv);
   const createHandler = new EventSourcedCommandHandler(
     crateRestaurantDecider,
     createRepo,
@@ -56,7 +56,7 @@ async function setupRestaurantAndOrder(
   await createHandler.handle(createCommand);
 
   // Place order
-  const placeRepo = new PlaceOrderRepository(kv);
+  const placeRepo = placeOrderRepository(kv);
   const placeHandler = new EventSourcedCommandHandler(
     placeOrderDecider,
     placeRepo,
@@ -82,7 +82,7 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
     await setupRestaurantAndOrder(kv, "r-prep-1", "o-prep-1");
 
     // Mark order as prepared
-    const repository = new MarkOrderAsPreparedRepository(kv);
+    const repository = markOrderAsPreparedRepository(kv);
     const handler = new EventSourcedCommandHandler(
       markOrderAsPreparedDecider,
       repository,
@@ -134,7 +134,7 @@ Deno.test("MarkOrderAsPreparedRepository - non-existent order rejection (domain 
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new MarkOrderAsPreparedRepository(kv);
+    const repository = markOrderAsPreparedRepository(kv);
     const handler = new EventSourcedCommandHandler(
       markOrderAsPreparedDecider,
       repository,
@@ -166,7 +166,7 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
     await setupRestaurantAndOrder(kv, "r-already-1", "o-already-1");
 
     // Mark order as prepared
-    const repository = new MarkOrderAsPreparedRepository(kv);
+    const repository = markOrderAsPreparedRepository(kv);
     const handler = new EventSourcedCommandHandler(
       markOrderAsPreparedDecider,
       repository,
@@ -202,7 +202,7 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
     await setupRestaurantAndOrder(kv, "r-concurrent-1", "o-concurrent-1");
 
     // Create a second order for the same restaurant
-    const placeRepo = new PlaceOrderRepository(kv);
+    const placeRepo = placeOrderRepository(kv);
     const placeHandler = new EventSourcedCommandHandler(
       placeOrderDecider,
       placeRepo,
@@ -220,7 +220,7 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
     await placeHandler.handle(placeCommand);
 
     // Mark both orders as prepared - should succeed with retry logic
-    const repository = new MarkOrderAsPreparedRepository(kv);
+    const repository = markOrderAsPreparedRepository(kv);
     const handler = new EventSourcedCommandHandler(
       markOrderAsPreparedDecider,
       repository,
@@ -264,7 +264,7 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
     await setupRestaurantAndOrder(kv, "r-index-1", "o-index-1");
 
     // Create a second order
-    const placeRepo = new PlaceOrderRepository(kv);
+    const placeRepo = placeOrderRepository(kv);
     const placeHandler = new EventSourcedCommandHandler(
       placeOrderDecider,
       placeRepo,
@@ -282,7 +282,7 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
     await placeHandler.handle(placeCommand);
 
     // Mark both orders as prepared
-    const repository = new MarkOrderAsPreparedRepository(kv);
+    const repository = markOrderAsPreparedRepository(kv);
     const handler = new EventSourcedCommandHandler(
       markOrderAsPreparedDecider,
       repository,

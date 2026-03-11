@@ -7,7 +7,7 @@
 
 import { assertEquals } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
+import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
 import type { CreateRestaurantCommand } from "./api.ts";
 
@@ -29,7 +29,7 @@ Deno.test("EventSourcedRepository - tuple-based query pattern allows flexible en
     // allows querying: [("r1", "RestaurantCreatedEvent"), ("r1", "RestaurantMenuChangedEvent"), ("o1", "OrderPreparedEvent")]
 
     // For this test, we'll verify the CreateRestaurantRepository works with the new tuple approach
-    const repository = new CreateRestaurantRepository(kv);
+    const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       repository,

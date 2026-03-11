@@ -10,9 +10,9 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { ChangeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
+import { changeRestaurantMenuRepository } from "./changeRestaurantMenuRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
-import { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
+import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
 import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
 import type {
@@ -26,7 +26,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
 
   try {
     // First create a restaurant
-    const createRepository = new CreateRestaurantRepository(kv);
+    const createRepository = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepository,
@@ -48,7 +48,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
     await createHandler.handle(createCommand);
 
     // Now change the menu
-    const changeRepository = new ChangeRestaurantMenuRepository(kv);
+    const changeRepository = changeRestaurantMenuRepository(kv);
     const changeHandler = new EventSourcedCommandHandler(
       changeRestaurantManuDecider,
       changeRepository,
@@ -114,7 +114,7 @@ Deno.test("ChangeRestaurantMenuRepository - non-existent restaurant rejection (d
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new ChangeRestaurantMenuRepository(kv);
+    const repository = changeRestaurantMenuRepository(kv);
     const handler = new EventSourcedCommandHandler(
       changeRestaurantManuDecider,
       repository,
@@ -150,7 +150,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
 
   try {
     // First create a restaurant
-    const createRepository = new CreateRestaurantRepository(kv);
+    const createRepository = createRestaurantRepository(kv);
     const createHandler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       createRepository,
@@ -172,7 +172,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
     await createHandler.handle(createCommand);
 
     // Now perform two menu changes
-    const changeRepository = new ChangeRestaurantMenuRepository(kv);
+    const changeRepository = changeRestaurantMenuRepository(kv);
     const changeHandler = new EventSourcedCommandHandler(
       changeRestaurantManuDecider,
       changeRepository,

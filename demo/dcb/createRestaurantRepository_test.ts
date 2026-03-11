@@ -10,7 +10,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { CreateRestaurantRepository } from "./createRestaurantRepository.ts";
+import { createRestaurantRepository } from "./createRestaurantRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
 import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
@@ -21,7 +21,7 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
 
   try {
     // Create repository and handler
-    const repository = new CreateRestaurantRepository(kv);
+    const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       repository,
@@ -89,7 +89,7 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new CreateRestaurantRepository(kv);
+    const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       repository,
@@ -128,7 +128,7 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new CreateRestaurantRepository(kv);
+    const repository = createRestaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       crateRestaurantDecider,
       repository,

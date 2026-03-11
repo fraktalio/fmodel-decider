@@ -10,7 +10,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { OrderRepository } from "./orderRepository.ts";
+import { orderRepository } from "./orderRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { orderDecider } from "./orderDecider.ts";
 import type {
@@ -24,7 +24,7 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new OrderRepository(kv);
+    const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
     const command: CreateOrderCommand = {
@@ -82,7 +82,7 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new OrderRepository(kv);
+    const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
     const command: CreateOrderCommand = {
@@ -115,7 +115,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new OrderRepository(kv);
+    const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
     // Create order
@@ -153,7 +153,7 @@ Deno.test("OrderRepository - mark non-existent order as prepared", async () => {
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new OrderRepository(kv);
+    const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
     const prepareCommand: MarkOrderAsPreparedCommand = {
@@ -178,7 +178,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new OrderRepository(kv);
+    const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
     const command: CreateOrderCommand = {

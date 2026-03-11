@@ -10,7 +10,7 @@
 
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
-import { RestaurantRepository } from "./restaurantRepository.ts";
+import { restaurantRepository } from "./restaurantRepository.ts";
 import type { EventMetadata } from "../../denoKvRepository.ts";
 import { restaurantDecider } from "./restaurantDecider.ts";
 import type {
@@ -24,7 +24,7 @@ Deno.test("RestaurantRepository - successful restaurant creation (happy path)", 
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new RestaurantRepository(kv);
+    const repository = restaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       restaurantDecider,
       repository,
@@ -91,7 +91,7 @@ Deno.test("RestaurantRepository - duplicate restaurant rejection (domain error)"
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new RestaurantRepository(kv);
+    const repository = restaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       restaurantDecider,
       repository,
@@ -131,7 +131,7 @@ Deno.test("RestaurantRepository - menu change on existing restaurant", async () 
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new RestaurantRepository(kv);
+    const repository = restaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       restaurantDecider,
       repository,
@@ -184,7 +184,7 @@ Deno.test("RestaurantRepository - menu change on non-existent restaurant", async
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new RestaurantRepository(kv);
+    const repository = restaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       restaurantDecider,
       repository,
@@ -219,7 +219,7 @@ Deno.test("RestaurantRepository - concurrent modification detection", async () =
   const kv = await Deno.openKv(":memory:");
 
   try {
-    const repository = new RestaurantRepository(kv);
+    const repository = restaurantRepository(kv);
     const handler = new EventSourcedCommandHandler(
       restaurantDecider,
       repository,

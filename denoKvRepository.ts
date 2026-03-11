@@ -552,8 +552,10 @@ export class DenoKvEventSourcedRepository<
   }
 }
 
-// Export concrete repositories
-export { CreateRestaurantRepository } from "./demo/dcb/createRestaurantRepository.ts";
-export { ChangeRestaurantMenuRepository } from "./demo/dcb/changeRestaurantMenuRepository.ts";
-export { PlaceOrderRepository } from "./demo/dcb/placeOrderRepository.ts";
-export { MarkOrderAsPreparedRepository } from "./demo/dcb/markOrderAsPreparedRepository.ts";
+// Export concrete repository factory functions
+export { createRestaurantRepository } from "./demo/dcb/createRestaurantRepository.ts";
+export { changeRestaurantMenuRepository } from "./demo/dcb/changeRestaurantMenuRepository.ts";
+export { placeOrderRepository } from "./demo/dcb/placeOrderRepository.ts";
+export { markOrderAsPreparedRepository } from "./demo/dcb/markOrderAsPreparedRepository.ts";
+export { restaurantRepository } from "./demo/aggregate/restaurantRepository.ts";
+export { orderRepository } from "./demo/aggregate/orderRepository.ts";
