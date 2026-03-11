@@ -13,8 +13,8 @@ architectures with progressive type refinement.
 
 ## Why fmodel-decider?
 
-fmodel-decider is more than a library - it's a **formal specification framework**
-encoded in TypeScript's type system:
+fmodel-decider is more than a library - it's a **formal specification
+framework** encoded in TypeScript's type system:
 
 - **Type System as Specification**: Interfaces like `IDcbDecider` and
   `IAggregateDecider` are executable specifications that constrain
@@ -83,16 +83,21 @@ mechanisms:
 
 ### 1. Type System as Formal Specification
 
-The type hierarchy encodes domain modeling patterns as executable specifications:
+The type hierarchy encodes domain modeling patterns as executable
+specifications:
 
 ```ts
 // Formal specification: Event-sourced computation
-interface EventComputation<C, Ei, Eo> {
+interface IEventComputation<C, Ei, Eo> {
   computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
 }
 
+// Formal specification: The foundational contract for decision-making algorithms
+interface IDecider<C, Si, So, Ei, Eo> {}
+
 // Formal specification: Dynamic consistency boundary
-interface IDcbDecider<C, S, Ei, Eo> extends IDecider<C, S, S, Ei, Eo> {
+interface IDcbDecider<C, S, Ei, Eo>
+  extends IDecider<C, S, S, Ei, Eo>, IEventComputation<C, Ei, Eo> {
   // Gains EventComputation capability
   computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
 }
