@@ -18,6 +18,7 @@ import type {
   RestaurantMenuChangedEvent,
   RestaurantOrderPlacedEvent,
 } from "./api.ts";
+import { placeOrderDecider } from "./placeOrderDecider.ts";
 
 /**
  * Repository for PlaceOrder decider.
@@ -69,10 +70,9 @@ export class PlaceOrderRepository {
    * @throws Error if order already exists
    * @throws OptimisticLockingError if concurrent modification detected
    */
-  async execute(
+  execute(
     command: PlaceOrderCommand,
   ): Promise<readonly (RestaurantOrderPlacedEvent & EventMetadata)[]> {
-    const { placeOrderDecider } = await import("./placeOrderDecider.ts");
     return this.repository.execute(command, placeOrderDecider);
   }
 }

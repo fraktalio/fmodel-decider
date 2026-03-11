@@ -10,6 +10,7 @@ import {
   type EventMetadata,
 } from "../../denoKvRepository.ts";
 import type { OrderCommand, OrderEvent } from "./api.ts";
+import { orderDecider } from "./orderDecider.ts";
 
 /**
  * Repository for Order aggregate.
@@ -49,10 +50,9 @@ export class OrderRepository {
    * @throws Error if order validation fails
    * @throws OptimisticLockingError if concurrent modification detected
    */
-  async execute(
+  execute(
     command: OrderCommand,
   ): Promise<readonly (OrderEvent & EventMetadata)[]> {
-    const { orderDecider } = await import("./orderDecider.ts");
     return this.repository.execute(command, orderDecider);
   }
 }

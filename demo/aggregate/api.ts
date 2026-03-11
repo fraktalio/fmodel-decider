@@ -84,39 +84,47 @@ export type PlaceOrderCommand = {
 
 // ########################### API (EVENTS) ##################################
 
+import type { TypeSafeEventShape } from "../../denoKvRepository.ts";
+
 export type RestaurantEvent =
   | RestaurantCreatedEvent
   | RestaurantMenuChangedEvent
   | RestaurantOrderPlacedEvent;
 
-export type RestaurantCreatedEvent = {
-  readonly decider: "Restaurant";
-  readonly kind: "RestaurantCreatedEvent";
-  readonly restaurantId: RestaurantId;
-  readonly name: RestaurantName;
-  readonly menu: RestaurantMenu;
-  readonly final: boolean;
-  readonly tagFields: readonly ["restaurantId"];
-};
+export type RestaurantCreatedEvent = TypeSafeEventShape<
+  {
+    readonly decider: "Restaurant";
+    readonly kind: "RestaurantCreatedEvent";
+    readonly restaurantId: RestaurantId;
+    readonly name: RestaurantName;
+    readonly menu: RestaurantMenu;
+    readonly final: boolean;
+  },
+  ["restaurantId"]
+>;
 
-export type RestaurantMenuChangedEvent = {
-  readonly decider: "Restaurant";
-  readonly kind: "RestaurantMenuChangedEvent";
-  readonly restaurantId: RestaurantId;
-  readonly menu: RestaurantMenu;
-  readonly final: boolean;
-  readonly tagFields: readonly ["restaurantId"];
-};
+export type RestaurantMenuChangedEvent = TypeSafeEventShape<
+  {
+    readonly decider: "Restaurant";
+    readonly kind: "RestaurantMenuChangedEvent";
+    readonly restaurantId: RestaurantId;
+    readonly menu: RestaurantMenu;
+    readonly final: boolean;
+  },
+  ["restaurantId"]
+>;
 
-export type RestaurantOrderPlacedEvent = {
-  readonly decider: "Restaurant";
-  readonly kind: "RestaurantOrderPlacedEvent";
-  readonly restaurantId: RestaurantId;
-  readonly orderId: OrderId;
-  readonly menuItems: MenuItem[];
-  readonly final: boolean;
-  readonly tagFields: readonly ["restaurantId"];
-};
+export type RestaurantOrderPlacedEvent = TypeSafeEventShape<
+  {
+    readonly decider: "Restaurant";
+    readonly kind: "RestaurantOrderPlacedEvent";
+    readonly restaurantId: RestaurantId;
+    readonly orderId: OrderId;
+    readonly menuItems: MenuItem[];
+    readonly final: boolean;
+  },
+  ["restaurantId"]
+>;
 
 // ###########################################################################
 // ############################## Order ######################################
@@ -162,25 +170,29 @@ export type OrderEvent =
   | OrderCreatedEvent
   | OrderPreparedEvent;
 
-export type OrderCreatedEvent = {
-  readonly version: number;
-  readonly decider: "Order";
-  readonly kind: "OrderCreatedEvent";
-  readonly orderId: OrderId;
-  readonly restaurantId: RestaurantId;
-  readonly menuItems: MenuItem[];
-  readonly final: boolean;
-  readonly tagFields: readonly ["orderId"];
-};
+export type OrderCreatedEvent = TypeSafeEventShape<
+  {
+    readonly version: number;
+    readonly decider: "Order";
+    readonly kind: "OrderCreatedEvent";
+    readonly orderId: OrderId;
+    readonly restaurantId: RestaurantId;
+    readonly menuItems: MenuItem[];
+    readonly final: boolean;
+  },
+  ["orderId"]
+>;
 
-export type OrderPreparedEvent = {
-  readonly version: number;
-  readonly decider: "Order";
-  readonly kind: "OrderPreparedEvent";
-  readonly orderId: OrderId;
-  readonly final: boolean;
-  readonly tagFields: readonly ["orderId"];
-};
+export type OrderPreparedEvent = TypeSafeEventShape<
+  {
+    readonly version: number;
+    readonly decider: "Order";
+    readonly kind: "OrderPreparedEvent";
+    readonly orderId: OrderId;
+    readonly final: boolean;
+  },
+  ["orderId"]
+>;
 
 // All variants of commands
 export type Command = RestaurantCommand | OrderCommand;

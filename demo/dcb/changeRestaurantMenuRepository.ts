@@ -14,6 +14,7 @@ import type {
   RestaurantCreatedEvent,
   RestaurantMenuChangedEvent,
 } from "./api.ts";
+import { changeRestaurantManuDecider } from "./changeRestaurantMenuDecider.ts";
 
 /**
  * Repository for ChangeRestaurantMenu decider.
@@ -48,12 +49,9 @@ export class ChangeRestaurantMenuRepository {
    * @throws Error if restaurant does not exist
    * @throws OptimisticLockingError if concurrent modification detected
    */
-  async execute(
+  execute(
     command: ChangeRestaurantMenuCommand,
   ): Promise<readonly (RestaurantMenuChangedEvent & EventMetadata)[]> {
-    const { changeRestaurantManuDecider } = await import(
-      "./changeRestaurantMenuDecider.ts"
-    );
     return this.repository.execute(command, changeRestaurantManuDecider);
   }
 }

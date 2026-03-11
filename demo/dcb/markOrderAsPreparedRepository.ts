@@ -17,6 +17,7 @@ import type {
   OrderPreparedEvent,
   RestaurantOrderPlacedEvent,
 } from "./api.ts";
+import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 
 /**
  * Repository for MarkOrderAsPrepared decider.
@@ -60,12 +61,9 @@ export class MarkOrderAsPreparedRepository {
    * @throws Error if order already prepared
    * @throws OptimisticLockingError if concurrent modification detected
    */
-  async execute(
+  execute(
     command: MarkOrderAsPreparedCommand,
   ): Promise<readonly (OrderPreparedEvent & EventMetadata)[]> {
-    const { markOrderAsPreparedDecider } = await import(
-      "./markOrderAsPreparedDecider.ts"
-    );
     return this.repository.execute(command, markOrderAsPreparedDecider);
   }
 }

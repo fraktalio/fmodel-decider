@@ -69,41 +69,51 @@ export type MarkOrderAsPreparedCommand = {
 
 // ########################### API (EVENTS) ##################################
 
+import type { TypeSafeEventShape } from "../../denoKvRepository.ts";
+
 export type Event =
   | RestaurantCreatedEvent
   | RestaurantMenuChangedEvent
   | RestaurantOrderPlacedEvent
   | OrderPreparedEvent;
 
-export type RestaurantCreatedEvent = {
-  readonly kind: "RestaurantCreatedEvent";
-  readonly restaurantId: RestaurantId;
-  readonly name: RestaurantName;
-  readonly menu: RestaurantMenu;
-  readonly final: boolean;
-  readonly tagFields: readonly ["restaurantId"];
-};
+export type RestaurantCreatedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "RestaurantCreatedEvent";
+    readonly restaurantId: RestaurantId;
+    readonly name: RestaurantName;
+    readonly menu: RestaurantMenu;
+    readonly final: boolean;
+  },
+  ["restaurantId"]
+>;
 
-export type RestaurantMenuChangedEvent = {
-  readonly kind: "RestaurantMenuChangedEvent";
-  readonly restaurantId: RestaurantId;
-  readonly menu: RestaurantMenu;
-  readonly final: boolean;
-  readonly tagFields: readonly ["restaurantId"];
-};
+export type RestaurantMenuChangedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "RestaurantMenuChangedEvent";
+    readonly restaurantId: RestaurantId;
+    readonly menu: RestaurantMenu;
+    readonly final: boolean;
+  },
+  ["restaurantId"]
+>;
 
-export type RestaurantOrderPlacedEvent = {
-  readonly kind: "RestaurantOrderPlacedEvent";
-  readonly restaurantId: RestaurantId;
-  readonly orderId: OrderId;
-  readonly menuItems: MenuItem[];
-  readonly final: boolean;
-  readonly tagFields: readonly ["restaurantId", "orderId"];
-};
+export type RestaurantOrderPlacedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "RestaurantOrderPlacedEvent";
+    readonly restaurantId: RestaurantId;
+    readonly orderId: OrderId;
+    readonly menuItems: MenuItem[];
+    readonly final: boolean;
+  },
+  ["restaurantId", "orderId"]
+>;
 
-export type OrderPreparedEvent = {
-  readonly kind: "OrderPreparedEvent";
-  readonly orderId: OrderId;
-  readonly final: boolean;
-  readonly tagFields: readonly ["orderId"];
-};
+export type OrderPreparedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "OrderPreparedEvent";
+    readonly orderId: OrderId;
+    readonly final: boolean;
+  },
+  ["orderId"]
+>;

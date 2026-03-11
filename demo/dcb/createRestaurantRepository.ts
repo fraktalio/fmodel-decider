@@ -10,6 +10,7 @@ import {
   type EventMetadata,
 } from "../../denoKvRepository.ts";
 import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
+import { crateRestaurantDecider } from "./createRestaurantDecider.ts";
 
 /**
  * Repository for CreateRestaurant decider.
@@ -44,12 +45,9 @@ export class CreateRestaurantRepository {
    * @throws Error if restaurant already exists
    * @throws OptimisticLockingError if concurrent creation detected
    */
-  async execute(
+  execute(
     command: CreateRestaurantCommand,
   ): Promise<readonly (RestaurantCreatedEvent & EventMetadata)[]> {
-    const { crateRestaurantDecider } = await import(
-      "./createRestaurantDecider.ts"
-    );
     return this.repository.execute(command, crateRestaurantDecider);
   }
 }

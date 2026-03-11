@@ -10,6 +10,7 @@ import {
   type EventMetadata,
 } from "../../denoKvRepository.ts";
 import type { RestaurantCommand, RestaurantEvent } from "./api.ts";
+import { restaurantDecider } from "./restaurantDecider.ts";
 
 /**
  * Repository for Restaurant aggregate.
@@ -51,10 +52,9 @@ export class RestaurantRepository {
    * @throws Error if restaurant validation fails
    * @throws OptimisticLockingError if concurrent modification detected
    */
-  async execute(
+  execute(
     command: RestaurantCommand,
   ): Promise<readonly (RestaurantEvent & EventMetadata)[]> {
-    const { restaurantDecider } = await import("./restaurantDecider.ts");
     return this.repository.execute(command, restaurantDecider);
   }
 }

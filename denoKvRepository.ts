@@ -20,15 +20,68 @@ export type CommandShape = {
 };
 
 /**
- * Shape constraint for events.
+ * Extracts string-typed field names from an event type.
+ *
+ * This mapped type filters event fields to only those with string values,
+ * enabling type-safe tag field configuration.
+ */
+export type StringFields<E> = {
+  [K in keyof E]: E[K] extends string ? K : never;
+}[keyof E];
+
+/**
+ * Shape constraint for events with type-safe tagFields.
  *
  * Events must have a `kind` field identifying the event type.
  * Events can optionally declare `tagFields` - an array of field names to be indexed as tags.
  */
 export type EventShape = {
   readonly kind: string; // The kind/type/name of the event
-  readonly tagFields?: readonly string[]; // Optional: fields to index as tags
+  readonly tagFields?: readonly string[]; // Optional: fields to index as tags (constrained in concrete types)
 };
+
+/**
+ * Type-safe event with constrained tagFields.
+ *
+ * This helper enforces that tagFields can only contain string-typed field names
+ * from the event definition. The tagFields parameter is separate to enable proper
+ * type validation.
+ *
+ * @example
+ * ```typescript
+ * // Define the event structure without tagFields
+ * type MyEventData = {
+ *   kind: "MyEvent";
+ *   entityId: string;
+ *   tenantId: string;
+ *   count: number;
+ * };
+ *
+ * // Apply type-safe tagFields
+ * type MyEvent = TypeSafeEventShape<MyEventData, ["entityId", "tenantId"]>;
+ * // ✅ Type-safe! Only string fields allowed
+ *
+ * // This would error:
+ * // type BadEvent = TypeSafeEventShape<MyEventData, ["count"]>;
+ * // ❌ Error: "count" is not a string field
+ *
+ * // Optional tagFields (no second parameter)
+ * type MyEventNoTags = TypeSafeEventShape<MyEventData>;
+ * // ✅ tagFields is optional
+ * ```
+ */
+export type TypeSafeEventShape<
+  T extends { kind: string },
+  TagFields extends readonly StringFields<T>[] = never,
+> =
+  & T
+  & EventShape
+  & (
+    [TagFields] extends [never]
+      ? { readonly tagFields?: readonly StringFields<T>[] }
+      : { readonly tagFields: readonly [...TagFields] }
+  );
+
 /**
  * Query tuple type supporting zero or more tags followed by event type.
  *
@@ -38,16 +91,6 @@ export type EventShape = {
  * - ["tenant:acme", "priority:high", "RestaurantOrderPlacedEvent"] - two tags
  */
 export type QueryTuple<Ei extends EventShape> = [...string[], Ei["kind"]];
-
-/**
- * Extracts string-typed field names from an event type.
- *
- * This mapped type filters event fields to only those with string values,
- * enabling type-safe tag field configuration.
- */
-export type StringFields<E> = {
-  [K in keyof E]: E[K] extends string ? K : never;
-}[keyof E];
 
 /**
  * Tag in "fieldName:fieldValue" format.
