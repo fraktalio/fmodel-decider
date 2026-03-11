@@ -924,7 +924,13 @@ illustrate how types evolve from generic to specialized forms:
 
 ```mermaid
 graph TB
-    subgraph "Progressive Refinement"
+    subgraph "Views"
+        V["View&lt;Si, So, E&gt;<br/><i>All types independent</i>"]
+        P["Projection&lt;S, E&gt;<br/><i>Si = So = S</i>"]
+        V -->|"constrain state"| P
+    end
+    
+    subgraph "Deciders"
         D["Decider&lt;C, Si, So, Ei, Eo&gt;<br/><i>All types independent</i>"]
         DCB["DcbDecider&lt;C, S, Ei, Eo&gt;<br/><i>Si = So = S</i>"]
         AGG["AggregateDecider&lt;C, S, E&gt;<br/><i>Si = So = S, Ei = Eo = E</i>"]
@@ -938,43 +944,31 @@ graph TB
         SC["StateComputation<br/>computeNewState()"]
     end
     
+    D -.->|"extends"| V
+    DCB -.->|"extends"| P
     DCB -.->|"gains"| EC
     AGG -.->|"gains"| SC
     
-    style D fill:#e1f5fe
-    style DCB fill:#b3e5fc
-    style AGG fill:#81d4fa
-    style EC fill:#fff3e0
-    style SC fill:#fff3e0
-```
-
-#### View Hierarchy
-
-```mermaid
-graph TB
-    subgraph "Progressive Refinement"
-        V["View&lt;Si, So, E&gt;<br/><i>All types independent</i>"]
-        P["Projection&lt;S, E&gt;<br/><i>Si = So = S</i>"]
-        
-        V -->|"constrain state"| P
-    end
-    
-    subgraph "Capability"
-        CS["Consistent State Evolution<br/>computeNewState()"]
-    end
-    
-    P -.->|"enables"| CS
-    
-    style V fill:#e8f5e9
-    style P fill:#a5d6a7
-    style CS fill:#fff3e0
+    style D fill:#e1f5fe,color:#000
+    style DCB fill:#b3e5fc,color:#000
+    style AGG fill:#81d4fa,color:#000
+    style V fill:#e8f5e9,color:#000
+    style P fill:#a5d6a7,color:#000
+    style EC fill:#fff3e0,color:#000
+    style SC fill:#fff3e0,color:#000
 ```
 
 #### Process Manager Hierarchy
 
 ```mermaid
 graph TB
-    subgraph "Progressive Refinement"
+    subgraph "Deciders"
+        D["Decider&lt;C, Si, So, Ei, Eo&gt;"]
+        DCB["DcbDecider&lt;C, S, Ei, Eo&gt;"]
+        AGG["AggregateDecider&lt;C, S, E&gt;"]
+    end
+    
+    subgraph "Process Managers"
         PR["Process&lt;AR, Si, So, Ei, Eo, A&gt;<br/><i>All types independent</i>"]
         DCBP["DcbProcess&lt;AR, S, Ei, Eo, A&gt;<br/><i>Si = So = S</i>"]
         AGGP["AggregateProcess&lt;AR, S, E, A&gt;<br/><i>Si = So = S, Ei = Eo = E</i>"]
@@ -992,23 +986,35 @@ graph TB
         TODO["ToDo List Pattern<br/>react() + pending()"]
     end
     
+    PR -.->|"extends"| D
+    DCBP -.->|"extends"| DCB
+    AGGP -.->|"extends"| AGG
     PR -.->|"provides"| TODO
     DCBP -.->|"gains"| EC2
     AGGP -.->|"gains"| SC2
     
-    style PR fill:#fce4ec
-    style DCBP fill:#f8bbd9
-    style AGGP fill:#f48fb1
-    style EC2 fill:#fff3e0
-    style SC2 fill:#fff3e0
-    style TODO fill:#e0f2f1
+    style PR fill:#fce4ec,color:#000
+    style DCBP fill:#f8bbd9,color:#000
+    style AGGP fill:#f48fb1,color:#000
+    style D fill:#e1f5fe,color:#000
+    style DCB fill:#b3e5fc,color:#000
+    style AGG fill:#81d4fa,color:#000
+    style EC2 fill:#fff3e0,color:#000
+    style SC2 fill:#fff3e0,color:#000
+    style TODO fill:#e0f2f1,color:#000
 ```
 
 #### Workflow Process Hierarchy
 
 ```mermaid
 graph TB
-    subgraph "Progressive Refinement"
+    subgraph "Process Managers"
+        PR["Process&lt;AR, Si, So, Ei, Eo, A&gt;"]
+        DCBP["DcbProcess"]
+        AGGP["AggregateProcess"]
+    end
+    
+    subgraph "Workflow Processes"
         WP["WorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>Fixed WorkflowState & WorkflowEvent</i>"]
         DCBWP["DcbWorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>+ EventComputation</i>"]
         AGGWP["AggregateWorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>+ StateComputation</i>"]
@@ -1025,26 +1031,32 @@ graph TB
         FT["WorkflowState&lt;TaskName&gt;<br/>WorkflowEvent&lt;TaskName&gt;"]
     end
     
+    WP -.->|"extends"| PR
+    DCBWP -.->|"extends"| DCBP
+    AGGWP -.->|"extends"| AGGP
     WP -.->|"provides"| TH
     WP -.->|"uses"| FT
     
-    style WP fill:#fff9c4
-    style DCBWP fill:#fff59d
-    style AGGWP fill:#ffee58
-    style TH fill:#e0f2f1
-    style FT fill:#f3e5f5
+    style WP fill:#fff9c4,color:#000
+    style DCBWP fill:#fff59d,color:#000
+    style AGGWP fill:#ffee58,color:#000
+    style PR fill:#fce4ec,color:#000
+    style DCBP fill:#f8bbd9,color:#000
+    style AGGP fill:#f48fb1,color:#000
+    style TH fill:#e0f2f1,color:#000
+    style FT fill:#f3e5f5,color:#000
 ```
 
 #### Complete Type System Overview
 
 ```mermaid
 graph LR
-    subgraph "Deciders"
-        D[Decider] --> DCB[DcbDecider] --> AGG[AggregateDecider]
-    end
-    
     subgraph "Views"
         V[View] --> P[Projection]
+    end
+    
+    subgraph "Deciders"
+        D[Decider] --> DCB[DcbDecider] --> AGG[AggregateDecider]
     end
     
     subgraph "Process Managers"
@@ -1055,21 +1067,26 @@ graph LR
         WP[WorkflowProcess] --> DCBWP[DcbWorkflowProcess] --> AGGWP[AggregateWorkflowProcess]
     end
     
+    D -.->|"extends"| V
     DCB -.->|"extends"| P
+    PR -.->|"extends"| D
     DCBP -.->|"extends"| DCB
     AGGP -.->|"extends"| AGG
+    WP -.->|"extends"| PR
+    DCBWP -.->|"extends"| DCBP
+    AGGWP -.->|"extends"| AGGP
     
-    style D fill:#e1f5fe
-    style DCB fill:#b3e5fc
-    style AGG fill:#81d4fa
-    style V fill:#e8f5e9
-    style P fill:#a5d6a7
-    style PR fill:#fce4ec
-    style DCBP fill:#f8bbd9
-    style AGGP fill:#f48fb1
-    style WP fill:#fff9c4
-    style DCBWP fill:#fff59d
-    style AGGWP fill:#ffee58
+    style D fill:#e1f5fe,color:#000
+    style DCB fill:#b3e5fc,color:#000
+    style AGG fill:#81d4fa,color:#000
+    style V fill:#e8f5e9,color:#000
+    style P fill:#a5d6a7,color:#000
+    style PR fill:#fce4ec,color:#000
+    style DCBP fill:#f8bbd9,color:#000
+    style AGGP fill:#f48fb1,color:#000
+    style WP fill:#fff9c4,color:#000
+    style DCBWP fill:#fff59d,color:#000
+    style AGGWP fill:#ffee58,color:#000
 ```
 
 ### Computation Patterns
