@@ -413,14 +413,14 @@ using Deno KV (`DenoKvEventSourcedRepository`). This implementation demonstrates
 how to build a complete event-sourced infrastructure with optimistic locking,
 flexible querying, and type-safe tag-based event indexing.
 
-### Architecture: Two-Index Pattern with Pointers
+### Architecture: Primary Storage with Secondary Tag Indexes
 
-The repository uses a dual-index architecture optimized for both storage
+The repository uses a dual-storage architecture optimized for both storage
 efficiency and query flexibility:
 
 ```
-Primary Storage:  ["events", eventId] → full event data
-Tag Index:        ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
+Primary Storage:      ["events", eventId] → full event data
+Secondary Tag Index:  ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
 ```
 
 **Example index structures:**
@@ -438,13 +438,14 @@ Tag Index:        ["events_by_type", eventType, ...tags, eventId] → eventId (p
 
 **Key benefits:**
 
-- **Storage efficiency:** Event data stored once, indexes store only pointers
-  (ULIDs)
-- **Flexible queries:** Query by event type and any combination of tags
+- **Storage efficiency:** Event data stored once in primary storage, secondary
+  indexes store only pointers (ULIDs)
+- **Flexible queries:** Query by event type and any combination of tags using
+  secondary indexes
 - **Tag subsets:** Automatically generates all tag subset combinations for
-  maximum query flexibility (2^n - 1 indexes per event)
-- **Optimistic locking:** Versionstamps on index entries enable conflict
-  detection
+  maximum query flexibility (2^n - 1 secondary indexes per event)
+- **Optimistic locking:** Versionstamps on secondary index entries enable
+  conflict detection
 - **Chronological ordering:** Monotonic ULIDs ensure correct event ordering
 
 ### Tuple-Based Query Pattern
