@@ -915,7 +915,162 @@ See `demo/dcb/` for a complete working example with:
 
 ## Progressive Type Refinement
 
-Each refinement step increases capability and constraint:
+Each refinement step increases capability and constraint. The following diagrams
+illustrate how types evolve from generic to specialized forms:
+
+### Type Hierarchy Diagrams
+
+#### Decider Hierarchy
+
+```mermaid
+graph TB
+    subgraph "Progressive Refinement"
+        D["Decider&lt;C, Si, So, Ei, Eo&gt;<br/><i>All types independent</i>"]
+        DCB["DcbDecider&lt;C, S, Ei, Eo&gt;<br/><i>Si = So = S</i>"]
+        AGG["AggregateDecider&lt;C, S, E&gt;<br/><i>Si = So = S, Ei = Eo = E</i>"]
+        
+        D -->|"constrain state"| DCB
+        DCB -->|"constrain events"| AGG
+    end
+    
+    subgraph "Computation Capabilities"
+        EC["EventComputation<br/>computeNewEvents()"]
+        SC["StateComputation<br/>computeNewState()"]
+    end
+    
+    DCB -.->|"gains"| EC
+    AGG -.->|"gains"| SC
+    
+    style D fill:#e1f5fe
+    style DCB fill:#b3e5fc
+    style AGG fill:#81d4fa
+    style EC fill:#fff3e0
+    style SC fill:#fff3e0
+```
+
+#### View Hierarchy
+
+```mermaid
+graph TB
+    subgraph "Progressive Refinement"
+        V["View&lt;Si, So, E&gt;<br/><i>All types independent</i>"]
+        P["Projection&lt;S, E&gt;<br/><i>Si = So = S</i>"]
+        
+        V -->|"constrain state"| P
+    end
+    
+    subgraph "Capability"
+        CS["Consistent State Evolution<br/>computeNewState()"]
+    end
+    
+    P -.->|"enables"| CS
+    
+    style V fill:#e8f5e9
+    style P fill:#a5d6a7
+    style CS fill:#fff3e0
+```
+
+#### Process Manager Hierarchy
+
+```mermaid
+graph TB
+    subgraph "Progressive Refinement"
+        PR["Process&lt;AR, Si, So, Ei, Eo, A&gt;<br/><i>All types independent</i>"]
+        DCBP["DcbProcess&lt;AR, S, Ei, Eo, A&gt;<br/><i>Si = So = S</i>"]
+        AGGP["AggregateProcess&lt;AR, S, E, A&gt;<br/><i>Si = So = S, Ei = Eo = E</i>"]
+        
+        PR -->|"constrain state"| DCBP
+        DCBP -->|"constrain events"| AGGP
+    end
+    
+    subgraph "Computation Capabilities"
+        EC2["EventComputation<br/>computeNewEvents()"]
+        SC2["StateComputation<br/>computeNewState()"]
+    end
+    
+    subgraph "Orchestration"
+        TODO["ToDo List Pattern<br/>react() + pending()"]
+    end
+    
+    PR -.->|"provides"| TODO
+    DCBP -.->|"gains"| EC2
+    AGGP -.->|"gains"| SC2
+    
+    style PR fill:#fce4ec
+    style DCBP fill:#f8bbd9
+    style AGGP fill:#f48fb1
+    style EC2 fill:#fff3e0
+    style SC2 fill:#fff3e0
+    style TODO fill:#e0f2f1
+```
+
+#### Workflow Process Hierarchy
+
+```mermaid
+graph TB
+    subgraph "Progressive Refinement"
+        WP["WorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>Fixed WorkflowState & WorkflowEvent</i>"]
+        DCBWP["DcbWorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>+ EventComputation</i>"]
+        AGGWP["AggregateWorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>+ StateComputation</i>"]
+        
+        WP -->|"add event-sourced"| DCBWP
+        DCBWP -->|"add state-stored"| AGGWP
+    end
+    
+    subgraph "Workflow Helpers"
+        TH["Task Helpers<br/>createTaskStarted()<br/>createTaskCompleted()<br/>isTaskStarted()<br/>isTaskCompleted()"]
+    end
+    
+    subgraph "Fixed Types"
+        FT["WorkflowState&lt;TaskName&gt;<br/>WorkflowEvent&lt;TaskName&gt;"]
+    end
+    
+    WP -.->|"provides"| TH
+    WP -.->|"uses"| FT
+    
+    style WP fill:#fff9c4
+    style DCBWP fill:#fff59d
+    style AGGWP fill:#ffee58
+    style TH fill:#e0f2f1
+    style FT fill:#f3e5f5
+```
+
+#### Complete Type System Overview
+
+```mermaid
+graph LR
+    subgraph "Deciders"
+        D[Decider] --> DCB[DcbDecider] --> AGG[AggregateDecider]
+    end
+    
+    subgraph "Views"
+        V[View] --> P[Projection]
+    end
+    
+    subgraph "Process Managers"
+        PR[Process] --> DCBP[DcbProcess] --> AGGP[AggregateProcess]
+    end
+    
+    subgraph "Workflows"
+        WP[WorkflowProcess] --> DCBWP[DcbWorkflowProcess] --> AGGWP[AggregateWorkflowProcess]
+    end
+    
+    DCB -.->|"extends"| P
+    DCBP -.->|"extends"| DCB
+    AGGP -.->|"extends"| AGG
+    
+    style D fill:#e1f5fe
+    style DCB fill:#b3e5fc
+    style AGG fill:#81d4fa
+    style V fill:#e8f5e9
+    style P fill:#a5d6a7
+    style PR fill:#fce4ec
+    style DCBP fill:#f8bbd9
+    style AGGP fill:#f48fb1
+    style WP fill:#fff9c4
+    style DCBWP fill:#fff59d
+    style AGGWP fill:#ffee58
+```
 
 ### Computation Patterns
 
