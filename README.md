@@ -185,17 +185,24 @@ workflows.
 
 ## Application Layer
 
-The library provides an application layer that bridges pure domain logic with
-infrastructure concerns. This layer introduces **metadata** (correlation IDs,
-timestamps, versions) without polluting the core domain model.
+The application layer is the **bridge** between pure domain logic (deciders,
+views, processes) and infrastructure concerns (databases, event stores, message
+queues). Its primary role is to coordinate execution while introducing
+**metadata** (correlation IDs, timestamps, versions) at the boundary without
+polluting the core domain model.
 
 ### Key Design Principle: Metadata Isolation
 
 **Core domain (Deciders, Views, Processes)** remain pure and metadata-free:
 
 ```ts
-// Domain layer - no metadata
-const decider: IDcbDecider<OrderCommand, OrderState, OrderEvent, OrderEvent>;
+// Domain layer - no metadata, pure business logic
+const orderDecider: IDcbDecider<
+  OrderCommand,
+  OrderState,
+  OrderEvent,
+  OrderEvent
+>;
 ```
 
 **Application layer** introduces metadata at the boundary:
@@ -210,6 +217,9 @@ const handler: EventSourcedCommandHandler<
   EventMetadata // ← Metadata introduced
 >;
 ```
+
+This separation ensures domain logic remains testable, portable, and focused on
+business rules.
 
 ### Repository Interfaces
 
@@ -249,12 +259,15 @@ export interface IViewStateRepository<E, S, EM, SM> {
 - Metadata flows through the application layer without touching domain logic
 - Clean separation between domain concerns and infrastructure concerns
 
-### Command Handlers
+### Command Handlers: The Bridge Pattern
 
-Command handlers coordinate between deciders and repositories:
+Command handlers are the **bridge** that connects pure domain logic with
+infrastructure. They delegate to repositories while keeping domain logic
+isolated.
+
+#### Event-Sourced Command Handler
 
 ```ts
-// Event-sourced handler
 export class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
   constructor(
     private readonly decider: IEventComputation<C, Ei, Eo>,
@@ -262,11 +275,73 @@ export class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
   ) {}
 
   handle(command: C & CM): Promise<readonly (Eo & EM)[]> {
+    // Delegates to repository, which:
+    // 1. Loads event stream
+    // 2. Passes events + command to decider
+    // 3. Persists new events with metadata
     return this.eventRepository.execute(command, this.decider);
   }
 }
+```
 
-// State-stored handler
+**Complete example showing the delegation flow:**
+
+```ts
+import { EventSourcedCommandHandler } from "./application.ts";
+import { createRestaurantRepository } from "./demo/dcb/createRestaurantRepository.ts";
+import { crateRestaurantDecider } from "./demo/dcb/createRestaurantDecider.ts";
+
+// 1. Create repository (infrastructure)
+const kv = await Deno.openKv();
+const repository = createRestaurantRepository(kv);
+
+// 2. Create handler (bridge between domain and infrastructure)
+const handler = new EventSourcedCommandHandler(
+  crateRestaurantDecider, // Pure domain logic
+  repository, // Infrastructure
+);
+
+// 3. Execute command
+const command = {
+  kind: "CreateRestaurantCommand",
+  restaurantId: "restaurant-123",
+  name: "Bistro",
+  menu: {
+    menuId: "menu-1",
+    cuisine: "ITALIAN",
+    menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "12.99" }],
+  },
+};
+
+// Handler delegates to repository, which:
+// 1. Loads events for restaurant-123
+// 2. Calls decider.computeNewEvents(events, command)
+// 3. Persists new events with metadata (eventId, timestamp, versionstamp)
+const events = await handler.handle(command);
+
+console.log(events);
+// [
+//   {
+//     kind: "RestaurantCreatedEvent",
+//     restaurantId: "restaurant-123",
+//     name: "Bistro",
+//     menu: { ... },
+//     eventId: "01JBQR8X9Y...",      // ← Metadata added by repository
+//     timestamp: 1735123456789,       // ← Metadata added by repository
+//     versionstamp: "00000000000..." // ← Metadata added by repository
+//   }
+// ]
+```
+
+**Decider compatibility:**
+
+- Works with any `IEventComputation` implementation:
+  - `IDcbDecider<C, S, Ei, Eo>` for dynamic consistency boundaries
+  - `IAggregateDecider<C, S, E>` for traditional aggregates
+
+#### State-Stored Command Handler
+
+```ts
 export class StateStoredCommandHandler<C, S, CM, SM> {
   constructor(
     private readonly decider: IStateComputation<C, S>,
@@ -274,6 +349,10 @@ export class StateStoredCommandHandler<C, S, CM, SM> {
   ) {}
 
   handle(command: C & CM): Promise<S & SM> {
+    // Delegates to repository, which:
+    // 1. Loads current state
+    // 2. Passes state + command to decider
+    // 3. Persists new state with metadata
     return this.stateRepository.execute(command, this.decider);
   }
 }
@@ -281,20 +360,14 @@ export class StateStoredCommandHandler<C, S, CM, SM> {
 
 **Decider compatibility:**
 
-- `EventSourcedCommandHandler` works with any `IEventComputation`
-  implementation:
-  - `IDcbDecider<C, S, Ei, Eo>` for dynamic consistency boundaries
-  - `IAggregateDecider<C, S, E>` for traditional aggregates
-- `StateStoredCommandHandler` works only with `IStateComputation`
-  implementations:
+- Works only with `IStateComputation` implementations:
   - `IAggregateDecider<C, S, E>` (the only built-in implementation)
 
-### Event Handlers
+### Event Handlers: Read-Side Bridge
 
 Event handlers coordinate between views/projections and view state repositories:
 
 ```ts
-// Event handler for view projections
 export class EventHandler<E, S, EM, SM> {
   constructor(
     private readonly view: IProjection<S, E>,
@@ -302,6 +375,10 @@ export class EventHandler<E, S, EM, SM> {
   ) {}
 
   handle(event: E & EM): Promise<S & SM> {
+    // Delegates to repository, which:
+    // 1. Loads current view state
+    // 2. Passes state + event to view
+    // 3. Persists updated state with metadata
     return this.viewStateRepository.execute(event, this.view);
   }
 }
@@ -309,9 +386,22 @@ export class EventHandler<E, S, EM, SM> {
 
 **View compatibility:**
 
-- `EventHandler` works with `IProjection<S, E>` implementations
+- Works with `IProjection<S, E>` implementations
 - Suitable for read models, query models, and materialized views
 - Processes events to build and maintain view state
+
+### Why This Design Matters
+
+The application layer provides:
+
+1. **Separation of concerns:** Domain logic stays pure, infrastructure stays
+   isolated
+2. **Testability:** Test domain logic without infrastructure dependencies
+3. **Flexibility:** Swap infrastructure implementations without changing domain
+   code
+4. **Metadata management:** Correlation IDs, timestamps, versions added at the
+   boundary
+5. **Type safety:** Compile-time guarantees for command/event/state types
 
 This design keeps domain logic pure while providing flexible infrastructure
 integration.
@@ -321,7 +411,7 @@ integration.
 The library includes a production-ready event-sourced repository implementation
 using Deno KV (`DenoKvEventSourcedRepository`). This implementation demonstrates
 how to build a complete event-sourced infrastructure with optimistic locking,
-flexible querying, and type-safe event indexing.
+flexible querying, and type-safe tag-based event indexing.
 
 ### Architecture: Two-Index Pattern with Pointers
 
@@ -330,14 +420,29 @@ efficiency and query flexibility:
 
 ```
 Primary Storage:  ["events", eventId] → full event data
-Type Index:       ["events_by_type", eventType, entityId, eventId] → eventId (pointer)
+Tag Index:        ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
+```
+
+**Example index structures:**
+
+```
+// No tags - query all events of a type
+["events_by_type", "RestaurantCreatedEvent", eventId] → eventId
+
+// Single tag - query by one dimension
+["events_by_type", "RestaurantCreatedEvent", "restaurantId:r1", eventId] → eventId
+
+// Multiple tags - query by multiple dimensions
+["events_by_type", "OrderPlacedEvent", "restaurantId:r1", "customerId:c1", eventId] → eventId
 ```
 
 **Key benefits:**
 
 - **Storage efficiency:** Event data stored once, indexes store only pointers
   (ULIDs)
-- **Flexible queries:** Query by entity ID and event type combinations
+- **Flexible queries:** Query by event type and any combination of tags
+- **Tag subsets:** Automatically generates all tag subset combinations for
+  maximum query flexibility (2^n - 1 indexes per event)
 - **Optimistic locking:** Versionstamps on index entries enable conflict
   detection
 - **Chronological ordering:** Monotonic ULIDs ensure correct event ordering
@@ -345,29 +450,201 @@ Type Index:       ["events_by_type", eventType, entityId, eventId] → eventId (
 ### Tuple-Based Query Pattern
 
 The repository's most powerful feature is its tuple-based query pattern, which
-allows loading events from multiple entities and types in a single operation:
+allows loading events using zero or more tags followed by an event type:
 
 ```ts
-// Simple case: Single entity, single event type
+// No tags - load all events of a type
 (cmd) => [
-  [cmd.id, "RestaurantCreatedEvent"]
+  ["RestaurantCreatedEvent"]
 ]
 
-// Complex case: Multiple entities, multiple event types
+// Single tag - load events filtered by one dimension
 (cmd) => [
-  [cmd.restaurantId, "RestaurantCreatedEvent"],      // Restaurant by restaurant ID
-  [cmd.restaurantId, "RestaurantMenuChangedEvent"],  // Menu changes by restaurant ID
-  [cmd.id, "RestaurantOrderPlacedEvent"], // Order by order ID (cmd.id = orderId)
+  ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"]
+]
+
+// Multiple tags - load events filtered by multiple dimensions
+(cmd) => [
+  ["restaurantId:" + cmd.restaurantId, "customerId:" + cmd.customerId, "OrderPlacedEvent"]
+]
+
+// Complex case: Multiple query tuples for different event types
+(cmd) => [
+  ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+  ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+  ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
 ]
 ```
 
+**Query tuple format:** `[...tags, eventType]`
+
+- **Tags** (optional): Zero or more tags in "fieldName:fieldValue" format
+- **Event type** (required): The kind of event to query (last element)
+
 This flexibility is essential for DCB patterns where consistency boundaries span
-multiple entities.
+multiple concepts and require loading events from different aggregates.
 
-### Type-Safe Event Indexing
+### Type-Safe Tag-Based Event Indexing
 
-The repository leverages TypeScript's type system to ensure event types are
-valid at compile time:
+The repository leverages TypeScript's type system and event metadata to provide
+flexible, type-safe indexing:
+
+#### Tag Fields Configuration
+
+Events declare which fields should be indexed as tags using the `tagFields`
+property:
+
+```ts
+export type RestaurantCreatedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "RestaurantCreatedEvent";
+    readonly restaurantId: string;
+    readonly name: string;
+    readonly menu: Menu;
+  },
+  ["restaurantId"] // ← Only string fields can be tags
+>;
+
+export type OrderPlacedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "OrderPlacedEvent";
+    readonly orderId: string;
+    readonly restaurantId: string;
+    readonly customerId: string;
+    readonly items: MenuItem[];
+  },
+  ["orderId", "restaurantId", "customerId"] // ← Multiple tags for flexible querying
+>;
+```
+
+**Type safety guarantees:**
+
+- ✅ Only string-typed fields can be configured as tags
+- ✅ Compile-time validation prevents typos
+- ✅ Autocomplete for available tag fields
+- ❌ Cannot specify non-existent fields
+- ❌ Cannot specify non-string fields (numbers, objects, arrays)
+
+#### Tag Subset Generation
+
+The repository automatically generates all possible tag subset combinations for
+maximum query flexibility using binary enumeration (2^n - 1 indexes per event):
+
+**Algorithm visualization:**
+
+```
+Given tags: [A, B, C]
+Binary enumeration from 1 to 2^3 - 1 = 7:
+
+Binary  | Bits | Selected Tags | Index Entry
+--------|------|---------------|------------------
+001     | ..1  | [A]           | [..., A, eventId]
+010     | .1.  | [B]           | [..., B, eventId]
+011     | .11  | [A, B]        | [..., A, B, eventId]
+100     | 1..  | [C]           | [..., C, eventId]
+101     | 1.1  | [A, C]        | [..., A, C, eventId]
+110     | 11.  | [B, C]        | [..., B, C, eventId]
+111     | 111  | [A, B, C]     | [..., A, B, C, eventId]
+```
+
+**Concrete example:**
+
+```ts
+// Event with tags: ["restaurantId:r1", "customerId:c1"]
+// Generates 3 index entries (2^2 - 1):
+
+["events_by_type", "OrderPlacedEvent", "customerId:c1", eventId] → eventId
+["events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId] → eventId
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1", eventId] → eventId
+```
+
+**Visual representation of subset generation:**
+
+```
+Tags: [restaurantId, customerId]
+
+                    ∅ (empty - not indexed)
+                   / \
+                  /   \
+                 /     \
+          [restaurantId] [customerId]
+                 \     /
+                  \   /
+                   \ /
+        [restaurantId, customerId]
+
+Result: 3 non-empty subsets = 2^2 - 1
+```
+
+**Write Amplification Trade-off:**
+
+The repository trades write amplification for O(1) query performance. Here's how
+the number of indexes grows with tag count:
+
+| Tag Fields | Index Entries | Formula  | Example Event                    |
+| ---------- | ------------- | -------- | -------------------------------- |
+| 0          | 0             | 2^0 - 1  | No tags                          |
+| 1          | 1             | 2^1 - 1  | `["orderId"]`                    |
+| 2          | 3             | 2^2 - 1  | `["orderId", "restaurantId"]`    |
+| 3          | 7             | 2^3 - 1  | `["orderId", "restaurantId", "customerId"]` |
+| 4          | 15            | 2^4 - 1  | Add `"status"`                   |
+| 5          | 31            | 2^5 - 1  | Add `"priority"` (maximum)       |
+
+**Concrete example with 3 tags:**
+
+```ts
+// Event configuration
+export type OrderPlacedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "OrderPlacedEvent";
+    readonly orderId: string;
+    readonly restaurantId: string;
+    readonly customerId: string;
+  },
+  ["orderId", "restaurantId", "customerId"] // 3 tags
+>;
+
+// When persisting this event:
+const event = {
+  kind: "OrderPlacedEvent",
+  orderId: "o1",
+  restaurantId: "r1",
+  customerId: "c1",
+  tagFields: ["orderId", "restaurantId", "customerId"],
+};
+
+// Repository generates 7 index entries (2^3 - 1):
+["events_by_type", "OrderPlacedEvent", "customerId:c1", eventId]
+["events_by_type", "OrderPlacedEvent", "orderId:o1", eventId]
+["events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId]
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", eventId]
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1", eventId]
+["events_by_type", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1", eventId]
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", "restaurantId:r1", eventId]
+
+// This enables flexible queries:
+// - Query by customer: ["customerId:c1", "OrderPlacedEvent"]
+// - Query by order: ["orderId:o1", "OrderPlacedEvent"]
+// - Query by restaurant: ["restaurantId:r1", "OrderPlacedEvent"]
+// - Query by customer + restaurant: ["customerId:c1", "restaurantId:r1", "OrderPlacedEvent"]
+// - Any other combination!
+```
+
+**Why this trade-off makes sense:**
+
+- ✅ **Reads are frequent:** Queries happen far more often than writes in most
+  systems
+- ✅ **O(1) query performance:** No need to scan or filter, direct index lookup
+- ✅ **Flexible querying:** Any tag combination works without additional indexes
+- ⚠️ **Write cost:** Each event write creates multiple index entries
+- ⚠️ **Storage cost:** More index entries consume more storage
+
+**Limit:** Maximum 5 tag fields per event (31 index entries) to bound write
+amplification
+
+#### Query Tuple Type Safety
+
+The repository constructor enforces type-safe query tuples:
 
 ```ts
 export class DenoKvEventSourcedRepository<
@@ -377,10 +654,10 @@ export class DenoKvEventSourcedRepository<
 > {
   constructor(
     private readonly kv: Deno.Kv,
-    // Event types are constrained to Ei["kind"] - TypeScript enforces validity!
-    private readonly getEntityIdEventTypePairs: (
+    // Query tuples constrained to valid event types!
+    private readonly getQueryTuples: (
       command: C,
-    ) => [string, Ei["kind"]][],
+    ) => QueryTuple<Ei>[], // ← [...string[], Ei["kind"]]
     private readonly maxRetries: number = 10,
   ) {}
 }
@@ -391,6 +668,7 @@ export class DenoKvEventSourcedRepository<
 - Autocomplete for event type strings
 - Compile-time validation of event types
 - Impossible to query for non-existent event types
+- Tags are validated at runtime (extracted from events)
 
 ### Optimistic Locking with Automatic Retry
 
@@ -435,38 +713,49 @@ async execute(
 
 ### Concrete Repository Example
 
-Here's how to create a concrete repository for a specific use case:
+Here's how to create a concrete repository factory function for a specific use
+case:
 
 ```ts
-export class PlaceOrderRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+/**
+ * Creates a repository for PlaceOrder decider.
+ *
+ * **Query Pattern:**
+ * Loads events using tuples:
+ * - `[(restaurantId, "RestaurantCreatedEvent")]`
+ * - `[(restaurantId, "RestaurantMenuChangedEvent")]`
+ * - `[(orderId, "RestaurantOrderPlacedEvent")]`
+ *
+ * **Tag Configuration:**
+ * - RestaurantCreatedEvent: tagFields = ["restaurantId"]
+ * - RestaurantMenuChangedEvent: tagFields = ["restaurantId"]
+ * - RestaurantOrderPlacedEvent: tagFields = ["orderId", "restaurantId"]
+ */
+export const placeOrderRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent
     | RestaurantMenuChangedEvent
     | RestaurantOrderPlacedEvent,
     RestaurantOrderPlacedEvent
-  >;
-
-  constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
-      kv,
-      // Query pattern: Load restaurant state + check if order exists
-      (cmd) => [
-        [cmd.restaurantId, "RestaurantCreatedEvent"],
-        [cmd.restaurantId, "RestaurantMenuChangedEvent"],
-        [cmd.id, "RestaurantOrderPlacedEvent"],
-      ],
-    );
-  }
-
-  async execute(
-    command: PlaceOrderCommand,
-  ): Promise<readonly (RestaurantOrderPlacedEvent & EventMetadata)[]> {
-    const { placeOrderDecider } = await import("./placeOrderDecider.ts");
-    return this.repository.execute(command, placeOrderDecider);
-  }
-}
+  >(
+    kv,
+    // Query pattern: Load restaurant state + check if order exists
+    (cmd) => [
+      ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+      ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+    ],
+  );
 ```
+
+**How it works:**
+
+1. **Query tuples** specify which events to load using tags
+2. **Repository** scans tag indexes to find matching events
+3. **Events** are loaded from primary storage and sorted chronologically
+4. **Decider** computes new events based on loaded history
+5. **New events** are persisted with automatic tag index generation
 
 ### Integration with Command Handlers
 
@@ -474,8 +763,13 @@ The repository implements `IEventRepository` and integrates seamlessly with
 command handlers:
 
 ```ts
+import { EventSourcedCommandHandler } from "./application.ts";
+import { placeOrderRepository } from "./demo/dcb/placeOrderRepository.ts";
+import { placeOrderDecider } from "./demo/dcb/placeOrderDecider.ts";
+
 // Create repository
-const repository = new PlaceOrderRepository(kv);
+const kv = await Deno.openKv();
+const repository = placeOrderRepository(kv);
 
 // Create command handler
 const handler = new EventSourcedCommandHandler(
@@ -490,6 +784,21 @@ const events = await handler.handle({
   orderId: "order-456",
   menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "12.99" }],
 });
+
+// Events returned with metadata
+console.log(events);
+// [
+//   {
+//     kind: "RestaurantOrderPlacedEvent",
+//     restaurantId: "restaurant-123",
+//     orderId: "order-456",
+//     menuItems: [...],
+//     tagFields: ["orderId", "restaurantId"], // ← Tag configuration
+//     eventId: "01JBQR8X9Y...",                // ← Metadata
+//     timestamp: 1735123456789,                 // ← Metadata
+//     versionstamp: "00000000000..."           // ← Metadata
+//   }
+// ]
 ```
 
 ### Why This Makes the Library Framework-Like
