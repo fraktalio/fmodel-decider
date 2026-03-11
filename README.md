@@ -6,7 +6,47 @@ architectures with progressive type refinement.
 
 ![fmodel](fmodel.webp)
 
+## Table of Contents
+
+- [Progressive Type Refinement Philosophy](#progressive-type-refinement-philosophy)
+- [Educational Purpose](#educational-purpose)
+- [What is a View?](#what-is-a-view)
+- [What is a Decider?](#what-is-a-decider)
+- [What is a Process Manager?](#what-is-a-process-manager)
+- [Application Layer](#application-layer)
+  - [Key Design Principle: Metadata Isolation](#key-design-principle-metadata-isolation)
+  - [Repository Interfaces](#repository-interfaces)
+  - [Command Handlers: The Bridge Pattern](#command-handlers-the-bridge-pattern)
+  - [Event Handlers: Read-Side Bridge](#event-handlers-read-side-bridge)
+  - [Why This Design Matters](#why-this-design-matters)
+- [Deno KV Event-Sourced Repository](#deno-kv-event-sourced-repository)
+  - [Architecture: Primary Storage with Secondary Tag Indexes](#architecture-primary-storage-with-secondary-tag-indexes)
+  - [Tuple-Based Query Pattern](#tuple-based-query-pattern)
+  - [Type-Safe Tag-Based Event Indexing](#type-safe-tag-based-event-indexing)
+  - [Optimistic Locking with Automatic Retry](#optimistic-locking-with-automatic-retry)
+  - [Concrete Repository Example](#concrete-repository-example)
+  - [Integration with Command Handlers](#integration-with-command-handlers)
+  - [Why This Makes the Library Framework-Like](#why-this-makes-the-library-framework-like)
+  - [Demo Implementation](#demo-implementation)
+- [Progressive Type Refinement](#progressive-type-refinement)
+  - [Computation Patterns](#computation-patterns)
+  - [Deciders](#deciders)
+  - [Views](#views)
+  - [Process Managers](#process-managers)
+- [Key Differences](#key-differences)
+- [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
+  - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
+  - [Scenario 2: Dynamic Consistency Boundary (DCB) Pattern](#scenario-2-dynamic-consistency-boundary-dcb-pattern-demodcb)
+  - [Comparison](#comparison)
+  - [Running the Demos](#running-the-demos)
+- [Testing](#testing)
+- [Development](#development)
+- [Publish to JSR](#publish-to-jsr-dry-run)
+- [Further Reading](#further-reading)
+- [Credits](#credits)
+
 ## Progressive Type Refinement Philosophy
+
 
 This library demonstrates how to evolve from **general, flexible types** to
 **specific, constrained types** that better represent real-world information
