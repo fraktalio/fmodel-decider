@@ -646,13 +646,19 @@ Last Event Pointer Index:  ["last_event", eventType, ...tags] → eventId (mutab
 ```
 // No tags - query all events of a type
 ["events_by_type", "RestaurantCreatedEvent", eventId] → eventId
+["last_event", "RestaurantCreatedEvent"] → eventId (latest)
 
 // Single tag - query by one dimension
 ["events_by_type", "RestaurantCreatedEvent", "restaurantId:r1", eventId] → eventId
+["last_event", "RestaurantCreatedEvent", "restaurantId:r1"] → eventId (latest)
 
 // Multiple tags - query by multiple dimensions
 ["events_by_type", "OrderPlacedEvent", "restaurantId:r1", "customerId:c1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "restaurantId:r1", "customerId:c1"] → eventId (latest)
 ```
+
+**Note:** For each tag subset combination, the repository creates both an event
+index entry and a last_event pointer, following the same 2^n - 1 pattern.
 
 **Key benefits:**
 
@@ -799,17 +805,25 @@ Result: 3 non-empty subsets = 2^2 - 1
 
 **Write Amplification Trade-off:**
 
-The repository trades write amplification for O(1) query performance. Here's how
-the number of indexes grows with tag count:
+The repository trades write amplification for O(1) query performance. For each
+event, the repository creates 2^n - 1 tag subset combinations, and for each
+subset it writes:
 
-| Tag Fields | Index Entries | Formula | Example Event                               |
-| ---------- | ------------- | ------- | ------------------------------------------- |
-| 0          | 0             | 2^0 - 1 | No tags                                     |
-| 1          | 1             | 2^1 - 1 | `["orderId"]`                               |
-| 2          | 3             | 2^2 - 1 | `["orderId", "restaurantId"]`               |
-| 3          | 7             | 2^3 - 1 | `["orderId", "restaurantId", "customerId"]` |
-| 4          | 15            | 2^4 - 1 | Add `"status"`                              |
-| 5          | 31            | 2^5 - 1 | Add `"priority"` (maximum)                  |
+1. An event index entry (immutable pointer)
+2. A last_event pointer (mutable pointer for conflict detection)
+
+This means the total write amplification is 2 × (2^n - 1) entries per event.
+
+Here's how the number of indexes grows with tag count:
+
+| Tag Fields | Tag Subsets | Event Indexes | Last Event Pointers | Total Writes | Formula        |
+| ---------- | ----------- | ------------- | ------------------- | ------------ | -------------- |
+| 0          | 0           | 0             | 0                   | 1            | 1 (event only) |
+| 1          | 1           | 1             | 1                   | 3            | 1 + 2(2^1-1)   |
+| 2          | 3           | 3             | 3                   | 7            | 1 + 2(2^2-1)   |
+| 3          | 7           | 7             | 7                   | 15           | 1 + 2(2^3-1)   |
+| 4          | 15          | 15            | 15                  | 31           | 1 + 2(2^4-1)   |
+| 5          | 31          | 31            | 31                  | 63           | 1 + 2(2^5-1)   |
 
 **Concrete example with 3 tags:**
 
@@ -834,32 +848,34 @@ const event = {
   tagFields: ["orderId", "restaurantId", "customerId"],
 };
 
-// Repository generates 7 index entries (2^3 - 1):
-[
-  "events_by_type",
-  "OrderPlacedEvent",
-  "customerId:c1",
-  eventId,
-]["events_by_type", "OrderPlacedEvent", "orderId:o1", eventId][
-  "events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId
-]["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", eventId][
-  "events_by_type",
-    "OrderPlacedEvent",
-    "customerId:c1",
-    "restaurantId:r1",
-    eventId
-][
-  "events_by_type", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1", eventId
-][
-  "events_by_type",
-    "OrderPlacedEvent",
-    "customerId:c1",
-    "orderId:o1",
-    "restaurantId:r1",
-    eventId
-];
+// Repository generates 7 tag subsets (2^3 - 1), creating 14 index entries + 1 primary = 15 total writes:
 
-// This enables flexible queries:
+// Primary storage (1 write)
+["events", eventId] → full event data
+
+// For each of 7 subsets, write both event index AND last_event pointer (14 writes):
+["events_by_type", "OrderPlacedEvent", "customerId:c1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "customerId:c1"] → eventId
+
+["events_by_type", "OrderPlacedEvent", "orderId:o1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "orderId:o1"] → eventId
+
+["events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "restaurantId:r1"] → eventId
+
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "customerId:c1", "orderId:o1"] → eventId
+
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1"] → eventId
+
+["events_by_type", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1"] → eventId
+
+["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", "restaurantId:r1", eventId] → eventId
+["last_event", "OrderPlacedEvent", "customerId:c1", "orderId:o1", "restaurantId:r1"] → eventId
+
+// This enables flexible queries with reliable conflict detection:
 // - Query by customer: ["customerId:c1", "OrderPlacedEvent"]
 // - Query by order: ["orderId:o1", "OrderPlacedEvent"]
 // - Query by restaurant: ["restaurantId:r1", "OrderPlacedEvent"]
@@ -873,21 +889,25 @@ const event = {
   systems
 - ✅ **O(1) query performance:** No need to scan or filter, direct index lookup
 - ✅ **Flexible querying:** Any tag combination works without additional indexes
-- ⚠️ **Write cost:** Each event write creates multiple index entries
+- ✅ **Reliable conflict detection:** last_event pointers ensure concurrent
+  appends are detected
+- ⚠️ **Write cost:** Each event write creates multiple index entries (2 per
+  subset)
 - ⚠️ **Storage cost:** More index entries consume more storage
 
 **Configurable limit:** The maximum number of tag fields per event is
 configurable via the `maxTagFields` constructor parameter (default: 5,
-generating 2^5-1=31 index entries). You can adjust this based on your needs:
+generating 2×(2^5-1)=62 index entries + 1 primary = 63 total writes). You can
+adjust this based on your needs:
 
 ```ts
-// Default: 5 tag fields max (31 indexes per event)
+// Default: 5 tag fields max (63 total writes per event)
 const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples);
 
-// Conservative: 3 tag fields max (7 indexes per event) - less write amplification
+// Conservative: 3 tag fields max (15 total writes per event)
 const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 3);
 
-// Aggressive: 7 tag fields max (127 indexes per event) - more query flexibility
+// Aggressive: 7 tag fields max (255 total writes per event)
 const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 7);
 ```
 
