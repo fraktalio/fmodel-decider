@@ -114,11 +114,12 @@ export interface EventMetadata {
  * Events loaded from storage with their index keys for optimistic locking.
  *
  * @property events - Array of events in chronological order (sorted by ULID)
- * @property indexKeys - Array of index keys with versionstamps for optimistic locking
+ * @property indexKeys - Array of last_event pointer keys with versionstamps for optimistic locking
+ *                       (optimization: only last_event pointers are mutable and need conflict detection)
  */
 export interface LoadedEvents<E> {
   readonly events: readonly E[];
-  readonly indexKeys: { key: Deno.KvKey; versionstamp: string }[];
+  readonly indexKeys: { key: Deno.KvKey; versionstamp: string | null }[];
 }
 
 /**
@@ -307,27 +308,22 @@ export class DenoKvEventSourcedRepository<
   /**
    * Loads events using query tuples.
    *
-   * For backward compatibility, this implementation treats query tuples as
-   * [entityId, eventType] pairs (ignoring any additional tags for now).
-   * Full tag-based querying will be implemented in subsequent tasks.
-   *
-   * 1. Scan type indexes to collect ULIDs and versionstamps for each query tuple
-   * 2. Fetch full events from primary storage
-   * 3. Sort events by ULID for chronological ordering
+   * 1. Scan type indexes to collect event IDs for each query tuple
+   * 2. Load last_event pointers for conflict detection (optimization: only mutable pointers need checking)
+   * 3. Fetch full events from primary storage
+   * 4. Sort events by ULID for chronological ordering
    *
    * @param queryTuples - Array of query tuples to process
-   * @returns Loaded events with versionstamps
+   * @returns Loaded events with last_event pointer keys for optimistic locking
    * @throws RepositoryError if load operation fails
    */
   private async loadEvents(
     queryTuples: QueryTuple<Ei>[],
   ): Promise<LoadedEvents<Ei>> {
     try {
-      const indexKeys: {
-        key: Deno.KvKey;
-        versionstamp: string;
-        eventId: string;
-      }[] = [];
+      const eventIds: string[] = [];
+      const lastEventKeys: { key: Deno.KvKey; versionstamp: string | null }[] =
+        [];
 
       // Process each query tuple
       for (const tuple of queryTuples) {
@@ -340,27 +336,35 @@ export class DenoKvEventSourcedRepository<
         // Sort extracted tags alphabetically
         const sortedTags = this.sortTags(tags);
 
-        // Build index prefix
+        // Build index prefix to scan for event IDs
         const prefix: Deno.KvKey = ["events_by_type", eventType, ...sortedTags];
 
-        // Scan index
+        // Scan index to collect event IDs
         const iter = this.kv.list({ prefix });
 
         for await (const entry of iter) {
           const eventId = entry.value as string; // Pointer pattern
-          indexKeys.push({
-            key: entry.key,
-            versionstamp: entry.versionstamp,
-            eventId,
-          });
+          eventIds.push(eventId);
         }
+
+        // Load last_event pointer for conflict detection
+        const lastEventKey: Deno.KvKey = [
+          "last_event",
+          eventType,
+          ...sortedTags,
+        ];
+        const lastEventEntry = await this.kv.get(lastEventKey);
+
+        lastEventKeys.push({
+          key: lastEventKey,
+          versionstamp: lastEventEntry.versionstamp, // null if doesn't exist yet
+        });
       }
 
       // Sort by event ID (ULID) and deduplicate
-      const sortedKeys = indexKeys.sort((a, b) =>
-        a.eventId.localeCompare(b.eventId)
+      const uniqueEventIds = [...new Set(eventIds)].sort((a, b) =>
+        a.localeCompare(b)
       );
-      const uniqueEventIds = [...new Set(sortedKeys.map((k) => k.eventId))];
 
       // Fetch full events from primary storage
       const events = await Promise.all(
@@ -375,10 +379,7 @@ export class DenoKvEventSourcedRepository<
 
       return {
         events,
-        indexKeys: sortedKeys.map(({ key, versionstamp }) => ({
-          key,
-          versionstamp,
-        })),
+        indexKeys: lastEventKeys, // Only return last_event pointer keys for conflict detection
       };
     } catch (error) {
       throw new RepositoryError("load", error as Error);
@@ -389,25 +390,26 @@ export class DenoKvEventSourcedRepository<
    * Persists events with optimistic locking.
    *
    * Creates an atomic operation that:
-   * 1. Checks all loaded event versionstamps
+   * 1. Checks all loaded last_event pointer versionstamps (including null for empty result sets)
    * 2. Writes new events to primary storage
    * 3. Writes pointers to type indexes
+   * 4. Updates last_event pointers for all tag subsets
    *
    * @param events - Events to persist
-   * @param indexKeys - Index keys with versionstamps for conflict detection
+   * @param indexKeys - Last_event pointer keys with versionstamps for conflict detection
    * @returns Persisted events with metadata, or null if conflict detected
    * @throws RepositoryError if persist operation fails
    */
   private async persistEvents(
     events: readonly Eo[],
-    indexKeys: { key: Deno.KvKey; versionstamp: string }[],
+    indexKeys: { key: Deno.KvKey; versionstamp: string | null }[],
   ): Promise<readonly (Eo & EventMetadata)[] | null> {
     try {
       const atomic = this.kv.atomic();
       const timestamp = Date.now();
       const eventsWithMetadata: (Eo & EventMetadata)[] = [];
 
-      // Check all loaded event versionstamps using stored keys
+      // Check all loaded last_event pointer versionstamps
       for (const { key, versionstamp } of indexKeys) {
         atomic.check({ key, versionstamp });
       }
@@ -437,9 +439,16 @@ export class DenoKvEventSourcedRepository<
           const subsets = this.generateSubsets(sortedTags);
 
           for (const subset of subsets) {
+            // Write event index pointer
             atomic.set(
               ["events_by_type", eventType, ...subset, eventId],
               eventId, // Store ULID as value (pointer pattern)
+            );
+
+            // Update last_event pointer for this query pattern
+            atomic.set(
+              ["last_event", eventType, ...subset],
+              eventId, // Update pointer to latest event
             );
           }
         }

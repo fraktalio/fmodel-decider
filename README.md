@@ -632,12 +632,13 @@ flexible querying, and type-safe tag-based event indexing.
 
 ### Architecture: Primary Storage with Secondary Tag Indexes
 
-The repository uses a dual-storage architecture optimized for both storage
-efficiency and query flexibility:
+The repository uses a triple-storage architecture optimized for both storage
+efficiency, query flexibility, and concurrent append detection:
 
 ```
-Primary Storage:      ["events", eventId] → full event data
-Secondary Tag Index:  ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
+Primary Storage:           ["events", eventId] → full event data
+Secondary Tag Index:       ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
+Last Event Pointer Index:  ["last_event", eventType, ...tags] → eventId (mutable pointer)
 ```
 
 **Example index structures:**
@@ -661,8 +662,10 @@ Secondary Tag Index:  ["events_by_type", eventType, ...tags, eventId] → eventI
   secondary indexes
 - **Tag subsets:** Automatically generates all tag subset combinations for
   maximum query flexibility (2^n - 1 secondary indexes per event)
-- **Optimistic locking:** Versionstamps on secondary index entries enable
-  conflict detection
+- **Optimistic locking:** Versionstamps on last_event pointers enable reliable
+  concurrent append detection
+- **Concurrent append detection:** Last event pointers are updated (not created)
+  with each append, ensuring versionstamp changes detect conflicts
 - **Chronological ordering:** Monotonic ULIDs ensure correct event ordering
 
 ### Tuple-Based Query Pattern
@@ -918,7 +921,8 @@ export class DenoKvEventSourcedRepository<
 
 ### Optimistic Locking with Automatic Retry
 
-The repository implements optimistic locking using Deno KV's versionstamps:
+The repository implements optimistic locking using Deno KV's versionstamps with
+a last_event pointer mechanism for reliable concurrent append detection:
 
 ```ts
 async execute(
@@ -930,32 +934,58 @@ async execute(
   while (attempts < this.maxRetries) {
     attempts++;
     
-    // 1. Load events with versionstamps
+    // 1. Load events with last_event pointer versionstamps
     const { events, indexKeys } = await this.loadEvents(...);
     
     // 2. Compute new events using decider
     const newEvents = decider.computeNewEvents(events, command);
     
-    // 3. Attempt atomic write with versionstamp checks
+    // 3. Attempt atomic write with last_event versionstamp checks
     const persistedEvents = await this.persistEvents(newEvents, indexKeys);
     
     if (persistedEvents) {
       return persistedEvents; // Success!
     }
     
-    // Conflict detected, retry
+    // Conflict detected via last_event pointer, retry
   }
   
   throw new OptimisticLockingError(attempts, entityId);
 }
 ```
 
+**How concurrent append detection works:**
+
+1. **Load Phase:** For each query pattern `[...tags, eventType]`, the repository
+   loads the `last_event` pointer at `["last_event", eventType, ...tags]` along
+   with its versionstamp
+2. **Compute Phase:** Decider computes new events based on loaded event history
+3. **Persist Phase:** Repository atomically checks that all `last_event`
+   versionstamps haven't changed, then:
+   - Writes new events to primary storage
+   - Updates tag-based secondary indexes
+   - **Updates (not creates) last_event pointers** - this changes their
+     versionstamps
+4. **Conflict Detection:** If another process appended events between load and
+   persist, the `last_event` pointer versionstamp will have changed, causing the
+   atomic check to fail and triggering a retry
+
+**Why last_event pointers are necessary:**
+
+Individual event index entries like `["events_by_type", eventType, ...tags, eventId]`
+are immutable - each new event creates a unique key with its own ULID. Without
+a mutable pointer per query pattern, concurrent appends go undetected because
+new events create new keys that weren't in the loaded set. The `last_event`
+pointer solves this by providing a single mutable entry per query pattern that
+changes with every append.
+
 **Key features:**
 
 - Automatic retry on conflicts
-- Configurable retry limit
+- Configurable retry limit (default: 10)
 - Atomic operations ensure consistency
 - No lost updates
+- Handles empty result sets (first event race conditions)
 
 ### Concrete Repository Example
 
