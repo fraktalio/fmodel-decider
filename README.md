@@ -972,12 +972,13 @@ async execute(
 
 **Why last_event pointers are necessary:**
 
-Individual event index entries like `["events_by_type", eventType, ...tags, eventId]`
-are immutable - each new event creates a unique key with its own ULID. Without
-a mutable pointer per query pattern, concurrent appends go undetected because
-new events create new keys that weren't in the loaded set. The `last_event`
-pointer solves this by providing a single mutable entry per query pattern that
-changes with every append.
+Individual event index entries like
+`["events_by_type", eventType, ...tags, eventId]` are immutable - each new event
+creates a unique key with its own ULID. Without a mutable pointer per query
+pattern, concurrent appends go undetected because new events create new keys
+that weren't in the loaded set. The `last_event` pointer solves this by
+providing a single mutable entry per query pattern that changes with every
+append.
 
 **Key features:**
 
