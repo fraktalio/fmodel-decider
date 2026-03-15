@@ -55,6 +55,7 @@ framework** encoded in TypeScript's type system:
   - [Tuple-Based Query Pattern](#tuple-based-query-pattern)
   - [Type-Safe Tag-Based Event Indexing](#type-safe-tag-based-event-indexing)
   - [Optimistic Locking with Automatic Retry](#optimistic-locking-with-automatic-retry)
+  - [Last-Event Optimization (Idempotent Mode)](#last-event-optimization-idempotent-mode)
   - [Concrete Repository Example](#concrete-repository-example)
   - [Integration with Command Handlers](#integration-with-command-handlers)
   - [Why This Makes the Library Framework-Like](#why-this-makes-the-library-framework-like)
@@ -1007,6 +1008,57 @@ append.
 - Atomic operations ensure consistency
 - No lost updates
 - Handles empty result sets (first event race conditions)
+
+### Last-Event Optimization (Idempotent Mode)
+
+The repository supports a dual-mode event loading strategy controlled by the
+`idempotent` constructor parameter (default: `true`):
+
+- **Idempotent mode** (`true`): Reads `last_event` pointers to fetch only the
+  latest event per query tuple — O(1) per tuple
+- **Full-replay mode** (`false`): Scans the full `events_by_type` index to
+  collect all events — O(n) per tuple
+
+This optimization is correct for DCB snapshot-style events where each event
+fully describes its dimension of state (e.g., `RestaurantCreatedEvent` captures
+the complete restaurant identity). Only the latest event per (eventType, tags)
+combination is needed to reconstruct state — no full replay required.
+
+```mermaid
+sequenceDiagram
+    participant Repo as Repository
+    participant KV as Deno KV
+
+    Note over Repo: Idempotent mode (default)
+    loop For each query tuple
+        Repo->>KV: get(["last_event", eventType, ...tags])
+        KV-->>Repo: eventId + versionstamp
+    end
+    loop For each unique eventId (at most 1 per tuple)
+        Repo->>KV: get(["events", eventId])
+        KV-->>Repo: Full event data
+    end
+```
+
+| Aspect                    | Full-Replay          | Idempotent           |
+| ------------------------- | -------------------- | -------------------- |
+| Index reads per tuple     | O(n) range scan      | O(1) pointer read    |
+| Events fetched per tuple  | All matching          | At most 1 (latest)   |
+| Optimistic locking        | `last_event` stamp   | `last_event` stamp   |
+| Correctness guarantee     | All events replayed  | Latest snapshot only  |
+
+**Configuration:**
+
+```ts
+// Default: idempotent mode (recommended for DCB snapshot events)
+const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples);
+
+// Full-replay mode (for accumulation-style events)
+const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 5, false);
+```
+
+Existing factory functions (`createRestaurantRepository`, `placeOrderRepository`,
+etc.) default to idempotent mode.
 
 ### Concrete Repository Example
 
