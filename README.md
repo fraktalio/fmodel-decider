@@ -1040,12 +1040,12 @@ sequenceDiagram
     end
 ```
 
-| Aspect                    | Full-Replay          | Idempotent           |
-| ------------------------- | -------------------- | -------------------- |
-| Index reads per tuple     | O(n) range scan      | O(1) pointer read    |
-| Events fetched per tuple  | All matching          | At most 1 (latest)   |
-| Optimistic locking        | `last_event` stamp   | `last_event` stamp   |
-| Correctness guarantee     | All events replayed  | Latest snapshot only  |
+| Aspect                   | Full-Replay         | Idempotent           |
+| ------------------------ | ------------------- | -------------------- |
+| Index reads per tuple    | O(n) range scan     | O(1) pointer read    |
+| Events fetched per tuple | All matching        | At most 1 (latest)   |
+| Optimistic locking       | `last_event` stamp  | `last_event` stamp   |
+| Correctness guarantee    | All events replayed | Latest snapshot only |
 
 **Configuration:**
 
@@ -1057,8 +1057,8 @@ const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples);
 const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 5, false);
 ```
 
-Existing factory functions (`createRestaurantRepository`, `placeOrderRepository`,
-etc.) default to idempotent mode.
+Existing factory functions (`createRestaurantRepository`,
+`placeOrderRepository`, etc.) default to idempotent mode.
 
 ### Concrete Repository Example
 

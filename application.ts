@@ -2,6 +2,60 @@ import type { IEventComputation, IStateComputation } from "./decider.ts";
 import type { IProjection } from "./view.ts";
 
 /**
+ * Shape constraint for commands.
+ *
+ * Commands must have a `kind` field identifying the command type.
+ */
+export type CommandShape = {
+  readonly kind: string; // The kind/type/name of the command
+};
+
+/**
+ * Shape constraint for events with type-safe tagFields.
+ *
+ * Events must have a `kind` field identifying the event type.
+ * Events can optionally declare `tagFields` - an array of field names to be indexed as tags.
+ */
+export type EventShape = {
+  readonly kind: string; // The kind/type/name of the event
+  readonly tagFields?: readonly string[]; // Optional: fields to index as tags (constrained in concrete types)
+};
+
+/**
+ * Query tuple type supporting zero or more tags followed by event type.
+ *
+ * Format: `[...tags, eventType]`
+ *
+ * Examples:
+ * - `["RestaurantOrderPlacedEvent"]` - no tags
+ * - `["tenant:acme", "RestaurantOrderPlacedEvent"]` - one tag
+ * - `["tenant:acme", "priority:high", "RestaurantOrderPlacedEvent"]` - two tags
+ */
+export type QueryTuple<Ei extends EventShape> = [...string[], Ei["kind"]];
+
+/**
+ * Read-only interface for loading events by query tuples.
+ *
+ * @remarks
+ * Provides tuple-based event loading without the decide-persist cycle.
+ * Useful for building read-side projections, debugging, or any scenario
+ * where you need to inspect event history independently.
+ *
+ * @typeParam Ei - Input event type to load
+ */
+export interface IEventLoader<Ei extends EventShape> {
+  /**
+   * Loads events matching the given query tuples.
+   *
+   * @param queryTuples - Array of query tuples specifying which events to load
+   * @returns A promise resolving to the loaded events in chronological order
+   */
+  readonly load: (
+    queryTuples: QueryTuple<Ei>[],
+  ) => Promise<readonly Ei[]>;
+}
+
+/**
  * Repository interface for event-sourced command processing.
  *
  * @remarks
@@ -9,13 +63,21 @@ import type { IProjection } from "./view.ts";
  * then persisting those events. It supports the event-sourced computation pattern where state is
  * derived by replaying all historical events.
  *
+ * Extends `IEventLoader` to also provide direct event loading by query tuples.
+ *
  * @typeParam C - Command type representing the intent to be processed
  * @typeParam Ei - Input event type consumed by the decider for state evolution
  * @typeParam Eo - Output event type produced by the decider and persisted
  * @typeParam CM - Command metadata type (e.g., correlation ID, user context)
  * @typeParam EM - Event metadata type (e.g., timestamp, version, causation ID)
  */
-export interface IEventRepository<C, Ei, Eo, CM, EM> {
+export interface IEventRepository<
+  C extends CommandShape,
+  Ei extends EventShape,
+  Eo extends EventShape,
+  CM,
+  EM,
+> extends IEventLoader<Ei> {
   /**
    * Executes a command by loading events, computing new events via the decider, and persisting them.
    *
@@ -42,7 +104,7 @@ export interface IEventRepository<C, Ei, Eo, CM, EM> {
  * @typeParam CM - Command metadata type (e.g., correlation ID, user context)
  * @typeParam SM - State metadata type (e.g., version, timestamp)
  */
-export interface IStateRepository<C, S, CM, SM> {
+export interface IStateRepository<C extends CommandShape, S, CM, SM> {
   /**
    * Executes a command by loading state, computing new state via the decider, and persisting it.
    *
@@ -79,7 +141,13 @@ export interface IStateRepository<C, S, CM, SM> {
  * @typeParam CM - Command metadata type
  * @typeParam EM - Event metadata type
  */
-export class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
+export class EventSourcedCommandHandler<
+  C extends CommandShape,
+  Ei extends EventShape,
+  Eo extends EventShape,
+  CM,
+  EM,
+> {
   constructor(
     private readonly decider: IEventComputation<C, Ei, Eo>,
     private readonly eventRepository: IEventRepository<C, Ei, Eo, CM, EM>,
@@ -118,7 +186,7 @@ export class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
  * @typeParam CM - Command metadata type
  * @typeParam SM - State metadata type
  */
-export class StateStoredCommandHandler<C, S, CM, SM> {
+export class StateStoredCommandHandler<C extends CommandShape, S, CM, SM> {
   constructor(
     private readonly decider: IStateComputation<C, S>,
     private readonly stateRepository: IStateRepository<C, S, CM, SM>,
@@ -153,7 +221,7 @@ export class StateStoredCommandHandler<C, S, CM, SM> {
  * @typeParam EM - Event metadata type (e.g., timestamp, position, causation ID)
  * @typeParam SM - State metadata type (e.g., version, last updated timestamp)
  */
-export interface IViewStateRepository<E, S, EM, SM> {
+export interface IViewStateRepository<E extends EventShape, S, EM, SM> {
   /**
    * Executes event projection by loading state, evolving it via the view, and persisting it.
    *
@@ -189,7 +257,7 @@ export interface IViewStateRepository<E, S, EM, SM> {
  * @typeParam EM - Event metadata type
  * @typeParam SM - State metadata type
  */
-export class EventHandler<E, S, EM, SM> {
+export class EventHandler<E extends EventShape, S, EM, SM> {
   constructor(
     private readonly view: IProjection<S, E>,
     private readonly viewStateRepository: IViewStateRepository<E, S, EM, SM>,

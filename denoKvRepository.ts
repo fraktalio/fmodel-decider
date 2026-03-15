@@ -8,16 +8,15 @@
 
 import { monotonicUlid } from "@std/ulid";
 import type { IEventComputation } from "./decider.ts";
-import type { IEventRepository } from "./application.ts";
+import type {
+  CommandShape,
+  EventShape,
+  IEventRepository,
+  QueryTuple,
+} from "./application.ts";
 
-/**
- * Shape constraint for commands.
- *
- * Commands must have a `kind` field identifying the command type.
- */
-export type CommandShape = {
-  readonly kind: string; // The kind/type/name of the command
-};
+// Re-export from application.ts for backward compatibility
+export type { CommandShape, EventShape, QueryTuple } from "./application.ts";
 
 /**
  * Extracts string-typed field names from an event type.
@@ -28,17 +27,6 @@ export type CommandShape = {
 export type StringFields<E> = {
   [K in keyof E]: E[K] extends string ? K : never;
 }[keyof E];
-
-/**
- * Shape constraint for events with type-safe tagFields.
- *
- * Events must have a `kind` field identifying the event type.
- * Events can optionally declare `tagFields` - an array of field names to be indexed as tags.
- */
-export type EventShape = {
-  readonly kind: string; // The kind/type/name of the event
-  readonly tagFields?: readonly string[]; // Optional: fields to index as tags (constrained in concrete types)
-};
 
 /**
  * Type-safe event with constrained tagFields.
@@ -81,16 +69,6 @@ export type TypeSafeEventShape<
       ? { readonly tagFields?: readonly StringFields<T>[] }
       : { readonly tagFields: readonly [...TagFields] }
   );
-
-/**
- * Query tuple type supporting zero or more tags followed by event type.
- *
- * Examples:
- * - ["RestaurantOrderPlacedEvent"] - no tags
- * - ["tenant:acme", "RestaurantOrderPlacedEvent"] - one tag
- * - ["tenant:acme", "priority:high", "RestaurantOrderPlacedEvent"] - two tags
- */
-export type QueryTuple<Ei extends EventShape> = [...string[], Ei["kind"]];
 
 /**
  * Tag in "fieldName:fieldValue" format.
@@ -305,6 +283,20 @@ export class DenoKvEventSourcedRepository<
 
     // Extract first entity ID for error message (no generic id field available)
     throw new OptimisticLockingError(attempts, "unknown");
+  }
+
+  /**
+   * Loads events matching the given query tuples without executing the decide-persist cycle.
+   *
+   * Useful for building read-side projections, debugging, or any scenario where
+   * you need to inspect the event history for specific query patterns.
+   *
+   * @param queryTuples - Array of query tuples specifying which events to load
+   * @returns A promise resolving to the loaded events in chronological order
+   */
+  async load(queryTuples: QueryTuple<Ei>[]): Promise<readonly Ei[]> {
+    const { events } = await this.loadEvents(queryTuples);
+    return events;
   }
 
   /**
