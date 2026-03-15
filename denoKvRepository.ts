@@ -240,6 +240,7 @@ export class DenoKvEventSourcedRepository<
    * @param getQueryTuples - Returns array of query tuples to load for this command
    * @param maxRetries - Maximum optimistic locking retry attempts (default: 10)
    * @param maxTagFields - Maximum number of tag fields per event (default: 5, generates 2^5-1=31 indexes)
+   * @param idempotent - When true, loads only the latest event per query tuple via last_event pointers (O(1) per tuple). When false, performs a full events_by_type range scan. Default: true
    */
   constructor(
     private readonly kv: Deno.Kv,
@@ -248,6 +249,7 @@ export class DenoKvEventSourcedRepository<
     ) => QueryTuple<Ei>[],
     private readonly maxRetries: number = 10,
     private readonly maxTagFields: number = 5,
+    private readonly idempotent: boolean = true,
   ) {
   }
 
@@ -308,10 +310,16 @@ export class DenoKvEventSourcedRepository<
   /**
    * Loads events using query tuples.
    *
-   * 1. Scan type indexes to collect event IDs for each query tuple
-   * 2. Load last_event pointers for conflict detection (optimization: only mutable pointers need checking)
-   * 3. Fetch full events from primary storage
-   * 4. Sort events by ULID for chronological ordering
+   * Supports two modes controlled by `this.idempotent`:
+   *
+   * **Idempotent mode** (default): For each query tuple, reads the `last_event`
+   * pointer to obtain at most one eventId per tuple. This is O(1) per tuple and
+   * correct for snapshot-style events where only the latest event matters.
+   *
+   * **Full-replay mode**: Scans the `events_by_type` index to collect all eventIds
+   * per tuple. This is O(n) per tuple and required for accumulation-style events.
+   *
+   * Both modes use `last_event` pointer versionstamps for optimistic locking.
    *
    * @param queryTuples - Array of query tuples to process
    * @returns Loaded events with last_event pointer keys for optimistic locking
@@ -336,29 +344,47 @@ export class DenoKvEventSourcedRepository<
         // Sort extracted tags alphabetically
         const sortedTags = this.sortTags(tags);
 
-        // Build index prefix to scan for event IDs
-        const prefix: Deno.KvKey = ["events_by_type", eventType, ...sortedTags];
-
-        // Scan index to collect event IDs
-        const iter = this.kv.list({ prefix });
-
-        for await (const entry of iter) {
-          const eventId = entry.value as string; // Pointer pattern
-          eventIds.push(eventId);
-        }
-
-        // Load last_event pointer for conflict detection
+        // last_event pointer key — used for locking in both modes
         const lastEventKey: Deno.KvKey = [
           "last_event",
           eventType,
           ...sortedTags,
         ];
-        const lastEventEntry = await this.kv.get(lastEventKey);
 
-        lastEventKeys.push({
-          key: lastEventKey,
-          versionstamp: lastEventEntry.versionstamp, // null if doesn't exist yet
-        });
+        if (this.idempotent) {
+          // Idempotent path: read last_event pointer directly (O(1) per tuple)
+          const lastEventEntry = await this.kv.get(lastEventKey);
+
+          // Record pointer for optimistic locking (null versionstamp if no events yet)
+          lastEventKeys.push({
+            key: lastEventKey,
+            versionstamp: lastEventEntry.versionstamp,
+          });
+
+          // If pointer exists, collect the single eventId
+          if (lastEventEntry.value !== null) {
+            eventIds.push(lastEventEntry.value as string);
+          }
+        } else {
+          // Full-replay path: scan events_by_type index (O(n) per tuple)
+          const prefix: Deno.KvKey = [
+            "events_by_type",
+            eventType,
+            ...sortedTags,
+          ];
+
+          const iter = this.kv.list({ prefix });
+          for await (const entry of iter) {
+            eventIds.push(entry.value as string);
+          }
+
+          // Load last_event pointer for conflict detection
+          const lastEventEntry = await this.kv.get(lastEventKey);
+          lastEventKeys.push({
+            key: lastEventKey,
+            versionstamp: lastEventEntry.versionstamp,
+          });
+        }
       }
 
       // Sort by event ID (ULID) and deduplicate
@@ -379,7 +405,7 @@ export class DenoKvEventSourcedRepository<
 
       return {
         events,
-        indexKeys: lastEventKeys, // Only return last_event pointer keys for conflict detection
+        indexKeys: lastEventKeys,
       };
     } catch (error) {
       throw new RepositoryError("load", error as Error);
