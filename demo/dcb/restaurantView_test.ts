@@ -2,7 +2,6 @@ import { ViewSpecification } from "../../test_specification.ts";
 import { restaurantView } from "./restaurantView.ts";
 import {
   menuItemId,
-  orderId,
   restaurantId,
   type RestaurantMenu,
   restaurantMenuId,
@@ -70,7 +69,9 @@ Deno.test("Restaurant View - Restaurant Menu Changed Event", () => {
     });
 });
 
-Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
+Deno.test("Restaurant View - Only Restaurant Events Affect State", () => {
+  // Verify that the view state is built only from RestaurantCreatedEvent and RestaurantMenuChangedEvent.
+  // RestaurantOrderPlacedEvent is not part of the RestaurantEvent union handled by this view.
   ViewSpecification.for(restaurantView)
     .given([
       {
@@ -80,18 +81,6 @@ Deno.test("Restaurant View - Restaurant Order Placed Event", () => {
         menu: testMenu,
         final: false,
         tagFields: ["restaurantId"],
-      },
-      {
-        kind: "RestaurantOrderPlacedEvent",
-        restaurantId: restaurantId("restaurant-1"),
-        orderId: orderId("order-1"),
-        menuItems: [{
-          menuItemId: menuItemId("item-1"),
-          name: "Pizza",
-          price: "10.00",
-        }],
-        final: false,
-        tagFields: ["restaurantId", "orderId"],
       },
     ])
     .then({

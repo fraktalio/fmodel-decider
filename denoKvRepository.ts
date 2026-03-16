@@ -325,40 +325,40 @@ export class DenoKvEventSourcedRepository<
       const lastEventKeys: { key: Deno.KvKey; versionstamp: string | null }[] =
         [];
 
-      // Process each query tuple
-      for (const tuple of queryTuples) {
-        // Extract event type (last element)
+      // Build last_event pointer keys upfront from all query tuples
+      const lastEventKeysList: Deno.KvKey[] = queryTuples.map((tuple) => {
         const eventType = tuple[tuple.length - 1] as Ei["kind"];
-
-        // Extract tags (all elements except last)
         const tags = tuple.slice(0, -1) as string[];
-
-        // Sort extracted tags alphabetically
         const sortedTags = this.sortTags(tags);
+        return ["last_event", eventType, ...sortedTags];
+      });
 
-        // last_event pointer key — used for locking in both modes
-        const lastEventKey: Deno.KvKey = [
-          "last_event",
-          eventType,
-          ...sortedTags,
-        ];
+      if (this.idempotent) {
+        // Idempotent path: batch read all last_event pointers in a single kv.getMany() call
+        const pointerResults = await this.kv.getMany(lastEventKeysList);
 
-        if (this.idempotent) {
-          // Idempotent path: read last_event pointer directly (O(1) per tuple)
-          const lastEventEntry = await this.kv.get(lastEventKey);
+        for (let i = 0; i < pointerResults.length; i++) {
+          const entry = pointerResults[i];
 
           // Record pointer for optimistic locking (null versionstamp if no events yet)
           lastEventKeys.push({
-            key: lastEventKey,
-            versionstamp: lastEventEntry.versionstamp,
+            key: lastEventKeysList[i],
+            versionstamp: entry.versionstamp,
           });
 
           // If pointer exists, collect the single eventId
-          if (lastEventEntry.value !== null) {
-            eventIds.push(lastEventEntry.value as string);
+          if (entry.value !== null) {
+            eventIds.push(entry.value as string);
           }
-        } else {
-          // Full-replay path: scan events_by_type index (O(n) per tuple)
+        }
+      } else {
+        // Full-replay path: scan events_by_type index (O(n) per tuple)
+        for (let i = 0; i < queryTuples.length; i++) {
+          const tuple = queryTuples[i];
+          const eventType = tuple[tuple.length - 1] as Ei["kind"];
+          const tags = tuple.slice(0, -1) as string[];
+          const sortedTags = this.sortTags(tags);
+
           const prefix: Deno.KvKey = [
             "events_by_type",
             eventType,
@@ -371,9 +371,9 @@ export class DenoKvEventSourcedRepository<
           }
 
           // Load last_event pointer for conflict detection
-          const lastEventEntry = await this.kv.get(lastEventKey);
+          const lastEventEntry = await this.kv.get(lastEventKeysList[i]);
           lastEventKeys.push({
-            key: lastEventKey,
+            key: lastEventKeysList[i],
             versionstamp: lastEventEntry.versionstamp,
           });
         }
@@ -384,16 +384,19 @@ export class DenoKvEventSourcedRepository<
         a.localeCompare(b)
       );
 
-      // Fetch full events from primary storage
-      const events = await Promise.all(
-        uniqueEventIds.map(async (eventId) => {
-          const result = await this.kv.get(["events", eventId]);
-          if (result.value === null) {
-            throw new Error(`Event ${eventId} not found in primary storage`);
-          }
-          return result.value as Ei;
-        }),
+      // Fetch full events from primary storage in a single batch
+      const primaryKeys = uniqueEventIds.map((id) =>
+        ["events", id] as Deno.KvKey
       );
+      const eventResults = await this.kv.getMany(primaryKeys);
+      const events = eventResults.map((result, i) => {
+        if (result.value === null) {
+          throw new Error(
+            `Event ${uniqueEventIds[i]} not found in primary storage`,
+          );
+        }
+        return result.value as Ei;
+      });
 
       return {
         events,

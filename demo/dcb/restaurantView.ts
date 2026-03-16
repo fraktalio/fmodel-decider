@@ -5,7 +5,6 @@ import type {
   RestaurantMenu,
   RestaurantMenuChangedEvent,
   RestaurantName,
-  RestaurantOrderPlacedEvent,
 } from "./api.ts";
 
 /**
@@ -38,8 +37,6 @@ export const restaurantView: Projection<
             menu: event.menu,
           }
           : currentState;
-      case "RestaurantOrderPlacedEvent":
-        return currentState;
       default: {
         // Exhaustive matching of the event type
         const _exhaustiveCheck: never = event;
@@ -52,8 +49,7 @@ export const restaurantView: Projection<
 
 export type RestaurantEvent =
   | RestaurantCreatedEvent
-  | RestaurantMenuChangedEvent
-  | RestaurantOrderPlacedEvent;
+  | RestaurantMenuChangedEvent;
 
 export type RestaurantView = {
   readonly restaurantId: RestaurantId;
