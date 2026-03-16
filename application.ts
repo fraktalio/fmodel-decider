@@ -104,6 +104,7 @@ export interface IEventRepository<
  * @typeParam CM - Command metadata type (e.g., correlation ID, user context)
  * @typeParam SM - State metadata type (e.g., version, timestamp)
  */
+// TODO: add demo usage
 export interface IStateRepository<C extends CommandShape, S, CM, SM> {
   /**
    * Executes a command by loading state, computing new state via the decider, and persisting it.
@@ -186,6 +187,7 @@ export class EventSourcedCommandHandler<
  * @typeParam CM - Command metadata type
  * @typeParam SM - State metadata type
  */
+// TODO: add demo usage
 export class StateStoredCommandHandler<C extends CommandShape, S, CM, SM> {
   constructor(
     private readonly decider: IStateComputation<C, S>,
@@ -221,6 +223,7 @@ export class StateStoredCommandHandler<C extends CommandShape, S, CM, SM> {
  * @typeParam EM - Event metadata type (e.g., timestamp, position, causation ID)
  * @typeParam SM - State metadata type (e.g., version, last updated timestamp)
  */
+// TODO: add demo usage
 export interface IViewStateRepository<E extends EventShape, S, EM, SM> {
   /**
    * Executes event projection by loading state, evolving it via the view, and persisting it.
