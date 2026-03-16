@@ -273,3 +273,44 @@ export class EventHandler<E extends EventShape, S, EM, SM> {
     return this.viewStateRepository.execute(event, this.view);
   }
 }
+
+/**
+ * Query handler for on-demand event-sourced projections.
+ *
+ * @remarks
+ * This handler loads events via query tuples and folds them through a view/projection
+ * to compute state on the fly — without persisting the result. Useful for ad-hoc queries
+ * where a materialized read model is not needed or not yet available.
+ *
+ * The handler:
+ * 1. Loads events matching the provided query tuples via the event loader
+ * 2. Reduces the event stream through the view's `evolve` function starting from `initialState`
+ * 3. Returns the computed state
+ *
+ * **View compatibility:**
+ * - Works with any `IProjection<S, E>`
+ *
+ * @typeParam E - Event type representing domain events to be projected
+ * @typeParam S - State type representing the projected result
+ */
+export class EventSourcedQueryHandler<E extends EventShape, S> {
+  constructor(
+    private readonly view: IProjection<S, E>,
+    private readonly eventLoader: IEventLoader<E>,
+  ) {}
+
+  /**
+   * Handles a query by loading events and folding them through the view projection.
+   *
+   * @param queryTuples - The query tuples specifying which events to load
+   * @returns A promise resolving to the projected state
+   */
+  handle(queryTuples: QueryTuple<E>[]): Promise<S> {
+    return this.eventLoader.load(queryTuples).then((events) =>
+      events.reduce(
+        (state, event) => this.view.evolve(state, event),
+        this.view.initialState,
+      )
+    );
+  }
+}
