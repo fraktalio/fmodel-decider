@@ -343,6 +343,9 @@ const events = await handler.handle(placeOrderCommand);
 Idempotent mode addresses two concerns: read performance and downstream delivery
 guarantees.
 
+![Destructuring](destructuring.png)
+
+
 ### Read Optimization
 
 Controlled by the `idempotent` constructor parameter (default: `true`):
@@ -371,12 +374,12 @@ time. Think of it like destructuring a snapshot into its atomic facts:
 const { x, y, z, t } = point;
 // x, y, z are the facts (coordinates), t is when they occurred
 
-// In domain terms, the "state" is destructured into independent events:
+// In domain terms, the "state" of the "Restaurant concept" is destructured into independent events:
 const { RestaurantRegistered, RestaurantMenuPublished, NOW } =
   OrderItemsAreOnTheMenu;
 ```
 
-Each event captures the complete truth about its dimension — you only need the
+Each event captures the complete truth about its dimension (peace of the whole state) — you only need the
 latest one, not the full history. This is what makes the O(1) pointer read
 correct: one event per (eventType, tags) combination is sufficient to
 reconstruct state.
@@ -435,14 +438,14 @@ Supports two repository strategies:
 ### Running the Demos
 
 ```bash
-deno test demo/aggregate/
-deno test demo/dcb/
+deno test demo/aggregate/  --unstable-kv 
+deno test demo/dcb/  --unstable-kv 
 ```
 
 ## Testing
 
 ```bash
-deno test
+deno test --unstable-kv 
 ```
 
 ## Development
