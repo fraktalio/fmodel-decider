@@ -1,9 +1,8 @@
 # fmodel-decider
 
-**A complete spec-driven development framework** where the type system provides
-formal constraints and the Given-When-Then DSL provides executable examples -
-together forming a powerful foundation for building correct systems with AI
-assistance.
+**A spec-driven development framework** where the type system provides formal
+constraints and the Given-When-Then DSL provides executable examples — together
+forming a powerful foundation for building correct systems with AI assistance.
 
 TypeScript library for modeling deciders (`command handlers`), process managers,
 and views (`event handlers`) in domain-driven, event-sourced, or state-stored
@@ -13,67 +12,29 @@ architectures with progressive type refinement.
 
 ## Why fmodel-decider?
 
-fmodel-decider is more than a library - it's a **formal specification
-framework** encoded in TypeScript's type system:
-
 - **Type System as Specification**: Interfaces like `IDcbDecider` and
   `IAggregateDecider` are executable specifications that constrain
   implementations and guide AI code generation
 - **Given-When-Then as Executable Examples**: Tests are specifications by
   example that serve as living documentation and formal requirements
 - **Progressive Refinement**: Start with flexible types, add constraints
-  incrementally as requirements clarify - from "vibing" to "viable"
+  incrementally as requirements clarify
 - **AI-Friendly**: Formal types and concrete examples reduce hallucinations and
   guide AI tools to generate correct implementations
 - **Production-Ready Infrastructure**: Complete event-sourced repository with
   Deno KV, optimistic locking, and flexible querying
 
-**From informal requirements to production code:**
-
-1. Define types (formal specification)
-2. Write Given-When-Then tests (executable examples)
-3. Implement with AI assistance (guided by specifications)
-4. Deploy with confidence (verified by type system and tests)
-
 ## Table of Contents
 
-- [Why fmodel-decider?](#why-fmodel-decider)
 - [Spec-Driven Development](#spec-driven-development)
-- [Progressive Type Refinement Philosophy](#progressive-type-refinement-philosophy)
-- [Educational Purpose](#educational-purpose)
-- [What is a View?](#what-is-a-view)
-- [What is a Decider?](#what-is-a-decider)
-- [What is a Process Manager?](#what-is-a-process-manager)
-- [Application Layer](#application-layer)
-  - [Key Design Principle: Metadata Isolation](#key-design-principle-metadata-isolation)
-  - [Repository Interfaces](#repository-interfaces)
-  - [Command Handlers: The Bridge Pattern](#command-handlers-the-bridge-pattern)
-  - [Event Handlers: Read-Side Bridge](#event-handlers-read-side-bridge)
-  - [Why This Design Matters](#why-this-design-matters)
-- [Deno KV Event-Sourced Repository](#deno-kv-event-sourced-repository)
-  - [Architecture: Primary Storage with Secondary Tag Indexes](#architecture-primary-storage-with-secondary-tag-indexes)
-  - [Tuple-Based Query Pattern](#tuple-based-query-pattern)
-  - [Type-Safe Tag-Based Event Indexing](#type-safe-tag-based-event-indexing)
-  - [Optimistic Locking with Automatic Retry](#optimistic-locking-with-automatic-retry)
-  - [Last-Event Optimization (Idempotent Mode)](#last-event-optimization-idempotent-mode)
-  - [Concrete Repository Example](#concrete-repository-example)
-  - [Integration with Command Handlers](#integration-with-command-handlers)
-  - [Why This Makes the Library Framework-Like](#why-this-makes-the-library-framework-like)
-  - [Demo Implementation](#demo-implementation)
+- [Core Abstractions](#core-abstractions)
 - [Progressive Type Refinement](#progressive-type-refinement)
-  - [Computation Patterns](#computation-patterns)
-  - [Deciders](#deciders)
-  - [Views](#views)
-  - [Process Managers](#process-managers)
-  - [Key Differences](#key-differences)
+- [Application Layer](#application-layer)
+- [Idempotent Mode (Last-Event Optimization)](#idempotent-mode-last-event-optimization)
+- [Deno KV Event-Sourced Repository](#deno-kv-event-sourced-repository)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
-  - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
-  - [Scenario 2: Dynamic Consistency Boundary (DCB) Pattern](#scenario-2-dynamic-consistency-boundary-dcb-pattern-demodcb)
-  - [Comparison](#comparison)
-  - [Running the Demos](#running-the-demos)
 - [Testing](#testing)
 - [Development](#development)
-- [Publish to JSR](#publish-to-jsr-dry-run)
 - [Further Reading](#further-reading)
 - [Credits](#credits)
 
@@ -82,7 +43,7 @@ framework** encoded in TypeScript's type system:
 fmodel-decider positions **specification as code** through two complementary
 mechanisms:
 
-### 1. Type System as Formal Specification
+### Type System as Formal Specification
 
 The type hierarchy encodes domain modeling patterns as executable
 specifications:
@@ -93,1242 +54,58 @@ interface IEventComputation<C, Ei, Eo> {
   computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
 }
 
-// Formal specification: The foundational contract for decision-making algorithms
-interface IDecider<C, Si, So, Ei, Eo> {}
-
 // Formal specification: Dynamic consistency boundary
 interface IDcbDecider<C, S, Ei, Eo>
-  extends IDecider<C, S, S, Ei, Eo>, IEventComputation<C, Ei, Eo> {
-  // Gains EventComputation capability
-  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
-}
+  extends IDecider<C, S, S, Ei, Eo>, IEventComputation<C, Ei, Eo> {}
 ```
 
-**Benefits:**
-
-- Compile-time verification of correctness
-- AI tools constrained to generate valid implementations
-- Self-documenting through types
-- Impossible states eliminated by design
-
-### 2. Given-When-Then as Executable Examples
+### Given-When-Then as Executable Examples
 
 Tests are specifications by example that formally define behavior:
 
 ```ts
-// Specification: "Given a restaurant exists, when placing an order, then order placed event is produced"
+// "Given a restaurant exists, when placing an order, then order placed event is produced"
 DeciderEventSourcedSpec.for(placeOrderDecider)
-  .given([
-    {
-      kind: "RestaurantCreatedEvent",
-      restaurantId: "restaurant-1",
-      name: "Italian Bistro",
-      menu: testMenu,
-    },
-  ])
-  .when({
-    kind: "PlaceOrderCommand",
-    restaurantId: "restaurant-1",
-    orderId: "order-1",
-    menuItems: testMenuItems,
-  })
-  .then([
-    {
-      kind: "RestaurantOrderPlacedEvent",
-      restaurantId: "restaurant-1",
-      orderId: "order-1",
-      menuItems: testMenuItems,
-    },
-  ]);
+  .given([restaurantCreatedEvent])
+  .when(placeOrderCommand)
+  .then([restaurantOrderPlacedEvent]);
 
-// Specification: "Given no restaurant exists, when placing an order, then throw RestaurantNotFoundError"
+// "Given no restaurant exists, when placing an order, then throw error"
 DeciderEventSourcedSpec.for(placeOrderDecider)
   .given([])
   .when(placeOrderCommand)
   .thenThrows((error) => error instanceof RestaurantNotFoundError);
 ```
 
-**Benefits:**
+Three specification formats are available:
 
-- Living documentation that never goes stale
-- Concrete examples clarify abstract requirements
-- AI-friendly format for code generation
-- Business rules encoded as executable tests
+| Format                    | Purpose                         | Compatible With                    |
+| ------------------------- | ------------------------------- | ---------------------------------- |
+| `DeciderEventSourcedSpec` | Event-sourced decider behavior  | `IDcbDecider`, `IAggregateDecider` |
+| `DeciderStateStoredSpec`  | State-stored aggregate behavior | `IAggregateDecider` only           |
+| `ViewSpecification`       | View/projection behavior        | `IProjection`                      |
 
 ### The Workflow: From Vibing to Viable
 
-**Step 1: Define Types (Formal Specification)**
-
-```ts
-type PlaceOrderCommand = {
-  kind: "PlaceOrderCommand";
-  restaurantId: string;
-  orderId: string;
-  menuItems: MenuItem[];
-};
-
-const placeOrderDecider: IDcbDecider<
-  PlaceOrderCommand,
-  PlaceOrderState,
-  RestaurantEvent | OrderEvent,
-  RestaurantOrderPlacedEvent
->;
-```
-
-**Step 2: Write Given-When-Then Tests (Executable Examples)**
-
-```ts
-Deno.test("Place Order - Success", () => {
-  DeciderEventSourcedSpec.for(placeOrderDecider)
-    .given([restaurantCreatedEvent])
-    .when(placeOrderCommand)
-    .then([restaurantOrderPlacedEvent]);
-});
-```
-
-**Step 3: Implement with AI Assistance**
-
-The formal types and concrete examples guide AI to generate correct
-implementations:
-
-```
-AI Prompt: "Implement placeOrderDecider that satisfies:
-- Type: IDcbDecider<PlaceOrderCommand, PlaceOrderState, RestaurantEvent | OrderEvent, RestaurantOrderPlacedEvent>
-- Given [RestaurantCreatedEvent], when PlaceOrderCommand, then [RestaurantOrderPlacedEvent]
-- Given [], when PlaceOrderCommand, then throw RestaurantNotFoundError"
-```
-
-**Step 4: Verify and Deploy**
-
-- Type system verifies at compile-time
-- Tests verify at runtime
-- Deploy with confidence
-
-### Why This Matters for AI-Assisted Development
-
-**Constrained Generation Space:**
-
-- Formal types eliminate invalid implementations
-- AI can't generate code that violates specifications
-- Fewer hallucinations, more correct code
-
-**Compositional Specifications:**
-
-- Types compose to form larger specifications
-- Tests compose to cover complex scenarios
-- AI learns patterns from existing specifications
-
-**Refactoring Safety:**
-
-- Change implementation without changing specifications
-- Type system catches breaking changes
-- Tests prevent regressions
-
-## Progressive Type Refinement Philosophy
-
-This library demonstrates how to evolve from **general, flexible types** to
-**specific, constrained types** that better represent real-world information
-systems. Starting with the most generic interfaces that support all possible
-type combinations, we progressively add constraints that:
-
-- **Increase semantic meaning** - Each refinement step adds domain-specific
-  behavior
-- **Reduce complexity** - Constraints eliminate impossible states and invalid
-  operations
-- **Improve usability** - More specific types provide better APIs and clearer
-  intent
-- **Enable optimizations** - Constraints allow for more efficient
-  implementations
-
-This approach mirrors how we model information systems: beginning with broad
-concepts and iteratively refining them into precise, domain-specific
-abstractions that capture business rules and invariants.
-
-## Educational Purpose
-
-This library serves as both a **practical toolkit** and an **educational
-resource** for understanding:
-
-- **Functional domain modeling** patterns in TypeScript
-- **Progressive type refinement** as a design methodology
-- **Event-sourced** and **state-stored** computation patterns
-- **Process orchestration** and **workflow** management
-- **Read-side projections** and view materialization
-
-```ts
-// Computation Pattern Interfaces
-export interface EventComputation<C, Ei, Eo> {
-  computeNewEvents(events: readonly Ei[], command: C): readonly Eo[];
-}
-
-export interface StateComputation<C, S> {
-  computeNewState(state: S, command: C): S;
-}
-
-// View Hierarchy
-export interface IView<Si, So, E> {
-  readonly evolve: (state: Si, event: E) => So;
-  readonly initialState: So;
-}
-
-export interface IProjection<S, E> extends IView<S, S, E> {
-}
-
-// Decider Hierarchy
-export interface IDecider<C, Si, So, Ei, Eo> extends IView<Si, So, Ei> {
-  readonly decide: (command: C, state: Si) => readonly Eo[];
-}
-
-export interface IDcbDecider<C, S, Ei, Eo>
-  extends
-    IDecider<C, S, S, Ei, Eo>,
-    IProjection<S, Ei>,
-    EventComputation<C, Ei, Eo> {
-}
-
-export interface IAggregateDecider<C, S, E>
-  extends IDcbDecider<C, S, E, E>, StateComputation<C, S> {
-}
-
-// Process Manager Hierarchy
-export interface IProcess<AR, Si, So, Ei, Eo, A>
-  extends IDecider<AR, Si, So, Ei, Eo> {
-  readonly react: (state: Si, event: Ei) => readonly A[];
-  readonly pending: (state: Si) => readonly A[];
-}
-
-export interface IDcbProcess<AR, S, Ei, Eo, A>
-  extends IProcess<AR, S, S, Ei, Eo, A>, IDcbDecider<AR, S, Ei, Eo> {
-}
-
-export interface IAggregateProcess<AR, S, E, A>
-  extends IDcbProcess<AR, S, E, E, A>, IAggregateDecider<AR, S, E> {
-}
-
-// Workflow Hierarchy
-export interface IWorkflowProcess<AR, A, TaskName extends string = string>
-  extends
-    IProcess<
-      AR,
-      WorkflowState<TaskName>,
-      WorkflowState<TaskName>,
-      WorkflowEvent<TaskName>,
-      WorkflowEvent<TaskName>,
-      A
-    > {
-  readonly createTaskStarted: (
-    taskName: TaskName,
-    metadata?: Record<string, unknown>,
-  ) => TaskStarted<TaskName>;
-
-  readonly createTaskCompleted: (
-    taskName: TaskName,
-    result?: unknown,
-    metadata?: Record<string, unknown>,
-  ) => TaskCompleted<TaskName>;
-
-  readonly getTaskStatus: (
-    state: WorkflowState<TaskName>,
-    taskName: TaskName,
-  ) => TaskStatus | undefined;
-
-  readonly isTaskStarted: (
-    state: WorkflowState<TaskName>,
-    taskName: TaskName,
-  ) => boolean;
-
-  readonly isTaskCompleted: (
-    state: WorkflowState<TaskName>,
-    taskName: TaskName,
-  ) => boolean;
-}
-
-export interface IDcbWorkflowProcess<AR, A, TaskName extends string = string>
-  extends
-    IWorkflowProcess<AR, A, TaskName>,
-    IDcbProcess<
-      AR,
-      WorkflowState<TaskName>,
-      WorkflowEvent<TaskName>,
-      WorkflowEvent<TaskName>,
-      A
-    > {
-}
-
-export interface IAggregateWorkflowProcess<
-  AR,
-  A,
-  TaskName extends string = string,
-> extends
-  IWorkflowProcess<AR, A, TaskName>,
-  IAggregateProcess<AR, WorkflowState<TaskName>, WorkflowEvent<TaskName>, A> {
-}
-```
-
-## What is a View?
-
-A View is a pure functional component that builds up state by processing events:
-
-- **Evolves** state when given an event (read-side projection)
-- **Defines** an initial state
-- **Supports** independent input and output state types for complex
-  transformations
-
-Views are the read-side complement to Deciders, enabling event-sourced
-projections and read models.
-
-## What is a Decider?
-
-A Decider is a pure functional component that:
-
-- **Decides** which events to emit given a command and current state
-- **Evolves** state when given an event
-- **Defines** an initial state
-
-This pattern separates decision logic from state mutation, improving testability
-and reasoning about behavior.
-
-## What is a Process Manager?
-
-A Process Manager extends a Decider with orchestration capabilities, acting as a
-smart ToDo list:
-
-- **Decides** which events to emit given an action result and current state
-- **Evolves** state when given an event
-- **Reacts** to events by determining which actions become ready to execute
-- **Maintains** a complete ToDo list of all possible pending actions
-
-Process Managers coordinate long-running business processes and manage complex
-workflows.
-
-## Application Layer
-
-The application layer is the **bridge** between pure domain logic (deciders,
-views, processes) and infrastructure concerns (databases, event stores, message
-queues). Its primary role is to coordinate execution while introducing
-**metadata** (correlation IDs, timestamps, versions) at the boundary without
-polluting the core domain model.
-
-### Key Design Principle: Metadata Isolation
-
-**Core domain (Deciders, Views, Processes)** remain pure and metadata-free:
-
-```ts
-// Domain layer - no metadata, pure business logic
-const orderDecider: IDcbDecider<
-  OrderCommand,
-  OrderState,
-  OrderEvent,
-  OrderEvent
->;
-```
-
-**Application layer** introduces metadata at the boundary:
-
-```ts
-// Application layer - metadata added here
-const handler: EventSourcedCommandHandler<
-  OrderCommand,
-  OrderEvent,
-  OrderEvent,
-  CommandMetadata, // ← Metadata introduced
-  EventMetadata // ← Metadata introduced
->;
-```
-
-This separation ensures domain logic remains testable, portable, and focused on
-business rules.
-
-### Repository Interfaces
-
-The application layer defines repository contracts based on computation
-patterns:
-
-```ts
-// Event-sourced repository
-export interface IEventRepository<C, Ei, Eo, CM, EM> {
-  readonly execute: (
-    command: C & CM, // Command + metadata
-    decider: IEventComputation<C, Ei, Eo>, // Pure computation
-  ) => Promise<readonly (Eo & EM)[]>; // Events + metadata
-}
-
-// State-stored repository
-export interface IStateRepository<C, S, CM, SM> {
-  readonly execute: (
-    command: C & CM, // Command + metadata
-    decider: IStateComputation<C, S>, // Pure computation
-  ) => Promise<S & SM>; // State + metadata
-}
-
-// View state repository
-export interface IViewStateRepository<E, S, EM, SM> {
-  readonly execute: (
-    event: E & EM, // Event + metadata
-    view: IProjection<S, E>, // Pure projection
-  ) => Promise<S & SM>; // State + metadata
-}
-```
-
-**Key benefits:**
-
-- Repositories depend only on computation interfaces (`IEventComputation`,
-  `IStateComputation`) or projections (`IProjection`)
-- Metadata flows through the application layer without touching domain logic
-- Clean separation between domain concerns and infrastructure concerns
-
-### Command Handlers: The Bridge Pattern
-
-Command handlers are the **bridge** that connects pure domain logic with
-infrastructure. They delegate to repositories while keeping domain logic
-isolated.
-
-#### Event-Sourced Command Handler
-
-```ts
-export class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
-  constructor(
-    private readonly decider: IEventComputation<C, Ei, Eo>,
-    private readonly eventRepository: IEventRepository<C, Ei, Eo, CM, EM>,
-  ) {}
-
-  handle(command: C & CM): Promise<readonly (Eo & EM)[]> {
-    // Delegates to repository, which:
-    // 1. Loads event stream
-    // 2. Passes events + command to decider
-    // 3. Persists new events with metadata
-    return this.eventRepository.execute(command, this.decider);
-  }
-}
-```
-
-**Complete example showing the delegation flow:**
-
-```ts
-import { EventSourcedCommandHandler } from "./application.ts";
-import { createRestaurantRepository } from "./demo/dcb/createRestaurantRepository.ts";
-import { crateRestaurantDecider } from "./demo/dcb/createRestaurantDecider.ts";
-
-// 1. Create repository (infrastructure)
-const kv = await Deno.openKv();
-const repository = createRestaurantRepository(kv);
-
-// 2. Create handler (bridge between domain and infrastructure)
-const handler = new EventSourcedCommandHandler(
-  crateRestaurantDecider, // Pure domain logic
-  repository, // Infrastructure
-);
-
-// 3. Execute command
-const command = {
-  kind: "CreateRestaurantCommand",
-  restaurantId: "restaurant-123",
-  name: "Bistro",
-  menu: {
-    menuId: "menu-1",
-    cuisine: "ITALIAN",
-    menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "12.99" }],
-  },
-};
-
-// Handler delegates to repository, which:
-// 1. Loads events for restaurant-123
-// 2. Calls decider.computeNewEvents(events, command)
-// 3. Persists new events with metadata (eventId, timestamp, versionstamp)
-const events = await handler.handle(command);
-
-console.log(events);
-// [
-//   {
-//     kind: "RestaurantCreatedEvent",
-//     restaurantId: "restaurant-123",
-//     name: "Bistro",
-//     menu: { ... },
-//     eventId: "01JBQR8X9Y...",      // ← Metadata added by repository
-//     timestamp: 1735123456789,       // ← Metadata added by repository
-//     versionstamp: "00000000000..." // ← Metadata added by repository
-//   }
-// ]
-```
-
-**Decider compatibility:**
-
-- Works with any `IEventComputation` implementation:
-  - `IDcbDecider<C, S, Ei, Eo>` for dynamic consistency boundaries
-  - `IAggregateDecider<C, S, E>` for traditional aggregates
-
-#### State-Stored Command Handler
-
-```ts
-export class StateStoredCommandHandler<C, S, CM, SM> {
-  constructor(
-    private readonly decider: IStateComputation<C, S>,
-    private readonly stateRepository: IStateRepository<C, S, CM, SM>,
-  ) {}
-
-  handle(command: C & CM): Promise<S & SM> {
-    // Delegates to repository, which:
-    // 1. Loads current state
-    // 2. Passes state + command to decider
-    // 3. Persists new state with metadata
-    return this.stateRepository.execute(command, this.decider);
-  }
-}
-```
-
-**Decider compatibility:**
-
-- Works only with `IStateComputation` implementations:
-  - `IAggregateDecider<C, S, E>` (the only built-in implementation)
-
-### Event Handlers: Read-Side Bridge
-
-Event handlers coordinate between views/projections and view state repositories:
-
-```ts
-export class EventHandler<E, S, EM, SM> {
-  constructor(
-    private readonly view: IProjection<S, E>,
-    private readonly viewStateRepository: IViewStateRepository<E, S, EM, SM>,
-  ) {}
-
-  handle(event: E & EM): Promise<S & SM> {
-    // Delegates to repository, which:
-    // 1. Loads current view state
-    // 2. Passes state + event to view
-    // 3. Persists updated state with metadata
-    return this.viewStateRepository.execute(event, this.view);
-  }
-}
-```
-
-**View compatibility:**
-
-- Works with `IProjection<S, E>` implementations
-- Suitable for read models, query models, and materialized views
-- Processes events to build and maintain view state
-
-### Why This Design Matters
-
-The application layer provides:
-
-1. **Separation of concerns:** Domain logic stays pure, infrastructure stays
-   isolated
-2. **Testability:** Test domain logic without infrastructure dependencies
-3. **Flexibility:** Swap infrastructure implementations without changing domain
-   code
-4. **Metadata management:** Correlation IDs, timestamps, versions added at the
-   boundary
-5. **Type safety:** Compile-time guarantees for command/event/state types
-
-This design keeps domain logic pure while providing flexible infrastructure
-integration.
-
-## Deno KV Event-Sourced Repository
-
-The library includes a production-ready event-sourced repository implementation
-using Deno KV (`DenoKvEventSourcedRepository`). This implementation demonstrates
-how to build a complete event-sourced infrastructure with optimistic locking,
-flexible querying, and type-safe tag-based event indexing.
-
-### Architecture: Primary Storage with Secondary Tag Indexes
-
-The repository uses a triple-storage architecture optimized for both storage
-efficiency, query flexibility, and concurrent append detection:
-
-```
-Primary Storage:           ["events", eventId] → full event data
-Secondary Tag Index:       ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
-Last Event Pointer Index:  ["last_event", eventType, ...tags] → eventId (mutable pointer)
-```
-
-**Example index structures:**
-
-```
-// No tags - query all events of a type
-["events_by_type", "RestaurantCreatedEvent", eventId] → eventId
-["last_event", "RestaurantCreatedEvent"] → eventId (latest)
-
-// Single tag - query by one dimension
-["events_by_type", "RestaurantCreatedEvent", "restaurantId:r1", eventId] → eventId
-["last_event", "RestaurantCreatedEvent", "restaurantId:r1"] → eventId (latest)
-
-// Multiple tags - query by multiple dimensions
-["events_by_type", "OrderPlacedEvent", "restaurantId:r1", "customerId:c1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "restaurantId:r1", "customerId:c1"] → eventId (latest)
-```
-
-**Note:** For each tag subset combination, the repository creates both an event
-index entry and a last_event pointer, following the same 2^n - 1 pattern.
-
-**Key benefits:**
-
-- **Storage efficiency:** Event data stored once in primary storage, secondary
-  indexes store only pointers (ULIDs)
-- **Flexible queries:** Query by event type and any combination of tags using
-  secondary indexes
-- **Tag subsets:** Automatically generates all tag subset combinations for
-  maximum query flexibility (2^n - 1 secondary indexes per event)
-- **Optimistic locking:** Versionstamps on last_event pointers enable reliable
-  concurrent append detection
-- **Concurrent append detection:** Last event pointers are updated (not created)
-  with each append, ensuring versionstamp changes detect conflicts
-- **Chronological ordering:** Monotonic ULIDs ensure correct event ordering
-
-### Tuple-Based Query Pattern
-
-The repository's most powerful feature is its tuple-based query pattern, which
-allows loading events using zero or more tags followed by an event type:
-
-```ts
-// No tags - load all events of a type
-(cmd) => [
-  ["RestaurantCreatedEvent"]
-]
-
-// Single tag - load events filtered by one dimension
-(cmd) => [
-  ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"]
-]
-
-// Multiple tags - load events filtered by multiple dimensions
-(cmd) => [
-  ["restaurantId:" + cmd.restaurantId, "customerId:" + cmd.customerId, "OrderPlacedEvent"]
-]
-
-// Complex case: Multiple query tuples for different event types
-(cmd) => [
-  ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
-  ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
-  ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
-]
-```
-
-**Query tuple format:** `[...tags, eventType]`
-
-- **Tags** (optional): Zero or more tags in "fieldName:fieldValue" format
-- **Event type** (required): The kind of event to query (last element)
-
-This flexibility is essential for DCB patterns where consistency boundaries span
-multiple concepts and require loading events from different aggregates.
-
-### Type-Safe Tag-Based Event Indexing
-
-The repository leverages TypeScript's type system and event metadata to provide
-flexible, type-safe indexing:
-
-#### Tag Fields Configuration
-
-Events declare which fields should be indexed as tags using the `tagFields`
-property:
-
-```ts
-export type RestaurantCreatedEvent = TypeSafeEventShape<
-  {
-    readonly kind: "RestaurantCreatedEvent";
-    readonly restaurantId: string;
-    readonly name: string;
-    readonly menu: Menu;
-  },
-  ["restaurantId"] // ← Only string fields can be tags
->;
-
-export type OrderPlacedEvent = TypeSafeEventShape<
-  {
-    readonly kind: "OrderPlacedEvent";
-    readonly orderId: string;
-    readonly restaurantId: string;
-    readonly customerId: string;
-    readonly items: MenuItem[];
-  },
-  ["orderId", "restaurantId", "customerId"] // ← Multiple tags for flexible querying
->;
-```
-
-**Type safety guarantees:**
-
-- ✅ Only string-typed fields can be configured as tags
-- ✅ Compile-time validation prevents typos
-- ✅ Autocomplete for available tag fields
-- ❌ Cannot specify non-existent fields
-- ❌ Cannot specify non-string fields (numbers, objects, arrays)
-
-#### Tag Subset Generation
-
-The repository automatically generates all possible tag subset combinations for
-maximum query flexibility using binary enumeration (2^n - 1 indexes per event):
-
-**Algorithm visualization:**
-
-```
-Given tags: [A, B, C]
-Binary enumeration from 1 to 2^3 - 1 = 7:
-
-Binary  | Bits | Selected Tags | Index Entry
---------|------|---------------|------------------
-001     | ..1  | [A]           | [..., A, eventId]
-010     | .1.  | [B]           | [..., B, eventId]
-011     | .11  | [A, B]        | [..., A, B, eventId]
-100     | 1..  | [C]           | [..., C, eventId]
-101     | 1.1  | [A, C]        | [..., A, C, eventId]
-110     | 11.  | [B, C]        | [..., B, C, eventId]
-111     | 111  | [A, B, C]     | [..., A, B, C, eventId]
-```
-
-**Concrete example:**
-
-```ts
-// Event with tags: ["restaurantId:r1", "customerId:c1"]
-// Generates 3 index entries (2^2 - 1):
-
-["events_by_type", "OrderPlacedEvent", "customerId:c1", eventId] → eventId
-["events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId] → eventId
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1", eventId] → eventId
-```
-
-**Visual representation of subset generation:**
-
-```
-Tags: [restaurantId, customerId]
-
-                    ∅ (empty - not indexed)
-                   / \
-                  /   \
-                 /     \
-          [restaurantId] [customerId]
-                 \     /
-                  \   /
-                   \ /
-        [restaurantId, customerId]
-
-Result: 3 non-empty subsets = 2^2 - 1
-```
-
-**Write Amplification Trade-off:**
-
-The repository trades write amplification for O(1) query performance. For each
-event, the repository creates 2^n - 1 tag subset combinations, and for each
-subset it writes:
-
-1. An event index entry (immutable pointer)
-2. A last_event pointer (mutable pointer for conflict detection)
-
-This means the total write amplification is 2 × (2^n - 1) entries per event.
-
-Here's how the number of indexes grows with tag count:
-
-| Tag Fields | Tag Subsets | Event Indexes | Last Event Pointers | Total Writes | Formula        |
-| ---------- | ----------- | ------------- | ------------------- | ------------ | -------------- |
-| 0          | 0           | 0             | 0                   | 1            | 1 (event only) |
-| 1          | 1           | 1             | 1                   | 3            | 1 + 2(2^1-1)   |
-| 2          | 3           | 3             | 3                   | 7            | 1 + 2(2^2-1)   |
-| 3          | 7           | 7             | 7                   | 15           | 1 + 2(2^3-1)   |
-| 4          | 15          | 15            | 15                  | 31           | 1 + 2(2^4-1)   |
-| 5          | 31          | 31            | 31                  | 63           | 1 + 2(2^5-1)   |
-
-**Concrete example with 3 tags:**
-
-```ts
-// Event configuration
-export type OrderPlacedEvent = TypeSafeEventShape<
-  {
-    readonly kind: "OrderPlacedEvent";
-    readonly orderId: string;
-    readonly restaurantId: string;
-    readonly customerId: string;
-  },
-  ["orderId", "restaurantId", "customerId"] // 3 tags
->;
-
-// When persisting this event:
-const event = {
-  kind: "OrderPlacedEvent",
-  orderId: "o1",
-  restaurantId: "r1",
-  customerId: "c1",
-  tagFields: ["orderId", "restaurantId", "customerId"],
-};
-
-// Repository generates 7 tag subsets (2^3 - 1), creating 14 index entries + 1 primary = 15 total writes:
-
-// Primary storage (1 write)
-["events", eventId] → full event data
-
-// For each of 7 subsets, write both event index AND last_event pointer (14 writes):
-["events_by_type", "OrderPlacedEvent", "customerId:c1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "customerId:c1"] → eventId
-
-["events_by_type", "OrderPlacedEvent", "orderId:o1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "orderId:o1"] → eventId
-
-["events_by_type", "OrderPlacedEvent", "restaurantId:r1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "restaurantId:r1"] → eventId
-
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "customerId:c1", "orderId:o1"] → eventId
-
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "customerId:c1", "restaurantId:r1"] → eventId
-
-["events_by_type", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "orderId:o1", "restaurantId:r1"] → eventId
-
-["events_by_type", "OrderPlacedEvent", "customerId:c1", "orderId:o1", "restaurantId:r1", eventId] → eventId
-["last_event", "OrderPlacedEvent", "customerId:c1", "orderId:o1", "restaurantId:r1"] → eventId
-
-// This enables flexible queries with reliable conflict detection:
-// - Query by customer: ["customerId:c1", "OrderPlacedEvent"]
-// - Query by order: ["orderId:o1", "OrderPlacedEvent"]
-// - Query by restaurant: ["restaurantId:r1", "OrderPlacedEvent"]
-// - Query by customer + restaurant: ["customerId:c1", "restaurantId:r1", "OrderPlacedEvent"]
-// - Any other combination!
-```
-
-**Why this trade-off makes sense:**
-
-- ✅ **Reads are frequent:** Queries happen far more often than writes in most
-  systems
-- ✅ **O(1) query performance:** No need to scan or filter, direct index lookup
-- ✅ **Flexible querying:** Any tag combination works without additional indexes
-- ✅ **Reliable conflict detection:** last_event pointers ensure concurrent
-  appends are detected
-- ⚠️ **Write cost:** Each event write creates multiple index entries (2 per
-  subset)
-- ⚠️ **Storage cost:** More index entries consume more storage
-
-**Configurable limit:** The maximum number of tag fields per event is
-configurable via the `maxTagFields` constructor parameter (default: 5,
-generating 2×(2^5-1)=62 index entries + 1 primary = 63 total writes). You can
-adjust this based on your needs:
-
-```ts
-// Default: 5 tag fields max (63 total writes per event)
-const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples);
-
-// Conservative: 3 tag fields max (15 total writes per event)
-const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 3);
-
-// Aggressive: 7 tag fields max (255 total writes per event)
-const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 7);
-```
-
-#### Query Tuple Type Safety
-
-The repository constructor enforces type-safe query tuples:
-
-```ts
-export class DenoKvEventSourcedRepository<
-  C extends CommandShape,
-  Ei extends EventShape,
-  Eo extends EventShape,
-> {
-  constructor(
-    private readonly kv: Deno.Kv,
-    // Query tuples constrained to valid event types!
-    private readonly getQueryTuples: (
-      command: C,
-    ) => QueryTuple<Ei>[], // ← [...string[], Ei["kind"]]
-    private readonly maxRetries: number = 10,
-  ) {}
-}
-```
-
-**Benefits:**
-
-- Autocomplete for event type strings
-- Compile-time validation of event types
-- Impossible to query for non-existent event types
-- Tags are validated at runtime (extracted from events)
-
-### Optimistic Locking with Automatic Retry
-
-The repository implements optimistic locking using Deno KV's versionstamps with
-a last_event pointer mechanism for reliable concurrent append detection:
-
-```ts
-async execute(
-  command: C,
-  decider: IEventComputation<C, Ei, Eo>,
-): Promise<readonly (Eo & EventMetadata)[]> {
-  let attempts = 0;
-  
-  while (attempts < this.maxRetries) {
-    attempts++;
-    
-    // 1. Load events with last_event pointer versionstamps
-    const { events, indexKeys } = await this.loadEvents(...);
-    
-    // 2. Compute new events using decider
-    const newEvents = decider.computeNewEvents(events, command);
-    
-    // 3. Attempt atomic write with last_event versionstamp checks
-    const persistedEvents = await this.persistEvents(newEvents, indexKeys);
-    
-    if (persistedEvents) {
-      return persistedEvents; // Success!
-    }
-    
-    // Conflict detected via last_event pointer, retry
-  }
-  
-  throw new OptimisticLockingError(attempts, entityId);
-}
-```
-
-**How concurrent append detection works:**
-
-1. **Load Phase:** For each query pattern `[...tags, eventType]`, the repository
-   loads the `last_event` pointer at `["last_event", eventType, ...tags]` along
-   with its versionstamp
-2. **Compute Phase:** Decider computes new events based on loaded event history
-3. **Persist Phase:** Repository atomically checks that all `last_event`
-   versionstamps haven't changed, then:
-   - Writes new events to primary storage
-   - Updates tag-based secondary indexes
-   - **Updates (not creates) last_event pointers** - this changes their
-     versionstamps
-4. **Conflict Detection:** If another process appended events between load and
-   persist, the `last_event` pointer versionstamp will have changed, causing the
-   atomic check to fail and triggering a retry
-
-**Why last_event pointers are necessary:**
-
-Individual event index entries like
-`["events_by_type", eventType, ...tags, eventId]` are immutable - each new event
-creates a unique key with its own ULID. Without a mutable pointer per query
-pattern, concurrent appends go undetected because new events create new keys
-that weren't in the loaded set. The `last_event` pointer solves this by
-providing a single mutable entry per query pattern that changes with every
-append.
-
-**Key features:**
-
-- Automatic retry on conflicts
-- Configurable retry limit (default: 10)
-- Atomic operations ensure consistency
-- No lost updates
-- Handles empty result sets (first event race conditions)
-
-### Last-Event Optimization (Idempotent Mode)
-
-The repository supports a dual-mode event loading strategy controlled by the
-`idempotent` constructor parameter (default: `true`):
-
-- **Idempotent mode** (`true`): Reads `last_event` pointers to fetch only the
-  latest event per query tuple — O(1) per tuple
-- **Full-replay mode** (`false`): Scans the full `events_by_type` index to
-  collect all events — O(n) per tuple
-
-This optimization is correct for DCB snapshot-style events where each event
-fully describes its dimension of state (e.g., `RestaurantCreatedEvent` captures
-the complete restaurant identity). Only the latest event per (eventType, tags)
-combination is needed to reconstruct state — no full replay required.
-
-```mermaid
-sequenceDiagram
-    participant Repo as Repository
-    participant KV as Deno KV
-
-    Note over Repo: Idempotent mode (default)
-    loop For each query tuple
-        Repo->>KV: get(["last_event", eventType, ...tags])
-        KV-->>Repo: eventId + versionstamp
-    end
-    loop For each unique eventId (at most 1 per tuple)
-        Repo->>KV: get(["events", eventId])
-        KV-->>Repo: Full event data
-    end
-```
-
-| Aspect                   | Full-Replay         | Idempotent           |
-| ------------------------ | ------------------- | -------------------- |
-| Index reads per tuple    | O(n) range scan     | O(1) pointer read    |
-| Events fetched per tuple | All matching        | At most 1 (latest)   |
-| Optimistic locking       | `last_event` stamp  | `last_event` stamp   |
-| Correctness guarantee    | All events replayed | Latest snapshot only |
-
-**Configuration:**
-
-```ts
-// Default: idempotent mode (recommended for DCB snapshot events)
-const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples);
-
-// Full-replay mode (for accumulation-style events)
-const repo = new DenoKvEventSourcedRepository(kv, getQueryTuples, 10, 5, false);
-```
-
-Existing factory functions (`createRestaurantRepository`,
-`placeOrderRepository`, etc.) default to idempotent mode.
-
-### Concrete Repository Example
-
-Here's how to create a concrete repository factory function for a specific use
-case:
-
-```ts
-/**
- * Creates a repository for PlaceOrder decider.
- *
- * **Query Pattern:**
- * Loads events using tuples:
- * - `[(restaurantId, "RestaurantCreatedEvent")]`
- * - `[(restaurantId, "RestaurantMenuChangedEvent")]`
- * - `[(orderId, "RestaurantOrderPlacedEvent")]`
- *
- * **Tag Configuration:**
- * - RestaurantCreatedEvent: tagFields = ["restaurantId"]
- * - RestaurantMenuChangedEvent: tagFields = ["restaurantId"]
- * - RestaurantOrderPlacedEvent: tagFields = ["orderId", "restaurantId"]
- */
-export const placeOrderRepository = (kv: Deno.Kv) =>
-  new DenoKvEventSourcedRepository<
-    PlaceOrderCommand,
-    | RestaurantCreatedEvent
-    | RestaurantMenuChangedEvent
-    | RestaurantOrderPlacedEvent,
-    RestaurantOrderPlacedEvent
-  >(
-    kv,
-    // Query pattern: Load restaurant state + check if order exists
-    (cmd) => [
-      ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
-      ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
-      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
-    ],
-  );
-```
-
-**How it works:**
-
-1. **Query tuples** specify which events to load using tags
-2. **Repository** scans tag indexes to find matching events
-3. **Events** are loaded from primary storage and sorted chronologically
-4. **Decider** computes new events based on loaded history
-5. **New events** are persisted with automatic tag index generation
-
-### Integration with Command Handlers
-
-The repository implements `IEventRepository` and integrates seamlessly with
-command handlers:
-
-```ts
-import { EventSourcedCommandHandler } from "./application.ts";
-import { placeOrderRepository } from "./demo/dcb/placeOrderRepository.ts";
-import { placeOrderDecider } from "./demo/dcb/placeOrderDecider.ts";
-
-// Create repository
-const kv = await Deno.openKv();
-const repository = placeOrderRepository(kv);
-
-// Create command handler
-const handler = new EventSourcedCommandHandler(
-  placeOrderDecider,
-  repository,
-);
-
-// Execute command
-const events = await handler.handle({
-  kind: "PlaceOrderCommand",
-  restaurantId: "restaurant-123",
-  orderId: "order-456",
-  menuItems: [{ menuItemId: "item-1", name: "Pizza", price: "12.99" }],
-});
-
-// Events returned with metadata
-console.log(events);
-// [
-//   {
-//     kind: "RestaurantOrderPlacedEvent",
-//     restaurantId: "restaurant-123",
-//     orderId: "order-456",
-//     menuItems: [...],
-//     tagFields: ["orderId", "restaurantId"], // ← Tag configuration
-//     eventId: "01JBQR8X9Y...",                // ← Metadata
-//     timestamp: 1735123456789,                 // ← Metadata
-//     versionstamp: "00000000000..."           // ← Metadata
-//   }
-// ]
-```
-
-### Why This Makes the Library Framework-Like
-
-This implementation elevates the library from a modeling toolkit to a
-near-framework by providing:
-
-1. **Complete infrastructure:** Production-ready event store with Deno KV
-2. **Optimistic locking:** Built-in concurrency control
-3. **Flexible querying:** Tuple-based pattern supports complex use cases
-4. **Type safety:** Compile-time validation of event types and queries
-5. **Metadata handling:** Automatic event IDs, timestamps, and versionstamps
-6. **Error handling:** Structured errors for domain and infrastructure concerns
-7. **Testing support:** In-memory Deno KV for fast, isolated tests
-
-**What you get out of the box:**
-
-- ✅ Event store implementation
-- ✅ Optimistic locking with retry
-- ✅ Event indexing and querying
-- ✅ Metadata management
-- ✅ Type-safe repository pattern
-- ✅ Integration with command handlers
-- ✅ Comprehensive test coverage
-
-**What you still control:**
-
-- Domain logic (deciders)
-- Event schema
-- Command schema
-- Consistency boundaries
-- Business rules
-
-This strikes the perfect balance: opinionated infrastructure with flexible
-domain modeling.
-
-### Demo Implementation
-
-See `demo/dcb/` for a complete working example with:
-
-- `denoKvRepository.ts` (root level) - Generic Deno KV event-sourced repository
-- `createRestaurantRepository.ts` - Restaurant creation
-- `placeOrderRepository.ts` - Order placement (spans multiple entities)
-- `markOrderAsPreparedRepository.ts` - Order preparation
-- Comprehensive integration tests
+1. **Define types** (formal specification) → constrain the solution space
+2. **Write Given-When-Then tests** (executable examples) → specify behavior
+3. **Implement with AI assistance** (guided by specs) → generate correct code
+4. **Verify and deploy** (type system + tests) → confidence in correctness
+
+## Core Abstractions
+
+| Abstraction           | Role                                                                 |
+| --------------------- | -------------------------------------------------------------------- |
+| **Decider**           | Pure functional command handler — decides events, evolves state      |
+| **View / Projection** | Event-sourced read model — builds state from event streams           |
+| **Process Manager**   | Orchestration — coordinates long-running workflows (smart ToDo list) |
+| **Workflow Process**  | Specialized process manager with task-based state management         |
 
 ## Progressive Type Refinement
 
-Each refinement step increases capability and constraint. The following diagrams
-illustrate how types evolve from generic to specialized forms:
-
-### Type Hierarchy Diagrams
-
-#### Decider Hierarchy
-
-```mermaid
-graph TB
-    subgraph "Views"
-        V["View&lt;Si, So, E&gt;<br/><i>All types independent</i>"]
-        P["Projection&lt;S, E&gt;<br/><i>Si = So = S</i>"]
-        V -->|"constrain state"| P
-    end
-    
-    subgraph "Deciders"
-        D["Decider&lt;C, Si, So, Ei, Eo&gt;<br/><i>All types independent</i>"]
-        DCB["DcbDecider&lt;C, S, Ei, Eo&gt;<br/><i>Si = So = S</i>"]
-        AGG["AggregateDecider&lt;C, S, E&gt;<br/><i>Si = So = S, Ei = Eo = E</i>"]
-        
-        D -->|"constrain state"| DCB
-        DCB -->|"constrain events"| AGG
-    end
-    
-    subgraph "Computation Capabilities"
-        EC["EventComputation<br/>computeNewEvents()"]
-        SC["StateComputation<br/>computeNewState()"]
-    end
-    
-    D -.->|"extends"| V
-    DCB -.->|"extends"| P
-    DCB -.->|"gains"| EC
-    AGG -.->|"gains"| SC
-    
-    style D fill:#e1f5fe,color:#000
-    style DCB fill:#b3e5fc,color:#000
-    style AGG fill:#81d4fa,color:#000
-    style V fill:#e8f5e9,color:#000
-    style P fill:#a5d6a7,color:#000
-    style EC fill:#fff3e0,color:#000
-    style SC fill:#fff3e0,color:#000
-```
-
-#### Process Manager Hierarchy
-
-```mermaid
-graph TB
-    subgraph "Deciders"
-        D["Decider&lt;C, Si, So, Ei, Eo&gt;"]
-        DCB["DcbDecider&lt;C, S, Ei, Eo&gt;"]
-        AGG["AggregateDecider&lt;C, S, E&gt;"]
-    end
-    
-    subgraph "Process Managers"
-        PR["Process&lt;AR, Si, So, Ei, Eo, A&gt;<br/><i>All types independent</i>"]
-        DCBP["DcbProcess&lt;AR, S, Ei, Eo, A&gt;<br/><i>Si = So = S</i>"]
-        AGGP["AggregateProcess&lt;AR, S, E, A&gt;<br/><i>Si = So = S, Ei = Eo = E</i>"]
-        
-        PR -->|"constrain state"| DCBP
-        DCBP -->|"constrain events"| AGGP
-    end
-    
-    subgraph "Computation Capabilities"
-        EC2["EventComputation<br/>computeNewEvents()"]
-        SC2["StateComputation<br/>computeNewState()"]
-    end
-    
-    subgraph "Orchestration"
-        TODO["ToDo List Pattern<br/>react() + pending()"]
-    end
-    
-    PR -.->|"extends"| D
-    DCBP -.->|"extends"| DCB
-    AGGP -.->|"extends"| AGG
-    PR -.->|"provides"| TODO
-    DCBP -.->|"gains"| EC2
-    AGGP -.->|"gains"| SC2
-    
-    style PR fill:#fce4ec,color:#000
-    style DCBP fill:#f8bbd9,color:#000
-    style AGGP fill:#f48fb1,color:#000
-    style D fill:#e1f5fe,color:#000
-    style DCB fill:#b3e5fc,color:#000
-    style AGG fill:#81d4fa,color:#000
-    style EC2 fill:#fff3e0,color:#000
-    style SC2 fill:#fff3e0,color:#000
-    style TODO fill:#e0f2f1,color:#000
-```
-
-#### Workflow Process Hierarchy
-
-```mermaid
-graph TB
-    subgraph "Process Managers"
-        PR["Process&lt;AR, Si, So, Ei, Eo, A&gt;"]
-        DCBP["DcbProcess"]
-        AGGP["AggregateProcess"]
-    end
-    
-    subgraph "Workflow Processes"
-        WP["WorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>Fixed WorkflowState & WorkflowEvent</i>"]
-        DCBWP["DcbWorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>+ EventComputation</i>"]
-        AGGWP["AggregateWorkflowProcess&lt;AR, A, TaskName&gt;<br/><i>+ StateComputation</i>"]
-        
-        WP -->|"add event-sourced"| DCBWP
-        DCBWP -->|"add state-stored"| AGGWP
-    end
-    
-    subgraph "Workflow Helpers"
-        TH["Task Helpers<br/>createTaskStarted()<br/>createTaskCompleted()<br/>isTaskStarted()<br/>isTaskCompleted()"]
-    end
-    
-    subgraph "Fixed Types"
-        FT["WorkflowState&lt;TaskName&gt;<br/>WorkflowEvent&lt;TaskName&gt;"]
-    end
-    
-    WP -.->|"extends"| PR
-    DCBWP -.->|"extends"| DCBP
-    AGGWP -.->|"extends"| AGGP
-    WP -.->|"provides"| TH
-    WP -.->|"uses"| FT
-    
-    style WP fill:#fff9c4,color:#000
-    style DCBWP fill:#fff59d,color:#000
-    style AGGWP fill:#ffee58,color:#000
-    style PR fill:#fce4ec,color:#000
-    style DCBP fill:#f8bbd9,color:#000
-    style AGGP fill:#f48fb1,color:#000
-    style TH fill:#e0f2f1,color:#000
-    style FT fill:#f3e5f5,color:#000
-```
-
-#### Complete Type System Overview
+The library evolves from **general, flexible types** to **specific, constrained
+types**. Each refinement step increases semantic meaning, eliminates impossible
+states, and enables new capabilities.
 
 ```mermaid
 graph LR
@@ -1372,258 +149,295 @@ graph LR
 
 ### Computation Patterns
 
-The library defines two fundamental computation patterns:
-
-| Interface          | Purpose                                   | Method             |
-| ------------------ | ----------------------------------------- | ------------------ |
-| `EventComputation` | Event-sourced computation (replay events) | `computeNewEvents` |
-| `StateComputation` | State-stored computation (direct state)   | `computeNewState`  |
+| Interface          | Purpose                                    | Method             |
+| ------------------ | ------------------------------------------ | ------------------ |
+| `EventComputation` | Event-sourced (replay events → new events) | `computeNewEvents` |
+| `StateComputation` | State-stored (current state → new state)   | `computeNewState`  |
 
 ### Deciders
 
-| Class                        | Type constraint              | Implements                                            | Computation mode            |
-| ---------------------------- | ---------------------------- | ----------------------------------------------------- | --------------------------- |
-| `Decider<C, Si, So, Ei, Eo>` | all independent              | -                                                     | generic                     |
-| `DcbDecider<C, S, Ei, Eo>`   | `Si = So = S`                | `EventComputation<C, Ei, Eo>`                         | event-sourced               |
-| `AggregateDecider<C, S, E>`  | `Si = So = S`, `Ei = Eo = E` | `EventComputation<C, E, E>`, `StateComputation<C, S>` | event-sourced, state-stored |
+| Type                         | Constraint                   | Computation Mode             |
+| ---------------------------- | ---------------------------- | ---------------------------- |
+| `Decider<C, Si, So, Ei, Eo>` | All independent              | Generic                      |
+| `DcbDecider<C, S, Ei, Eo>`   | `Si = So = S`                | Event-sourced                |
+| `AggregateDecider<C, S, E>`  | `Si = So = S`, `Ei = Eo = E` | Event-sourced + State-stored |
 
 ### Views
 
-| Class              | Type constraint | Computation mode |
+| Type               | Constraint      | Computation Mode |
 | ------------------ | --------------- | ---------------- |
-| `View<Si, So, E>`  | all independent | generic          |
-| `Projection<S, E>` | `Si = So = S`   | state-stored     |
+| `View<Si, So, E>`  | All independent | Generic          |
+| `Projection<S, E>` | `Si = So = S`   | State-stored     |
 
 ### Process Managers
 
-Process managers follow the same progressive refinement pattern as Deciders:
+| Type                             | Constraint                   | Computation Mode             |
+| -------------------------------- | ---------------------------- | ---------------------------- |
+| `Process<AR, Si, So, Ei, Eo, A>` | All independent              | Generic                      |
+| `DcbProcess<AR, S, Ei, Eo, A>`   | `Si = So = S`                | Event-sourced                |
+| `AggregateProcess<AR, S, E, A>`  | `Si = So = S`, `Ei = Eo = E` | Event-sourced + State-stored |
 
-| Class                            | Type constraint              | Implements                                              | Computation mode            |
-| -------------------------------- | ---------------------------- | ------------------------------------------------------- | --------------------------- |
-| `Process<AR, Si, So, Ei, Eo, A>` | all independent              | -                                                       | generic                     |
-| `DcbProcess<AR, S, Ei, Eo, A>`   | `Si = So = S`                | `EventComputation<AR, Ei, Eo>`                          | event-sourced               |
-| `AggregateProcess<AR, S, E, A>`  | `Si = So = S`, `Ei = Eo = E` | `EventComputation<AR, E, E>`, `StateComputation<AR, S>` | event-sourced, state-stored |
+## Application Layer
 
-### Key Differences
-
-#### Deciders
-
-| Concept           | `DcbDecider`           | `AggregateDecider`              |
-| ----------------- | ---------------------- | ------------------------------- |
-| **Event-sourced** | ✅ Supported           | ✔️ Supported (limited: Ei = Eo) |
-| **State-stored**  | ❌ Not possible        | ✅ Supported                    |
-| **Use case**      | Cross-concept boundary | Single-concept / DDD Aggregate  |
-
-#### Views
-
-| Concept                  | `Projection`                    |
-| ------------------------ | ------------------------------- |
-| **State transformation** | ✅ Constrained Si = So = S      |
-| **Use case**             | Read models / Event projections |
-
-#### Process Managers
-
-| Concept                   | `DcbProcess`     | `AggregateProcess`                   |
-| ------------------------- | ---------------- | ------------------------------------ |
-| **Event-sourced**         | ✅ Supported     | ✔️ Supported (limited: Ei = Eo)      |
-| **State-stored**          | ❌ Not possible  | ✅ Supported                         |
-| **Process orchestration** | ✅ Supported     | ✅ Supported                         |
-| **Use case**              | Unknown, for now | Process manager/Automation/ToDo List |
-
-## Demo: Restaurant & Order Management
-
-The library includes two complete demo implementations showcasing different
-architectural approaches to the same domain problem. Both demos model a
-restaurant ordering system but differ in how they define consistency boundaries.
-
-### Scenario 1: Aggregate Pattern (`demo/aggregate/`)
-
-**Consistency Boundary:** Traditional DDD Aggregates with strong consistency
-within each aggregate root.
-
-![Aggregate Pattern](aggregate.jpg)
-
-This approach uses `AggregateDecider<C, S, E>` where each aggregate (Restaurant,
-Order) maintains its own consistency boundary:
+The application layer bridges pure domain logic with infrastructure. Its key
+principle is **metadata isolation** — domain logic stays pure and metadata-free,
+with correlation IDs, timestamps, and versions added at the boundary.
 
 ```ts
-// Restaurant Aggregate - manages restaurant state
-const restaurantDecider: AggregateDecider<
-  RestaurantCommand,
-  Restaurant | null,
-  RestaurantEvent
->;
-
-// Order Aggregate - manages order state
-const orderDecider: AggregateDecider<
+// Domain layer — pure, no metadata
+const orderDecider: IDcbDecider<
   OrderCommand,
-  Order | null,
+  OrderState,
+  OrderEvent,
   OrderEvent
 >;
 
-// Workflow Process - coordinates between aggregates
-const restaurantOrderWorkflow: AggregateWorkflowProcess<
-  Event,
-  Command,
-  OrderTaskName
+// Application layer — metadata introduced here
+const handler = new EventSourcedCommandHandler(orderDecider, repository);
+const events = await handler.handle(command); // Returns events + metadata
+```
+
+### Repository Interfaces
+
+```ts
+// Event-sourced: command + metadata → events + metadata
+interface IEventRepository<C, Ei, Eo, CM, EM> {
+  execute(
+    command: C & CM,
+    decider: IEventComputation<C, Ei, Eo>,
+  ): Promise<readonly (Eo & EM)[]>;
+}
+
+// State-stored: command + metadata → state + metadata
+interface IStateRepository<C, S, CM, SM> {
+  execute(command: C & CM, decider: IStateComputation<C, S>): Promise<S & SM>;
+}
+
+// View state: event + metadata → state + metadata
+interface IViewStateRepository<E, S, EM, SM> {
+  execute(event: E & EM, view: IProjection<S, E>): Promise<S & SM>;
+}
+```
+
+### Command & Event Handlers
+
+| Handler                      | Bridges                      | Compatible With                    |
+| ---------------------------- | ---------------------------- | ---------------------------------- |
+| `EventSourcedCommandHandler` | Decider ↔ Event Repository   | `IDcbDecider`, `IAggregateDecider` |
+| `StateStoredCommandHandler`  | Decider ↔ State Repository   | `IAggregateDecider` only           |
+| `EventHandler`               | View ↔ View State Repository | `IProjection`                      |
+
+## Deno KV Event-Sourced Repository
+
+Production-ready event-sourced repository using Deno KV with optimistic locking,
+flexible querying, and type-safe tag-based indexing.
+
+### Architecture
+
+```
+Primary Storage:           ["events", eventId] → full event data
+Secondary Tag Index:       ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
+Last Event Pointer Index:  ["last_event", eventType, ...tags] → eventId (mutable pointer)
+```
+
+- Event data stored once; secondary indexes store only ULID pointers
+- Automatically generates all tag subset combinations (2^n - 1 indexes per
+  event)
+- Last event pointers enable optimistic locking via versionstamp checks
+
+### Tuple-Based Query Pattern
+
+Query format: `[...tags, eventType]` — zero or more tags followed by event type.
+
+```ts
+// Load events for a specific use case
+((cmd) => [
+  ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+  ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+  ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+]);
+```
+
+### Type-Safe Tag Configuration
+
+Events declare indexable fields via `tagFields`. Only string fields are allowed
+as tags, enforced at compile time:
+
+```ts
+export type RestaurantCreatedEvent = TypeSafeEventShape<
+  {
+    readonly kind: "RestaurantCreatedEvent";
+    readonly restaurantId: string;
+    readonly name: string;
+    readonly menu: Menu;
+  },
+  ["restaurantId"] // ← Compile-time validated tag fields
 >;
 ```
 
-**Key Characteristics:**
+### Tag Subset Generation & Write Amplification
 
-- **Strong boundaries:** Each aggregate is independently consistent
-- **Event-sourced & state-stored:** Supports both computation modes
-- **Cross-aggregate coordination:** Workflow process orchestrates between
-  Restaurant and Order
+The repository generates all non-empty tag subsets using binary enumeration,
+trading write amplification for O(1) query performance:
 
-**When to use:**
+| Tag Fields | Tag Subsets | Total Writes per Event | Formula                    |
+| ---------- | ----------- | ---------------------- | -------------------------- |
+| 0          | 0           | 1                      | 1 (event only)             |
+| 1          | 1           | 3                      | 1 + 2(2^1-1)               |
+| 2          | 3           | 7                      | 1 + 2(2^2-1)               |
+| 3          | 7           | 15                     | 1 + 2(2^3-1)               |
+| 5          | 31          | 63                     | 1 + 2(2^5-1) (default max) |
 
-- Traditional DDD aggregate roots
-- Clear entity lifecycle management
-- Need for both event-sourced and state-stored operations
+The max tag fields is configurable via the `maxTagFields` constructor parameter.
 
-**Files:**
+### Optimistic Locking
 
-- `restaurantDecider.ts` - Restaurant aggregate logic
-- `orderDecider.ts` - Order aggregate logic
-- `restaurantOrderWorkflow.ts` - Cross-aggregate orchestration
-- `restaurantView.ts` / `orderView.ts` - Read model projections
+Uses `last_event` pointer versionstamps for concurrent append detection:
 
-### Scenario 2: Dynamic Consistency Boundary (DCB) Pattern (`demo/dcb/`)
+1. **Load** events + `last_event` pointer versionstamps per query tuple
+2. **Compute** new events via decider
+3. **Persist** atomically — checks versionstamps haven't changed, writes events
+   - updates pointers
+4. **Retry** on conflict (configurable, default: 10 attempts)
 
-**Consistency Boundary:** Flexible, use-case-driven boundaries that can span
-multiple concepts.
+The `last_event` pointer is a Deno KV-specific solution to concurrent append
+detection. Individual event index entries are immutable (each has a unique ULID
+key), so without a mutable pointer, concurrent appends would go undetected.
+Databases with richer transaction models (e.g., FoundationDB's read conflict
+ranges) can detect conflicts on the index range itself, eliminating the need for
+a separate pointer. That said, even in those environments the pointer can still
+be valuable: it enables the idempotent/last-event optimization (O(1) reads
+instead of full range scans) and provides a cheap "latest version" check without
+touching the index.
+
+### Concrete Repository Example
+
+```ts
+export const placeOrderRepository = (kv: Deno.Kv) =>
+  new DenoKvEventSourcedRepository<
+    PlaceOrderCommand,
+    | RestaurantCreatedEvent
+    | RestaurantMenuChangedEvent
+    | RestaurantOrderPlacedEvent,
+    RestaurantOrderPlacedEvent
+  >(
+    kv,
+    (cmd) => [
+      ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+      ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+    ],
+  );
+```
+
+Integrates with command handlers via `IEventRepository`:
+
+```ts
+const handler = new EventSourcedCommandHandler(placeOrderDecider, repository);
+const events = await handler.handle(placeOrderCommand);
+// Returns events with metadata: eventId, timestamp, versionstamp
+```
+
+## Idempotent Mode (Last-Event Optimization)
+
+Idempotent mode addresses two concerns: read performance and downstream delivery
+guarantees.
+
+### Read Optimization
+
+Controlled by the `idempotent` constructor parameter (default: `true`):
+
+| Mode                  | Reads per Tuple   | Events Fetched     | Best For                  |
+| --------------------- | ----------------- | ------------------ | ------------------------- |
+| Idempotent (`true`)   | O(1) pointer read | At most 1 (latest) | Snapshot-style events     |
+| Full-replay (`false`) | O(n) range scan   | All matching       | Accumulation-style events |
+
+### Downstream Idempotency
+
+In distributed systems, exactly-once delivery is a myth — at-least-once is the
+reality. Downstream event handlers (projections, process managers, integrations)
+will inevitably receive duplicate events. Snapshot-style events make this a
+non-issue: processing the same event twice produces the same state, because each
+event carries the complete truth about its dimension. No deduplication logic, no
+sequence tracking — idempotency comes for free from the event shape itself.
+
+### Snapshot-Style vs. Accumulation-Style Events
+
+A **snapshot-style event** fully describes its dimension of state at a point in
+time. Think of it like destructuring a snapshot into its atomic facts:
+
+```ts
+// A snapshot is a composite of individual facts at a moment in time
+const { x, y, z, t } = point;
+// x, y, z are the facts (coordinates), t is when they occurred
+
+// In domain terms, the "state" is destructured into independent events:
+const { RestaurantRegistered, RestaurantMenuPublished, NOW } =
+  OrderItemsAreOnTheMenu;
+```
+
+Each event captures the complete truth about its dimension — you only need the
+latest one, not the full history. This is what makes the O(1) pointer read
+correct: one event per (eventType, tags) combination is sufficient to
+reconstruct state.
+
+An **accumulation-style event** represents a delta — you need to replay all of
+them to reconstruct state. Consider a `MoneyDeposited { amount: 100 }` event:
+you can't know the balance from the latest deposit alone, you must sum every
+deposit and withdrawal from the beginning. However, if you enrich it to
+`MoneyDeposited { amount: 100, balance: 1500 }`, it becomes a snapshot-style
+event — the latest one tells you the current balance. Note that you're not
+polluting the event with all account details (name, address, etc.), just
+carrying the dimension of state it affects: the balance. This small addition
+enables both the O(1) read optimization and natural idempotency for downstream
+handlers.
+
+## Demo: Restaurant & Order Management
+
+Two complete implementations showcase different architectural approaches to the
+same domain.
+
+### Scenario 1: Aggregate Pattern (`demo/aggregate/`)
+
+Traditional DDD aggregates with strong consistency per entity. Uses
+`AggregateDecider<C, S, E>` — supports both event-sourced and state-stored
+computation. A workflow process coordinates between Restaurant and Order
+aggregates.
+
+![Aggregate Pattern](aggregate.jpg)
+
+### Scenario 2: Dynamic Consistency Boundary (`demo/dcb/`)
+
+Flexible, use-case-driven boundaries using `DcbDecider<C, S, Ei, Eo>`. Each use
+case defines its own consistency boundary — a single decider can span multiple
+concepts. Event-sourced only. Deciders compose via `combineViaTuples()`.
 
 ![DCB Pattern](dcb.jpg)
 
-This approach uses `DcbDecider<C, S, Ei, Eo>` where each use case (command)
-defines its own consistency boundary:
+Supports two repository strategies:
 
-```ts
-// Each use case is a separate decider with its own state
-const createRestaurantDecider: DcbDecider<
-  CreateRestaurantCommand,
-  CreateRestaurantState,
-  RestaurantEvent,
-  RestaurantCreatedEvent
->;
-
-const placeOrderDecider: DcbDecider<
-  PlaceOrderCommand,
-  PlaceOrderState,
-  RestaurantEvent | OrderEvent,
-  RestaurantOrderPlacedEvent
->;
-
-// Combined into a single domain decider
-const allDomainDecider = createRestaurantDecider
-  .combineViaTuples(changeRestaurantMenuDecider)
-  .combineViaTuples(placeOrderDecider)
-  .combineViaTuples(markOrderAsPreparedDecider);
-```
-
-**Repository Approaches:**
-
-The DCB pattern supports two valid approaches for organizing repositories:
-
-**1. Sliced Approach (Separate Repositories):**
-
-```ts
-// Each use case has its own repository
-const createRepo = new CreateRestaurantRepository(kv);
-const placeOrderRepo = new PlaceOrderRepository(kv);
-
-await createRepo.execute(createRestaurantCommand);
-await placeOrderRepo.execute(placeOrderCommand);
-```
-
-- ✅ Only relevant decider processes each command
-- ✅ Simple, focused query patterns per use case
-- ✅ Explicit use case boundaries
-- ⚠️ More repository instances to manage
-
-**2. Combined Approach (Single Repository):**
-
-```ts
-// Single repository handles all commands
-const repository = new AllDeciderRepository(kv);
-
-await repository.execute(createRestaurantCommand);
-await repository.execute(placeOrderCommand);
-```
-
-- ✅ Simpler application code (one repository instance)
-- ✅ Works due to graceful null handling in deciders
-- ⚠️ All deciders process every command (more computation)
-- ⚠️ Complex query pattern must handle all use cases in a single place
-
-**Choose based on your needs:**
-
-- **Sliced (Recommended):** Aligns with vertical slice architecture principles
-  - Each use case is independently deployable and testable
-  - Reduces cognitive load - engineers work on focused, isolated slices
-  - Enables better team organization - teams can own specific slices
-  - Clearer boundaries and explicit dependencies
-  - Easier to understand and maintain
-- **Combined:** Simpler for small domains or prototyping
-  - Single repository instance to manage
-  - Good for small teams or simple domains
-  - Acceptable when all use cases are tightly coupled
-
-See `demo/dcb/all_deciderRepository.ts` for a complete combined approach
-example.
-
-**Key Characteristics:**
-
-- **Flexible boundaries:** Each use case defines what it needs
-- **Event-sourced only:** Optimized for event-driven architectures
-- **Cross-concept operations:** Single decider can span Restaurant and Order
-- **Compositional:** Deciders combine via tuples to form complete domain model
-
-**When to use:**
-
-- Event-sourced systems with flexible consistency requirements
-- Use cases that naturally span multiple concepts (Order, Restaurant, ...)
-
-**Files:**
-
-- `createRestaurant.ts` - Restaurant creation use case
-- `changeRestaurantMenu.ts` - Menu update use case
-- `placeOrder.ts` - Order placement (spans Restaurant + Order)
-- `markOrderAsPrepared.ts` - Order preparation use case
+- **Sliced (Recommended):** Each use case has its own repository — aligns with
+  vertical slice architecture, clearer boundaries
+- **Combined:** Single repository handles all commands — simpler for small
+  domains or prototyping
 
 ### Comparison
 
-| Aspect          | Aggregate Pattern                  | DCB Pattern                                     |
-| --------------- | ---------------------------------- | ----------------------------------------------- |
-| **Consistency** | Strong within aggregate            | Flexible per use case                           |
-| **Boundaries**  | Entity-centric (Restaurant, Order) | Use-case-centric (CreateRestaurant, PlaceOrder) |
-| **State model** | Aggregate state                    | Use-case-specific state                         |
-| **Composition** | Workflow coordinates aggregates    | Deciders combine via tuples                     |
-| **Computation** | Event-sourced + State-stored       | Event-sourced only                              |
-| **Complexity**  | Higher (more components)           | Lower (focused deciders)                        |
-| **Best for**    | Traditional DDD                    | Event-driven, Event0sourced S systems           |
+| Aspect          | Aggregate Pattern               | DCB Pattern                 |
+| --------------- | ------------------------------- | --------------------------- |
+| **Consistency** | Strong within aggregate         | Flexible per use case       |
+| **Boundaries**  | Entity-centric                  | Use-case-centric            |
+| **Computation** | Event-sourced + State-stored    | Event-sourced only          |
+| **Composition** | Workflow coordinates aggregates | Deciders combine via tuples |
+| **Complexity**  | Higher (more components)        | Lower (focused deciders)    |
+| **Best for**    | Traditional DDD                 | Event-driven systems        |
 
 ### Running the Demos
 
 ```bash
-# Run all aggregate tests
 deno test demo/aggregate/
-
-# Run all DCB tests  
 deno test demo/dcb/
-
-# Run specific test file
-deno test demo/aggregate/restaurantDecider_test.ts
 ```
-
-Both demos include:
-
-- ✅ Complete command handlers (deciders)
-- ✅ Event-sourced projections (views)
-- ✅ Workflow orchestration (aggregate pattern only)
-- ✅ Comprehensive test coverage using Given-When-Then DSL
-- ✅ Type-safe domain modeling
 
 ## Testing
 
