@@ -5,6 +5,7 @@ export * from "./view.ts";
 export * from "./application.ts";
 export * from "./denoKvRepository.ts";
 export * from "./denoKvEventLoader.ts";
+export * from "./test_specification.ts";
 
 /**
  * The identity function: returns its input unchanged.
