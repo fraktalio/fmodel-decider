@@ -345,7 +345,6 @@ guarantees.
 
 ![Destructuring](destructuring.png)
 
-
 ### Read Optimization
 
 Controlled by the `idempotent` constructor parameter (default: `true`):
@@ -379,10 +378,10 @@ const { RestaurantRegistered, RestaurantMenuPublished, NOW } =
   OrderItemsAreOnTheMenu;
 ```
 
-Each event captures the complete truth about its dimension (peace of the whole state) — you only need the
-latest one, not the full history. This is what makes the O(1) pointer read
-correct: one event per (eventType, tags) combination is sufficient to
-reconstruct state.
+Each event captures the complete truth about its dimension (peace of the whole
+state) — you only need the latest one, not the full history. This is what makes
+the O(1) pointer read correct: one event per (eventType, tags) combination is
+sufficient to reconstruct state.
 
 An **accumulation-style event** represents a delta — you need to replay all of
 them to reconstruct state. Consider a `MoneyDeposited { amount: 100 }` event:
@@ -439,13 +438,13 @@ Supports two repository strategies:
 
 ```bash
 deno test demo/aggregate/  --unstable-kv 
-deno test demo/dcb/  --unstable-kv 
+deno test demo/dcb/  --unstable-kv
 ```
 
 ## Testing
 
 ```bash
-deno test --unstable-kv 
+deno test --unstable-kv
 ```
 
 ## Development

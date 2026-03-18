@@ -3,6 +3,8 @@ export * from "./process.ts";
 export * from "./process_workflow.ts";
 export * from "./view.ts";
 export * from "./application.ts";
+export * from "./denoKvRepository.ts";
+export * from "./denoKvEventLoader.ts";
 
 /**
  * The identity function: returns its input unchanged.
