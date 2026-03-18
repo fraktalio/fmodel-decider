@@ -36,7 +36,13 @@ import type {
  * const events = await repository.execute(command, markOrderAsPreparedDecider);
  * ```
  */
-export const markOrderAsPreparedRepository = (kv: Deno.Kv) =>
+export const markOrderAsPreparedRepository = (
+  kv: Deno.Kv,
+): DenoKvEventSourcedRepository<
+  MarkOrderAsPreparedCommand,
+  RestaurantOrderPlacedEvent | OrderPreparedEvent,
+  OrderPreparedEvent
+> =>
   new DenoKvEventSourcedRepository<
     MarkOrderAsPreparedCommand,
     RestaurantOrderPlacedEvent | OrderPreparedEvent,

@@ -24,7 +24,13 @@ import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
  * const events = await repository.execute(command, crateRestaurantDecider);
  * ```
  */
-export const createRestaurantRepository = (kv: Deno.Kv) =>
+export const createRestaurantRepository = (
+  kv: Deno.Kv,
+): DenoKvEventSourcedRepository<
+  CreateRestaurantCommand,
+  RestaurantCreatedEvent,
+  RestaurantCreatedEvent
+> =>
   new DenoKvEventSourcedRepository<
     CreateRestaurantCommand,
     RestaurantCreatedEvent,

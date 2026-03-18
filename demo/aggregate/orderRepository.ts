@@ -26,7 +26,11 @@ import type { OrderCommand, OrderEvent } from "./api.ts";
  * const events = await repository.execute(command, orderDecider);
  * ```
  */
-export const orderRepository = (kv: Deno.Kv) =>
+export const orderRepository = (kv: Deno.Kv): DenoKvEventSourcedRepository<
+  OrderCommand,
+  OrderEvent,
+  OrderEvent
+> =>
   new DenoKvEventSourcedRepository<
     OrderCommand,
     OrderEvent,

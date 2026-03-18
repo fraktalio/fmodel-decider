@@ -41,7 +41,13 @@ import type {
  * const events = await repository.execute(command, placeOrderDecider);
  * ```
  */
-export const placeOrderRepository = (kv: Deno.Kv) =>
+export const placeOrderRepository = (kv: Deno.Kv): DenoKvEventSourcedRepository<
+  PlaceOrderCommand,
+  | RestaurantCreatedEvent
+  | RestaurantMenuChangedEvent
+  | RestaurantOrderPlacedEvent,
+  RestaurantOrderPlacedEvent
+> =>
   new DenoKvEventSourcedRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent

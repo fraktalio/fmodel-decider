@@ -28,7 +28,13 @@ import type {
  * const events = await repository.execute(command, changeRestaurantManuDecider);
  * ```
  */
-export const changeRestaurantMenuRepository = (kv: Deno.Kv) =>
+export const changeRestaurantMenuRepository = (
+  kv: Deno.Kv,
+): DenoKvEventSourcedRepository<
+  ChangeRestaurantMenuCommand,
+  RestaurantCreatedEvent,
+  RestaurantMenuChangedEvent
+> =>
   new DenoKvEventSourcedRepository<
     ChangeRestaurantMenuCommand,
     RestaurantCreatedEvent,
