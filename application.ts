@@ -89,6 +89,19 @@ export interface IEventRepository<
     command: C & CM,
     decider: IEventComputation<C, Ei, Eo>,
   ) => Promise<readonly (Eo & EM)[]>;
+
+  /**
+   * Executes a batch of commands by loading events once, computing new events for each command
+   * sequentially via the decider, and persisting all resulting events in a single atomic transaction.
+   *
+   * @param commands - The ordered list of commands with metadata to execute
+   * @param decider - The decider that computes new events from each command and event history
+   * @returns A promise resolving to all produced events with their metadata, preserving production order
+   */
+  readonly executeBatch: (
+    commands: readonly (C & CM)[],
+    decider: IEventComputation<C, Ei, Eo>,
+  ) => Promise<readonly (Eo & EM)[]>;
 }
 
 /**
@@ -115,6 +128,19 @@ export interface IStateRepository<C extends CommandShape, S, CM, SM> {
    */
   readonly execute: (
     command: C & CM,
+    decider: IStateComputation<C, S>,
+  ) => Promise<S & SM>;
+
+  /**
+   * Executes a batch of commands by loading state once, computing new state for each command
+   * sequentially via the decider, and persisting the final state in a single atomic transaction.
+   *
+   * @param commands - The ordered list of commands with metadata to execute
+   * @param decider - The decider that computes new state from each command and current state
+   * @returns A promise resolving to the final state with its metadata
+   */
+  readonly executeBatch: (
+    commands: readonly (C & CM)[],
     decider: IStateComputation<C, S>,
   ) => Promise<S & SM>;
 }
@@ -163,6 +189,16 @@ export class EventSourcedCommandHandler<
   handle(command: C & CM): Promise<readonly (Eo & EM)[]> {
     return this.eventRepository.execute(command, this.decider);
   }
+
+  /**
+   * Handles a batch of commands by executing them through the event repository as a single atomic operation.
+   *
+   * @param commands - The ordered list of commands with metadata to handle
+   * @returns A promise resolving to all produced events with their metadata, preserving production order
+   */
+  handleBatch(commands: readonly (C & CM)[]): Promise<readonly (Eo & EM)[]> {
+    return this.eventRepository.executeBatch(commands, this.decider);
+  }
 }
 
 /**
@@ -202,6 +238,16 @@ export class StateStoredCommandHandler<C extends CommandShape, S, CM, SM> {
    */
   handle(command: C & CM): Promise<S & SM> {
     return this.stateRepository.execute(command, this.decider);
+  }
+
+  /**
+   * Handles a batch of commands by executing them through the state repository as a single atomic operation.
+   *
+   * @param commands - The ordered list of commands with metadata to handle
+   * @returns A promise resolving to the final state with its metadata
+   */
+  handleBatch(commands: readonly (C & CM)[]): Promise<S & SM> {
+    return this.stateRepository.executeBatch(commands, this.decider);
   }
 }
 

@@ -154,6 +154,41 @@ export class TagFieldConfigurationError extends Error {
 }
 
 /**
+ * Checks whether an event matches a query tuple.
+ *
+ * A query tuple has the format `[...tags, eventType]` where:
+ * - The last element is the event type (matched against `event.kind`)
+ * - All preceding elements are tags in `"fieldName:fieldValue"` format
+ *
+ * Returns true if and only if the event's `kind` equals the tuple's event type
+ * AND every tag's fieldName:fieldValue matches the corresponding event property.
+ *
+ * @param event - The event to check
+ * @param tuple - The query tuple to match against
+ * @returns true if the event satisfies the query tuple
+ */
+export function matchesQueryTuple<
+  Eo extends EventShape,
+  Ei extends EventShape,
+>(event: Eo, tuple: QueryTuple<Ei>): boolean {
+  // Extract eventType (last element) and tags (all preceding elements)
+  const eventType = tuple[tuple.length - 1];
+  if ((event as { kind: string }).kind !== eventType) return false;
+
+  const tags = tuple.slice(0, -1) as string[];
+  for (const tag of tags) {
+    const colonIndex = tag.indexOf(":");
+    if (colonIndex === -1) return false;
+    const fieldName = tag.substring(0, colonIndex);
+    const fieldValue = tag.substring(colonIndex + 1);
+    if ((event as Record<string, unknown>)[fieldName] !== fieldValue) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Generic event-sourced repository implementation using Deno KV.
  *
  * Implements the two-index architecture with pointer pattern:
@@ -283,6 +318,128 @@ export class DenoKvEventSourcedRepository<
 
     // Extract first entity ID for error message (no generic id field available)
     throw new OptimisticLockingError(attempts, "unknown");
+  }
+
+  /**
+   * Executes a batch of commands by loading events once, processing each command sequentially
+   * with accumulated event propagation, and persisting all events in a single atomic transaction.
+   *
+   * For each command after the first, accumulated events from prior commands are filtered
+   * through the current command's query tuples using `matchesQueryTuple`, then appended
+   * to the initially-loaded events before computing new events.
+   *
+   * Optimistic locking checks cover the union of all `last_event` pointer keys across
+   * all commands in the batch (deduplicated). On conflict, the entire batch retries.
+   *
+   * @param commands - The ordered list of commands to execute
+   * @param decider - The decider that computes new events from each command and event history
+   * @returns All produced events with metadata, preserving production order
+   * @throws OptimisticLockingError if max retries exceeded
+   * @throws RepositoryError if storage operations fail
+   */
+  async executeBatch(
+    commands: readonly C[],
+    decider: IEventComputation<C, Ei, Eo>,
+  ): Promise<readonly (Eo & EventMetadata)[]> {
+    if (commands.length === 0) return [];
+
+    let attempts = 0;
+
+    while (attempts < this.maxRetries) {
+      attempts++;
+
+      // 1. Load events using query tuples from the first command
+      const firstQueryTuples = this.getQueryTuples(commands[0]);
+      const { events: initialEvents, indexKeys } = await this.loadEvents(
+        firstQueryTuples,
+      );
+
+      // Track all last_event pointer keys across all commands (deduplicated by serialized key)
+      const allIndexKeysMap = new Map<
+        string,
+        { key: Deno.KvKey; versionstamp: string | null }
+      >();
+      for (const ik of indexKeys) {
+        allIndexKeysMap.set(JSON.stringify(ik.key), ik);
+      }
+
+      // 2. Process each command sequentially, accumulating events
+      const accumulatedEvents: Eo[] = [];
+      const allNewEvents: Eo[] = [];
+
+      try {
+        for (let i = 0; i < commands.length; i++) {
+          const command = commands[i];
+          const queryTuples = i === 0
+            ? firstQueryTuples
+            : this.getQueryTuples(command);
+
+          // For subsequent commands, load their last_event pointers for optimistic locking
+          if (i > 0) {
+            const lastEventKeysList: Deno.KvKey[] = queryTuples.map((tuple) => {
+              const eventType = tuple[tuple.length - 1] as Ei["kind"];
+              const tags = tuple.slice(0, -1) as string[];
+              const sortedTags = this.sortTags(tags);
+              return ["last_event", eventType, ...sortedTags];
+            });
+
+            const pointerResults = await this.kv.getMany(lastEventKeysList);
+            for (let j = 0; j < pointerResults.length; j++) {
+              const serializedKey = JSON.stringify(lastEventKeysList[j]);
+              if (!allIndexKeysMap.has(serializedKey)) {
+                allIndexKeysMap.set(serializedKey, {
+                  key: lastEventKeysList[j],
+                  versionstamp: pointerResults[j].versionstamp,
+                });
+              }
+            }
+          }
+
+          // Filter accumulated events by this command's query tuples
+          let eventsForCommand: readonly Ei[];
+          if (i === 0) {
+            eventsForCommand = initialEvents;
+          } else {
+            const matchingAccumulated = accumulatedEvents.filter((event) =>
+              queryTuples.some((tuple) =>
+                matchesQueryTuple<Eo, Ei>(event, tuple)
+              )
+            );
+            eventsForCommand = [
+              ...initialEvents,
+              ...matchingAccumulated as unknown as Ei[],
+            ];
+          }
+
+          // Compute new events for this command
+          const newEvents = decider.computeNewEvents(eventsForCommand, command);
+          accumulatedEvents.push(...newEvents);
+          allNewEvents.push(...newEvents);
+        }
+      } catch (error) {
+        // Domain errors propagate immediately — no persistence attempted
+        throw error;
+      }
+
+      if (allNewEvents.length === 0) {
+        return [];
+      }
+
+      // 3. Persist all events in a single atomic operation
+      const allIndexKeys = [...allIndexKeysMap.values()];
+      const persistedEvents = await this.persistEvents(
+        allNewEvents,
+        allIndexKeys,
+      );
+
+      if (persistedEvents) {
+        return persistedEvents;
+      }
+
+      // Conflict detected, retry entire batch
+    }
+
+    throw new OptimisticLockingError(attempts, "batch");
   }
 
   /**

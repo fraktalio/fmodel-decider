@@ -147,4 +147,22 @@ export class AllDeciderRepository {
     // which causes ALL deciders to process EVERY command
     return this.repository.execute(command, all_domain_decider);
   }
+
+  /**
+   * Executes a batch of domain commands atomically.
+   *
+   * @param commands - Ordered list of commands to execute as a single batch
+   * @returns All produced events with metadata, preserving production order
+   *
+   * @remarks
+   * This is the primary batch use case: mixing command types
+   * (e.g., CreateRestaurant + PlaceOrder) in a single atomic batch.
+   * Events produced by earlier commands are visible to subsequent commands
+   * via accumulated event propagation with query tuple filtering.
+   */
+  executeBatch(
+    commands: readonly Command[],
+  ): Promise<readonly (Event & EventMetadata)[]> {
+    return this.repository.executeBatch(commands, all_domain_decider);
+  }
 }

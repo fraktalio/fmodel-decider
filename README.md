@@ -26,15 +26,44 @@ architectures with progressive type refinement.
 
 ## Table of Contents
 
+- [Why fmodel-decider?](#why-fmodel-decider)
 - [Spec-Driven Development](#spec-driven-development)
+  - [Type System as Formal Specification](#type-system-as-formal-specification)
+  - [Given-When-Then as Executable Examples](#given-when-then-as-executable-examples)
+  - [The Workflow: From Vibing to Viable](#the-workflow-from-vibing-to-viable)
 - [Core Abstractions](#core-abstractions)
 - [Progressive Type Refinement](#progressive-type-refinement)
+  - [Computation Patterns](#computation-patterns)
+  - [Deciders](#deciders)
+  - [Views](#views)
+  - [Process Managers](#process-managers)
 - [Application Layer](#application-layer)
+  - [Repository Interfaces](#repository-interfaces)
+  - [Command & Event Handlers](#command--event-handlers)
+- [Batch Command Execution](#batch-command-execution)
+  - [Why Batch?](#why-batch)
+  - [How It Works](#how-it-works)
+  - [Accumulated Event Propagation](#accumulated-event-propagation)
+  - [API](#api)
+- [Deno KV Event-Sourced Repository (Event Store)](#deno-kv-event-sourced-repository-event-store)
+  - [Architecture](#architecture)
+  - [Tuple-Based Query Pattern](#tuple-based-query-pattern)
+  - [Type-Safe Tag Configuration](#type-safe-tag-configuration)
+  - [Tag Subset Generation & Write Amplification](#tag-subset-generation--write-amplification)
+  - [Optimistic Locking](#optimistic-locking)
+  - [Concrete Repository Example](#concrete-repository-example)
 - [Idempotent Mode (Last-Event Optimization)](#idempotent-mode-last-event-optimization)
-- [Deno KV Event-Sourced Repository (Event Store)](#deno-kv-event-sourced-repository)
+  - [Read Optimization](#read-optimization)
+  - [Downstream Idempotency](#downstream-idempotency)
+  - [Snapshot-Style vs. Accumulation-Style Events](#snapshot-style-vs-accumulation-style-events)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
+  - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
+  - [Scenario 2: Dynamic Consistency Boundary](#scenario-2-dynamic-consistency-boundary-demodcb)
+  - [Comparison](#comparison)
+  - [Running the Demos](#running-the-demos)
 - [Testing](#testing)
 - [Development](#development)
+- [Publish to JSR (dry run)](#publish-to-jsr-dry-run)
 - [Further Reading](#further-reading)
 - [Credits](#credits)
 
@@ -194,7 +223,8 @@ const orderDecider: IDcbDecider<
 
 // Application layer — metadata introduced here
 const handler = new EventSourcedCommandHandler(orderDecider, repository);
-const events = await handler.handle(command); // Returns events + metadata
+const events = await handler.handle(command); // Single command
+const batchEvents = await handler.handleBatch(commands); // Atomic batch
 ```
 
 ### Repository Interfaces
@@ -206,11 +236,21 @@ interface IEventRepository<C, Ei, Eo, CM, EM> {
     command: C & CM,
     decider: IEventComputation<C, Ei, Eo>,
   ): Promise<readonly (Eo & EM)[]>;
+
+  executeBatch(
+    commands: readonly (C & CM)[],
+    decider: IEventComputation<C, Ei, Eo>,
+  ): Promise<readonly (Eo & EM)[]>;
 }
 
 // State-stored: command + metadata → state + metadata
 interface IStateRepository<C, S, CM, SM> {
   execute(command: C & CM, decider: IStateComputation<C, S>): Promise<S & SM>;
+
+  executeBatch(
+    commands: readonly (C & CM)[],
+    decider: IStateComputation<C, S>,
+  ): Promise<S & SM>;
 }
 
 // View state: event + metadata → state + metadata
@@ -226,6 +266,114 @@ interface IViewStateRepository<E, S, EM, SM> {
 | `EventSourcedCommandHandler` | Decider ↔ Event Repository   | `IDcbDecider`, `IAggregateDecider` |
 | `StateStoredCommandHandler`  | Decider ↔ State Repository   | `IAggregateDecider` only           |
 | `EventHandler`               | View ↔ View State Repository | `IProjection`                      |
+
+All command handlers also expose `handleBatch(commands)` alongside the existing
+`handle(command)` method. See
+[Batch Command Execution](#batch-command-execution) for details.
+
+## Batch Command Execution
+
+Process an ordered list of commands within a single atomic transaction. Events
+produced by earlier commands in the batch are visible to subsequent commands via
+accumulated event propagation, filtered through each command's query tuples.
+
+### Why Batch?
+
+Multi-command workflows like "create a restaurant then immediately place an
+order" normally require separate round-trips. With batch execution, the entire
+sequence runs atomically — no intermediate persistence, no risk of partial
+completion.
+
+```ts
+// Single atomic batch: CreateRestaurant + PlaceOrder
+const events = await handler.handleBatch([
+  createRestaurantCommand,
+  placeOrderCommand, // sees RestaurantCreatedEvent from above
+]);
+// → [RestaurantCreatedEvent, RestaurantOrderPlacedEvent]
+```
+
+#### Replacing the Saga pattern
+
+When multiple commands need to succeed or fail together, the traditional answer
+is a Saga — a choreography of compensating actions across separate transactions.
+Sagas add significant complexity: you need compensation handlers, failure
+tracking, and eventual consistency reasoning. Batch execution eliminates all of
+that for cases where the commands share an event store. One atomic transaction,
+one success-or-failure outcome, no compensations to design.
+
+#### Composing multiple operations atomically
+
+Consider a money transfer modeled as a single `TransferCommand` that debits one
+account and credits another. Now imagine you need to execute several transfers
+at once — payroll, settlement, rebalancing. Without batching, each transfer is a
+separate transaction, and a failure mid-way leaves the system in a partially
+applied state. With `handleBatch`, all transfers execute in a single atomic
+commit:
+
+```ts
+// All-or-nothing: three transfers in one transaction
+const events = await handler.handleBatch([
+  transferCommand1, // Account A → Account B
+  transferCommand2, // Account C → Account B
+  transferCommand3, // Account E → Account B  (sees effects of transfers 1 & 2)
+]);
+```
+
+Each subsequent transfer sees the events produced by earlier ones through
+accumulated event propagation — so balance checks, limit validations, and
+cross-account invariants all operate on the correct in-flight state. If any
+transfer fails its domain rules, the entire batch rolls back. No partial
+application, no compensating transactions, no Saga infrastructure.
+
+### How It Works
+
+**Event-sourced batches:**
+
+1. Load events once (using the first command's query tuples)
+2. Process each command sequentially — accumulated events from earlier commands
+   are filtered by the current command's query tuples and appended to the loaded
+   history
+3. Persist all produced events in a single atomic operation
+4. On optimistic locking conflict, retry the entire batch
+
+**State-stored batches:**
+
+1. Load current state once
+2. Process each command sequentially — output state feeds into the next command
+3. Persist only the final state atomically
+
+### Accumulated Event Propagation
+
+The key mechanism: when processing command N, the repository filters all events
+produced by commands 1..N-1 through command N's query tuples. Only matching
+events are appended to the loaded history for state derivation.
+
+```ts
+// Query tuple filter match:
+// An accumulated event matches a tuple [...tags, eventType] iff:
+//   event.kind === eventType AND
+//   every tag "fieldName:fieldValue" matches event[fieldName]
+```
+
+This means a `PlaceOrderCommand` for restaurant "r1" will see the
+`RestaurantCreatedEvent` for "r1" from an earlier command in the same batch, but
+not a `RestaurantCreatedEvent` for "r2".
+
+### API
+
+All batch methods are additive — existing `handle`/`execute` signatures are
+unchanged.
+
+```ts
+// Command handlers
+handler.handleBatch(commands: readonly (C & CM)[]): Promise<readonly (Eo & EM)[]>  // event-sourced
+handler.handleBatch(commands: readonly (C & CM)[]): Promise<S & SM>                // state-stored
+
+// Repository interfaces
+repository.executeBatch(commands, decider): Promise<readonly (Eo & EM)[]>  // event-sourced
+repository.executeBatch(commands, decider): Promise<S & SM>                // state-stored
+```
 
 ## Deno KV Event-Sourced Repository (Event Store)
 

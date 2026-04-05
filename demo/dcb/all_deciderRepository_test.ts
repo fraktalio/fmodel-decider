@@ -280,3 +280,245 @@ Deno.test("AllDeciderRepository - Educational summary: Two valid approaches", as
     kv.close();
   }
 });
+
+// ###########################################################################
+// #################### Batch Execution Tests ################################
+// ###########################################################################
+
+Deno.test("AllDeciderRepository - executeBatch: empty batch returns empty array", async () => {
+  const kv = await Deno.openKv(":memory:");
+  try {
+    const repository = new AllDeciderRepository(kv);
+    const events = await repository.executeBatch([]);
+    assertEquals(events.length, 0);
+  } finally {
+    kv.close();
+  }
+});
+
+Deno.test("AllDeciderRepository - executeBatch: single-command batch matches single execute", async () => {
+  const kv1 = await Deno.openKv(":memory:");
+  const kv2 = await Deno.openKv(":memory:");
+  try {
+    const repo1 = new AllDeciderRepository(kv1);
+    const repo2 = new AllDeciderRepository(kv2);
+
+    const command: CreateRestaurantCommand = {
+      kind: "CreateRestaurantCommand",
+      restaurantId: restaurantId("r1"),
+      name: "Bistro",
+      menu: {
+        menuId: restaurantMenuId("m1"),
+        cuisine: "ITALIAN",
+        menuItems: [
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+        ],
+      },
+    };
+
+    const singleEvents = await repo1.execute(command);
+    const batchEvents = await repo2.executeBatch([command]);
+
+    // Same number of events, same kinds
+    assertEquals(batchEvents.length, singleEvents.length);
+    assertEquals(batchEvents[0].kind, singleEvents[0].kind);
+    assertEquals(batchEvents[0].kind, "RestaurantCreatedEvent");
+  } finally {
+    kv1.close();
+    kv2.close();
+  }
+});
+
+Deno.test("AllDeciderRepository - executeBatch: CreateRestaurant + PlaceOrder in one atomic batch", async () => {
+  const kv = await Deno.openKv(":memory:");
+  try {
+    const repository = new AllDeciderRepository(kv);
+
+    // This is the primary batch use case: accumulated event propagation
+    // enables PlaceOrder to see the RestaurantCreatedEvent from the same batch
+    const events = await repository.executeBatch([
+      {
+        kind: "CreateRestaurantCommand",
+        restaurantId: restaurantId("r1"),
+        name: "Bistro",
+        menu: {
+          menuId: restaurantMenuId("m1"),
+          cuisine: "ITALIAN",
+          menuItems: [
+            { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          ],
+        },
+      } satisfies CreateRestaurantCommand,
+      {
+        kind: "PlaceOrderCommand",
+        restaurantId: restaurantId("r1"),
+        orderId: orderId("o1"),
+        menuItems: [
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+        ],
+      } satisfies PlaceOrderCommand,
+    ]);
+
+    // Both commands produce events in order
+    assertEquals(events.length, 2);
+    assertEquals(events[0].kind, "RestaurantCreatedEvent");
+    assertEquals(events[1].kind, "RestaurantOrderPlacedEvent");
+  } finally {
+    kv.close();
+  }
+});
+
+Deno.test("AllDeciderRepository - executeBatch: domain error mid-batch prevents all persistence", async () => {
+  const kv = await Deno.openKv(":memory:");
+  try {
+    const repository = new AllDeciderRepository(kv);
+
+    // PlaceOrder will fail because restaurant doesn't exist yet in storage,
+    // and CreateRestaurant is the SECOND command so its event isn't available
+    // when PlaceOrder runs first
+    await assertRejects(
+      async () =>
+        await repository.executeBatch([
+          {
+            kind: "PlaceOrderCommand",
+            restaurantId: restaurantId("r1"),
+            orderId: orderId("o1"),
+            menuItems: [
+              {
+                menuItemId: menuItemId("item1"),
+                name: "Pizza",
+                price: "12.99",
+              },
+            ],
+          } satisfies PlaceOrderCommand,
+          {
+            kind: "CreateRestaurantCommand",
+            restaurantId: restaurantId("r1"),
+            name: "Bistro",
+            menu: {
+              menuId: restaurantMenuId("m1"),
+              cuisine: "ITALIAN",
+              menuItems: [
+                {
+                  menuItemId: menuItemId("item1"),
+                  name: "Pizza",
+                  price: "12.99",
+                },
+              ],
+            },
+          } satisfies CreateRestaurantCommand,
+        ]),
+      RestaurantNotFoundError,
+    );
+
+    // Verify nothing was persisted — a subsequent single execute should also fail
+    await assertRejects(
+      async () =>
+        await repository.execute({
+          kind: "PlaceOrderCommand",
+          restaurantId: restaurantId("r1"),
+          orderId: orderId("o1"),
+          menuItems: [
+            { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          ],
+        }),
+      RestaurantNotFoundError,
+    );
+  } finally {
+    kv.close();
+  }
+});
+
+Deno.test("AllDeciderRepository - executeBatch: filter exclusion - accumulated events not matching query tuples are excluded", async () => {
+  const kv = await Deno.openKv(":memory:");
+  try {
+    const repository = new AllDeciderRepository(kv);
+
+    // Create two restaurants, then place an order on the first.
+    // The PlaceOrderCommand for r1 should NOT see the RestaurantCreatedEvent for r2
+    // because the query tuple filters by restaurantId.
+    const events = await repository.executeBatch([
+      {
+        kind: "CreateRestaurantCommand",
+        restaurantId: restaurantId("r1"),
+        name: "Bistro",
+        menu: {
+          menuId: restaurantMenuId("m1"),
+          cuisine: "ITALIAN",
+          menuItems: [
+            { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          ],
+        },
+      } satisfies CreateRestaurantCommand,
+      {
+        kind: "CreateRestaurantCommand",
+        restaurantId: restaurantId("r2"),
+        name: "Sushi Bar",
+        menu: {
+          menuId: restaurantMenuId("m2"),
+          cuisine: "GENERAL",
+          menuItems: [
+            { menuItemId: menuItemId("item2"), name: "Sushi", price: "15.99" },
+          ],
+        },
+      } satisfies CreateRestaurantCommand,
+      {
+        kind: "PlaceOrderCommand",
+        restaurantId: restaurantId("r1"),
+        orderId: orderId("o1"),
+        menuItems: [
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+        ],
+      } satisfies PlaceOrderCommand,
+    ]);
+
+    assertEquals(events.length, 3);
+    assertEquals(events[0].kind, "RestaurantCreatedEvent");
+    assertEquals(events[1].kind, "RestaurantCreatedEvent");
+    assertEquals(events[2].kind, "RestaurantOrderPlacedEvent");
+  } finally {
+    kv.close();
+  }
+});
+
+Deno.test("AllDeciderRepository - executeBatch: three-step workflow in single batch", async () => {
+  const kv = await Deno.openKv(":memory:");
+  try {
+    const repository = new AllDeciderRepository(kv);
+
+    // Full workflow: Create → PlaceOrder → MarkAsPrepared, all in one atomic batch
+    const events = await repository.executeBatch([
+      {
+        kind: "CreateRestaurantCommand",
+        restaurantId: restaurantId("r1"),
+        name: "Bistro",
+        menu: {
+          menuId: restaurantMenuId("m1"),
+          cuisine: "ITALIAN",
+          menuItems: [
+            { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+          ],
+        },
+      } satisfies CreateRestaurantCommand,
+      {
+        kind: "PlaceOrderCommand",
+        restaurantId: restaurantId("r1"),
+        orderId: orderId("o1"),
+        menuItems: [
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+        ],
+      } satisfies PlaceOrderCommand,
+      {
+        kind: "MarkOrderAsPreparedCommand",
+        orderId: orderId("o1"),
+      } satisfies MarkOrderAsPreparedCommand,
+    ]);
+
+    assertEquals(events.length, 3);
+    assertEquals(events[0].kind, "RestaurantCreatedEvent");
+    assertEquals(events[1].kind, "RestaurantOrderPlacedEvent");
+    assertEquals(events[2].kind, "OrderPreparedEvent");
+  } finally {
+    kv.close();
+  }
+});
