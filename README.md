@@ -21,8 +21,8 @@ architectures with progressive type refinement.
   incrementally as requirements clarify
 - **AI-Friendly**: Formal types and concrete examples reduce hallucinations and
   guide AI tools to generate correct implementations
-- **Production-Ready Infrastructure**: Complete event-sourced repository with
-  Deno KV, optimistic locking, and flexible querying
+- **Production-Ready Infrastructure**: Complete event-sourced repository (event
+  store) with Deno KV, optimistic locking, and flexible querying
 
 ## Table of Contents
 
@@ -31,7 +31,7 @@ architectures with progressive type refinement.
 - [Progressive Type Refinement](#progressive-type-refinement)
 - [Application Layer](#application-layer)
 - [Idempotent Mode (Last-Event Optimization)](#idempotent-mode-last-event-optimization)
-- [Deno KV Event-Sourced Repository](#deno-kv-event-sourced-repository)
+- [Deno KV Event-Sourced Repository (Event Store)](#deno-kv-event-sourced-repository)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
 - [Testing](#testing)
 - [Development](#development)
@@ -227,7 +227,7 @@ interface IViewStateRepository<E, S, EM, SM> {
 | `StateStoredCommandHandler`  | Decider ↔ State Repository   | `IAggregateDecider` only           |
 | `EventHandler`               | View ↔ View State Repository | `IProjection`                      |
 
-## Deno KV Event-Sourced Repository
+## Deno KV Event-Sourced Repository (Event Store)
 
 Production-ready event-sourced repository using Deno KV with optimistic locking,
 flexible querying, and type-safe tag-based indexing.
