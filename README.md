@@ -343,7 +343,7 @@ const events = await handler.handle(placeOrderCommand);
 Idempotent mode addresses two concerns: read performance and downstream delivery
 guarantees.
 
-![Destructuring](destructuring.png)
+![Destructuring](gwt.png)
 
 ### Read Optimization
 
@@ -374,7 +374,7 @@ const { x, y, z, t } = point;
 // x, y, z are the facts (coordinates), t is when they occurred
 
 // In domain terms, the "state" of the "Restaurant concept" is destructured into independent events:
-const { RestaurantRegistered, RestaurantMenuPublished, NOW } =
+const { RestaurantCreatedEvent, RestaurantMenuChangedEvent, NOW } =
   OrderItemsAreOnTheMenu;
 ```
 
