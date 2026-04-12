@@ -16,7 +16,6 @@
 # production
 /build
 docs
-.kiro/
 
 # misc
 .DS_Store
