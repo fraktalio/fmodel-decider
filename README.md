@@ -610,6 +610,8 @@ deno publish --dry-run
 ## Further Reading
 
 - [https://fmodel.fraktalio.com/](https://fmodel.fraktalio.com/)
+- [Restaurant order management demo](https://github.com/fraktalio/order-management-demo)
+
 
 ## Credits
 
