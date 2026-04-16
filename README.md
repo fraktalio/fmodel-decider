@@ -56,6 +56,15 @@ architectures with progressive type refinement.
   - [Read Optimization](#read-optimization)
   - [Downstream Idempotency](#downstream-idempotency)
   - [Snapshot-Style vs. Accumulation-Style Events](#snapshot-style-vs-accumulation-style-events)
+- [PostgreSQL Event-Sourced Repository (Event Store)](#postgresql-event-sourced-repository-event-store)
+  - [Schema Architecture](#schema-architecture)
+  - [SQL Functions](#sql-functions)
+  - [Optimistic Locking (PostgreSQL)](#optimistic-locking-1)
+  - [Composite Types](#composite-types)
+  - [Tuple-Based Query Pattern (PostgreSQL)](#tuple-based-query-pattern-1)
+  - [Concrete Repository Example (PostgreSQL)](#concrete-repository-example-1)
+  - [Metadata Mapping](#metadata-mapping)
+  - [Event Serialization](#event-serialization)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
   - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
   - [Scenario 2: Dynamic Consistency Boundary](#scenario-2-dynamic-consistency-boundary-demodcb)
@@ -541,6 +550,126 @@ polluting the event with all account details (name, address, etc.), just
 carrying the dimension of state it affects: the balance. This small addition
 enables both the O(1) read optimization and natural idempotency for downstream
 handlers.
+
+## PostgreSQL Event-Sourced Repository (Event Store)
+
+Production-ready event-sourced repository using PostgreSQL with server-side
+optimistic locking, tag-based indexing, and the same API surface as the Deno KV
+implementation. Defined in `dcb_schema.sql` and implemented in
+`postgresEventRepository.ts`.
+
+### Schema Architecture
+
+```
+dcb.events      — append-only event log (bigserial id, type, data bytea, tags text[])
+dcb.event_tags  — tag index for query-by-tag (tag text, main_id bigint → events.id)
+```
+
+Events are stored once in `dcb.events`. The `dcb.event_tags` table provides a
+secondary index for tag-based queries — each event's tags are denormalized into
+individual rows for efficient joins.
+
+### SQL Functions
+
+The schema delegates all logic to SQL functions, keeping the TypeScript layer
+thin:
+
+| Function                       | Purpose                                                    |
+| ------------------------------ | ---------------------------------------------------------- |
+| `dcb.conditional_append`       | Atomic conflict check + append with table-level EXCLUSIVE lock |
+| `dcb.unconditional_append`     | Internal helper — inserts events + tag index rows          |
+| `dcb.select_events_by_tags`    | Full-replay event loading by query tuples                  |
+| `dcb.select_last_events_by_tags` | Idempotent mode — returns only the last event per query group |
+| `dcb.select_events_by_type`    | Load events by type with optional `after_id` cursor        |
+| `dcb.select_max_id`            | Current max event id (for optimistic locking baseline)     |
+
+### Optimistic Locking
+
+PostgreSQL uses a different locking strategy than Deno KV:
+
+1. **Load** events via `select_events_by_tags` (or `select_last_events_by_tags`
+   in idempotent mode) and record the max `id` as `after_id`
+2. **Compute** new events via the decider (pure domain logic)
+3. **Persist** via `conditional_append(query_items, after_id, new_events)`:
+   - Acquires a table-level `EXCLUSIVE` lock (with 5s timeout)
+   - Checks for conflicting events with matching tags inserted after `after_id`
+   - If no conflicts: appends events + tag index rows, returns the new max id
+   - If conflicts: returns `NULL` (TypeScript layer retries)
+4. **Retry** on conflict (configurable, default: 10 attempts)
+
+The EXCLUSIVE lock ensures serializable append semantics — no two concurrent
+appenders can interleave. The lock is held only for the duration of the conflict
+check + insert, not during event loading or decider computation.
+
+### Composite Types
+
+Two custom PostgreSQL types define the wire format between TypeScript and SQL:
+
+```sql
+-- Event payload for append operations
+CREATE TYPE dcb.dcb_event_tt AS (type text, data bytea, tags text[]);
+
+-- Query item for tag-based event loading
+CREATE TYPE dcb.dcb_query_item_tt AS (types text[], tags text[]);
+```
+
+### Tuple-Based Query Pattern
+
+Same query format as Deno KV: `[...tags, eventType]`. The TypeScript layer
+converts these into `dcb_query_item_tt[]` arrays for the SQL functions:
+
+```ts
+// TypeScript query tuples
+(cmd) => [
+  ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+  ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+  ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+]
+
+// Becomes SQL:
+// ARRAY[
+//   ROW(ARRAY['RestaurantCreatedEvent'], ARRAY['restaurantId:r1'])::dcb.dcb_query_item_tt,
+//   ROW(ARRAY['RestaurantMenuChangedEvent'], ARRAY['restaurantId:r1'])::dcb.dcb_query_item_tt,
+//   ROW(ARRAY['RestaurantOrderPlacedEvent'], ARRAY['orderId:o1'])::dcb.dcb_query_item_tt
+// ]
+```
+
+### Concrete Repository Example
+
+```ts
+export const placeOrderPostgresRepository = (client: Client) =>
+  new PostgresEventRepository<
+    PlaceOrderCommand,
+    | RestaurantCreatedEvent
+    | RestaurantMenuChangedEvent
+    | RestaurantOrderPlacedEvent,
+    RestaurantOrderPlacedEvent
+  >(
+    client,
+    (cmd) => [
+      ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
+      ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+    ],
+  );
+```
+
+### Metadata Mapping
+
+Both backends produce `EventMetadata` but map different underlying concepts:
+
+| Concept            | Deno KV                    | PostgreSQL                              |
+| ------------------ | -------------------------- | --------------------------------------- |
+| Event ID           | ULID string                | `bigserial` (returned as string)        |
+| Timestamp          | `Date.now()` at persist    | `created_at` column (millis)            |
+| Versionstamp       | KV versionstamp            | Event ID as string                      |
+| Optimistic locking | KV versionstamp checks     | `conditional_append` with `after_id`    |
+| Atomicity          | KV atomic operations       | Table-level EXCLUSIVE lock              |
+
+### Event Serialization
+
+Events are serialized as JSON → `Uint8Array` (stored as `bytea`). Custom
+serializers/deserializers can be provided to the repository constructor.
 
 ## Demo: Restaurant & Order Management
 
