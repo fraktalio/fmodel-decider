@@ -585,14 +585,34 @@ Supports two repository strategies:
 ### Running the Demos
 
 ```bash
-deno test demo/aggregate/  --unstable-kv 
-deno test demo/dcb/  --unstable-kv
+# Aggregate demo (Deno KV only)
+deno test demo/aggregate/ --unstable-kv
+
+# DCB demo — Deno KV tests only
+deno test demo/dcb/ --unstable-kv --ignore='demo/dcb/*Postgres*'
+
+# DCB demo — all tests including PostgreSQL (requires Docker)
+deno test -A --unstable-kv demo/dcb/
 ```
+
+The DCB demo supports both Deno KV and PostgreSQL backends. PostgreSQL tests use
+[`@valkyr/testcontainers`](https://jsr.io/@valkyr/testcontainers) to
+automatically start a `postgres:17` container with the `dcb_schema.sql` schema.
+Each Postgres test file gets a fresh container for true slice isolation.
+
+- `-A` grants all permissions (needed for Docker, network, env, file access)
+- `--unstable-kv` enables Deno KV for the in-memory KV tests
+- `--ignore='demo/dcb/*Postgres*'` skips Postgres test files when Docker isn't
+  available
 
 ## Testing
 
 ```bash
-deno test --unstable-kv
+# All tests (Deno KV only, no Docker required)
+deno test --unstable-kv --ignore='demo/dcb/*Postgres*'
+
+# All tests including PostgreSQL (requires Docker)
+deno test -A --unstable-kv
 ```
 
 ## Development
