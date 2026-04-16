@@ -21,8 +21,9 @@ architectures with progressive type refinement.
   incrementally as requirements clarify
 - **AI-Friendly**: Formal types and concrete examples reduce hallucinations and
   guide AI tools to generate correct implementations
-- **Production-Ready Infrastructure**: Complete event-sourced repositories (event
-  stores) with Deno KV and PostgreSQL, optimistic locking, and flexible querying
+- **Production-Ready Infrastructure**: Complete event-sourced repositories
+  (event stores) with Deno KV and PostgreSQL, optimistic locking, and flexible
+  querying
 
 ## Table of Contents
 
@@ -574,14 +575,14 @@ individual rows for efficient joins.
 The schema delegates all logic to SQL functions, keeping the TypeScript layer
 thin:
 
-| Function                       | Purpose                                                    |
-| ------------------------------ | ---------------------------------------------------------- |
-| `dcb.conditional_append`       | Atomic conflict check + append with table-level EXCLUSIVE lock |
-| `dcb.unconditional_append`     | Internal helper — inserts events + tag index rows          |
-| `dcb.select_events_by_tags`    | Full-replay event loading by query tuples                  |
-| `dcb.select_last_events_by_tags` | Idempotent mode — returns only the last event per query group |
-| `dcb.select_events_by_type`    | Load events by type with optional `after_id` cursor        |
-| `dcb.select_max_id`            | Current max event id (for optimistic locking baseline)     |
+| Function                         | Purpose                                                        |
+| -------------------------------- | -------------------------------------------------------------- |
+| `dcb.conditional_append`         | Atomic conflict check + append with table-level EXCLUSIVE lock |
+| `dcb.unconditional_append`       | Internal helper — inserts events + tag index rows              |
+| `dcb.select_events_by_tags`      | Full-replay event loading by query tuples                      |
+| `dcb.select_last_events_by_tags` | Idempotent mode — returns only the last event per query group  |
+| `dcb.select_events_by_type`      | Load events by type with optional `after_id` cursor            |
+| `dcb.select_max_id`              | Current max event id (for optimistic locking baseline)         |
 
 ### Optimistic Locking
 
@@ -620,11 +621,11 @@ converts these into `dcb_query_item_tt[]` arrays for the SQL functions:
 
 ```ts
 // TypeScript query tuples
-(cmd) => [
+((cmd) => [
   ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
   ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
   ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
-]
+]);
 
 // Becomes SQL:
 // ARRAY[
@@ -658,13 +659,13 @@ export const placeOrderPostgresRepository = (client: Client) =>
 
 Both backends produce `EventMetadata` but map different underlying concepts:
 
-| Concept            | Deno KV                    | PostgreSQL                              |
-| ------------------ | -------------------------- | --------------------------------------- |
-| Event ID           | ULID string                | `bigserial` (returned as string)        |
-| Timestamp          | `Date.now()` at persist    | `created_at` column (millis)            |
-| Versionstamp       | KV versionstamp            | Event ID as string                      |
-| Optimistic locking | KV versionstamp checks     | `conditional_append` with `after_id`    |
-| Atomicity          | KV atomic operations       | Table-level EXCLUSIVE lock              |
+| Concept            | Deno KV                 | PostgreSQL                           |
+| ------------------ | ----------------------- | ------------------------------------ |
+| Event ID           | ULID string             | `bigserial` (returned as string)     |
+| Timestamp          | `Date.now()` at persist | `created_at` column (millis)         |
+| Versionstamp       | KV versionstamp         | Event ID as string                   |
+| Optimistic locking | KV versionstamp checks  | `conditional_append` with `after_id` |
+| Atomicity          | KV atomic operations    | Table-level EXCLUSIVE lock           |
 
 ### Event Serialization
 
