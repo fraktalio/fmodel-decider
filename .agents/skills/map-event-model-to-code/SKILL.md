@@ -27,9 +27,9 @@ Arranged on a timeline from left to right.
 
 ### Cell Types
 
-- **C** — Command (blue)
-- **E** — Event (red/orange)
-- **P** — Projection (green)
+- 🔵 **C** — Command (blue)
+- 🟠 **E** — Event (red/orange)
+- 🟢 **P** — Projection (green)
 
 ### Layout Rules
 
@@ -62,6 +62,8 @@ Arranged on a timeline from left to right.
 
 ### Formula Notation
 
+Cell type prefixes use emoji indicators: 🔵 Command, 🟠 Event, 🟢 Projection.
+
 ```
 # Cell definitions
 <cell> = <type>(<name>)
@@ -75,11 +77,11 @@ Arranged on a timeline from left to right.
 
 ### Table Example
 
-|       | A                     | B                  | C                    | D                 | E                |
-| ----- | --------------------- | ------------------ | -------------------- | ----------------- | ---------------- |
-| Row 1 | C: Create Restaurant  | P: Restaurant [A2] | C: Place Order       | P: Order [C2, C3] | P: Payments [C3] |
-| Row 2 | E: Restaurant Created |                    | E: Order Placed      |                   |                  |
-| Row 3 |                       |                    | E: Payment Initiated |                   |                  |
+|       | A                          | B                       | C                         | D                      | E                     |
+| ----- | -------------------------- | ----------------------- | ------------------------- | ---------------------- | --------------------- |
+| Row 1 | 🔵 C: Create Restaurant    | 🟢 P: Restaurant [A2]  | 🔵 C: Place Order         | 🟢 P: Order [C2, C3]  | 🟢 P: Payments [C3]  |
+| Row 2 | 🟠 E: Restaurant Created   |                         | 🟠 E: Order Placed        |                        |                       |
+| Row 3 |                            |                         | 🟠 E: Payment Initiated   |                        |                       |
 
 ### Formulas
 

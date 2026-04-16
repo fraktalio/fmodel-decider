@@ -54,23 +54,23 @@ rules.
 
 | Source File                      | Type | Name                                                                              |
 | -------------------------------- | ---- | --------------------------------------------------------------------------------- |
-| `createRestaurantDecider.ts`     | C    | CreateRestaurantCommand                                                           |
-| `createRestaurantDecider.ts`     | E    | RestaurantCreatedEvent                                                            |
-| `changeRestaurantMenuDecider.ts` | C    | ChangeRestaurantMenuCommand                                                       |
-| `changeRestaurantMenuDecider.ts` | E    | RestaurantMenuChangedEvent                                                        |
-| `placeOrderDecider.ts`           | C    | PlaceOrderCommand                                                                 |
-| `placeOrderDecider.ts`           | E    | RestaurantOrderPlacedEvent                                                        |
-| `markOrderAsPreparedDecider.ts`  | C    | MarkOrderAsPreparedCommand                                                        |
-| `markOrderAsPreparedDecider.ts`  | E    | OrderPreparedEvent                                                                |
-| `restaurantView.ts`              | P    | RestaurantView (subscribes to RestaurantCreatedEvent, RestaurantMenuChangedEvent) |
-| `orderView.ts`                   | P    | OrderView (subscribes to RestaurantOrderPlacedEvent, OrderPreparedEvent)          |
+| `createRestaurantDecider.ts`     | 🔵 C | CreateRestaurantCommand                                                           |
+| `createRestaurantDecider.ts`     | 🟠 E | RestaurantCreatedEvent                                                            |
+| `changeRestaurantMenuDecider.ts` | 🔵 C | ChangeRestaurantMenuCommand                                                       |
+| `changeRestaurantMenuDecider.ts` | 🟠 E | RestaurantMenuChangedEvent                                                        |
+| `placeOrderDecider.ts`           | 🔵 C | PlaceOrderCommand                                                                 |
+| `placeOrderDecider.ts`           | 🟠 E | RestaurantOrderPlacedEvent                                                        |
+| `markOrderAsPreparedDecider.ts`  | 🔵 C | MarkOrderAsPreparedCommand                                                        |
+| `markOrderAsPreparedDecider.ts`  | 🟠 E | OrderPreparedEvent                                                                |
+| `restaurantView.ts`              | 🟢 P | RestaurantView (subscribes to RestaurantCreatedEvent, RestaurantMenuChangedEvent) |
+| `orderView.ts`                   | 🟢 P | OrderView (subscribes to RestaurantOrderPlacedEvent, OrderPreparedEvent)          |
 
 ### Resulting Table
 
-|       | A                          | B                      | C                              | D                      | E                             | F                 | G                             | H                 |
-| ----- | -------------------------- | ---------------------- | ------------------------------ | ---------------------- | ----------------------------- | ----------------- | ----------------------------- | ----------------- |
-| Row 1 | C: CreateRestaurantCommand | P: RestaurantView [A2] | C: ChangeRestaurantMenuCommand | P: RestaurantView [C2] | C: PlaceOrderCommand          | P: OrderView [E2] | C: MarkOrderAsPreparedCommand | P: OrderView [G2] |
-| Row 2 | E: RestaurantCreatedEvent  |                        | E: RestaurantMenuChangedEvent  |                        | E: RestaurantOrderPlacedEvent |                   | E: OrderPreparedEvent         |                   |
+|       | A                               | B                           | C                                   | D                           | E                                  | F                      | G                                  | H                      |
+| ----- | ------------------------------- | --------------------------- | ----------------------------------- | --------------------------- | ---------------------------------- | ---------------------- | ---------------------------------- | ---------------------- |
+| Row 1 | 🔵 C: CreateRestaurantCommand   | 🟢 P: RestaurantView [A2]  | 🔵 C: ChangeRestaurantMenuCommand   | 🟢 P: RestaurantView [C2]  | 🔵 C: PlaceOrderCommand           | 🟢 P: OrderView [E2]  | 🔵 C: MarkOrderAsPreparedCommand   | 🟢 P: OrderView [G2]  |
+| Row 2 | 🟠 E: RestaurantCreatedEvent    |                             | 🟠 E: RestaurantMenuChangedEvent    |                             | 🟠 E: RestaurantOrderPlacedEvent   |                        | 🟠 E: OrderPreparedEvent           |                        |
 
 ### Formulas
 
