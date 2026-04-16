@@ -135,7 +135,7 @@ export type MarkOrderAsPreparedCommand = {
 
 // ########################### API (EVENTS) ##################################
 
-import type { TypeSafeEventShape } from "../../denoKvEventRepository.ts";
+import type { TypeSafeEventShape } from "../../infrastructure.ts";
 
 export type Event =
   | RestaurantCreatedEvent
