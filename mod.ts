@@ -5,7 +5,6 @@ export * from "./view.ts";
 export * from "./application.ts";
 export * from "./infrastructure.ts";
 export * from "./denoKvEventRepository.ts";
-export * from "./denoKvEventLoader.ts";
 export * from "./postgresEventRepository.ts";
 export * from "./test_specification.ts";
 

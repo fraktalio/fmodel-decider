@@ -6,7 +6,7 @@
  * and folding them through the restaurant view.
  */
 
-import { DenoKvEventLoader } from "../../denoKvEventLoader.ts";
+import { DenoKvEventLoader } from "../../denoKvEventRepository.ts";
 import { EventSourcedQueryHandler } from "../../application.ts";
 import { type RestaurantEvent, restaurantView } from "./restaurantView.ts";
 

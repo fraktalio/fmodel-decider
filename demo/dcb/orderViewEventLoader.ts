@@ -6,7 +6,7 @@
  * and folding them through the order view.
  */
 
-import { DenoKvEventLoader } from "../../denoKvEventLoader.ts";
+import { DenoKvEventLoader } from "../../denoKvEventRepository.ts";
 import { EventSourcedQueryHandler } from "../../application.ts";
 import { orderView } from "./orderView.ts";
 import type { OrderPreparedEvent, RestaurantOrderPlacedEvent } from "./api.ts";
