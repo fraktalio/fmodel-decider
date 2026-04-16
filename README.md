@@ -21,8 +21,8 @@ architectures with progressive type refinement.
   incrementally as requirements clarify
 - **AI-Friendly**: Formal types and concrete examples reduce hallucinations and
   guide AI tools to generate correct implementations
-- **Production-Ready Infrastructure**: Complete event-sourced repository (event
-  store) with Deno KV, optimistic locking, and flexible querying
+- **Production-Ready Infrastructure**: Complete event-sourced repositories (event
+  stores) with Deno KV and PostgreSQL, optimistic locking, and flexible querying
 
 ## Table of Contents
 
