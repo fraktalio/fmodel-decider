@@ -5,7 +5,7 @@
  * to Deno KV storage with optimistic locking.
  */
 
-import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
+import { DenoKvEventRepository } from "../../denoKvEventRepository.ts";
 import type {
   ChangeRestaurantMenuCommand,
   RestaurantCreatedEvent,
@@ -30,12 +30,12 @@ import type {
  */
 export const changeRestaurantMenuRepository = (
   kv: Deno.Kv,
-): DenoKvEventSourcedRepository<
+): DenoKvEventRepository<
   ChangeRestaurantMenuCommand,
   RestaurantCreatedEvent,
   RestaurantMenuChangedEvent
 > =>
-  new DenoKvEventSourcedRepository<
+  new DenoKvEventRepository<
     ChangeRestaurantMenuCommand,
     RestaurantCreatedEvent,
     RestaurantMenuChangedEvent

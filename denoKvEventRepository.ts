@@ -240,14 +240,14 @@ export function matchesQueryTuple<
  * @typeParam Ei - Input event type (consumed by decider, must conform to EventShape)
  * @typeParam Eo - Output event type (produced by decider, must conform to EventShape)
  */
-export class DenoKvEventSourcedRepository<
+export class DenoKvEventRepository<
   C extends CommandShape,
   Ei extends EventShape,
   Eo extends EventShape,
 > implements
   IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
   /**
-   * Creates a new EventSourcedRepository.
+   * Creates a new DenoKvEventRepository.
    *
    * @param kv - Deno KV instance for storage
    * @param getQueryTuples - Returns array of query tuples to load for this command

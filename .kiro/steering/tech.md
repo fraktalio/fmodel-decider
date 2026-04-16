@@ -19,6 +19,7 @@
 ## Common Commands
 
 ### Testing
+
 ```bash
 # Run all tests (includes --unstable-kv for Deno KV support)
 deno task test
@@ -40,6 +41,7 @@ deno task test demo/dcb/
 ```
 
 ### Publishing
+
 ```bash
 # Dry run publish to JSR
 deno publish --dry-run
@@ -53,36 +55,41 @@ deno publish --dry-run
 
 ## Testing Framework
 
-Uses Deno's built-in test runner with custom Given-When-Then DSL for executable specifications:
+Uses Deno's built-in test runner with custom Given-When-Then DSL for executable
+specifications:
 
 ### Given-When-Then DSL
 
 The library provides three specification formats:
 
 **Event-Sourced Decider Specification:**
+
 ```typescript
 DeciderEventSourcedSpec.for(decider)
-  .given([events])      // Event history
-  .when(command)        // Command to process
-  .then([events]);      // Expected new events
+  .given([events]) // Event history
+  .when(command) // Command to process
+  .then([events]); // Expected new events
 ```
 
 **State-Stored Decider Specification:**
+
 ```typescript
 DeciderStateStoredSpec.for(decider)
-  .given(state)         // Current state
-  .when(command)        // Command to process
-  .then(state);         // Expected new state
+  .given(state) // Current state
+  .when(command) // Command to process
+  .then(state); // Expected new state
 ```
 
 **View/Projection Specification:**
+
 ```typescript
 ViewSpecification.for(view)
-  .given([events])      // Event stream
-  .then(state);         // Expected projected state
+  .given([events]) // Event stream
+  .then(state); // Expected projected state
 ```
 
 **Error Specifications:**
+
 ```typescript
 DeciderEventSourcedSpec.for(decider)
   .given([events])
@@ -92,11 +99,14 @@ DeciderEventSourcedSpec.for(decider)
 
 ### Test Organization
 
-- `DeciderEventSourcedSpec` - For event-sourced decider testing (IDcbDecider, IAggregateDecider)
-- `DeciderStateStoredSpec` - For state-stored aggregate testing (IAggregateDecider only)
+- `DeciderEventSourcedSpec` - For event-sourced decider testing (IDcbDecider,
+  IAggregateDecider)
+- `DeciderStateStoredSpec` - For state-stored aggregate testing
+  (IAggregateDecider only)
 - `ViewSpecification` - For projection/view testing (IProjection)
 
-All test specifications follow the Given-When-Then pattern for clarity and consistency.
+All test specifications follow the Given-When-Then pattern for clarity and
+consistency.
 
 ### Writing Tests
 

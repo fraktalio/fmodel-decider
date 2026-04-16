@@ -462,7 +462,7 @@ touching the index.
 
 ```ts
 export const placeOrderRepository = (kv: Deno.Kv) =>
-  new DenoKvEventSourcedRepository<
+  new DenoKvEventRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent
     | RestaurantMenuChangedEvent
@@ -611,7 +611,6 @@ deno publish --dry-run
 
 - [https://fmodel.fraktalio.com/](https://fmodel.fraktalio.com/)
 - [Restaurant order management demo](https://github.com/fraktalio/order-management-demo)
-
 
 ## Credits
 

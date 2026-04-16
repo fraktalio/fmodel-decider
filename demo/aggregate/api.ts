@@ -150,7 +150,7 @@ export type PlaceOrderCommand = {
 
 // ########################### API (EVENTS) ##################################
 
-import type { TypeSafeEventShape } from "../../denoKvRepository.ts";
+import type { TypeSafeEventShape } from "../../denoKvEventRepository.ts";
 
 export type RestaurantEvent =
   | RestaurantCreatedEvent

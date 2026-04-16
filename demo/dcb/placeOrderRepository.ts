@@ -8,7 +8,7 @@
  * events related to both the restaurant state and existing orders.
  */
 
-import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
+import { DenoKvEventRepository } from "../../denoKvEventRepository.ts";
 import type {
   PlaceOrderCommand,
   RestaurantCreatedEvent,
@@ -41,14 +41,14 @@ import type {
  * const events = await repository.execute(command, placeOrderDecider);
  * ```
  */
-export const placeOrderRepository = (kv: Deno.Kv): DenoKvEventSourcedRepository<
+export const placeOrderRepository = (kv: Deno.Kv): DenoKvEventRepository<
   PlaceOrderCommand,
   | RestaurantCreatedEvent
   | RestaurantMenuChangedEvent
   | RestaurantOrderPlacedEvent,
   RestaurantOrderPlacedEvent
 > =>
-  new DenoKvEventSourcedRepository<
+  new DenoKvEventRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent
     | RestaurantMenuChangedEvent

@@ -10,13 +10,15 @@ description: >
 
 # Map Event Model to Code
 
-A two-step pipeline: visual Event Model diagram → Markdown table → TypeScript code.
+A two-step pipeline: visual Event Model diagram → Markdown table → TypeScript
+code.
 
 ## Step 1: Diagram to Table
 
 ### Input
 
 A visual Event Model diagram containing:
+
 - **Commands** (blue sticky notes)
 - **Events** (red/orange sticky notes)
 - **Projections** (green sticky notes)
@@ -32,19 +34,30 @@ Arranged on a timeline from left to right.
 ### Layout Rules
 
 1. **Row 1** contains Commands and Projections. Row 2+ contains Events.
-2. **Commands** occupy row 1 in their column. Events produced by that command stack vertically below it (row 2, row 3, …).
-3. **Projections** sit in row 1, to the right of the event column(s) they subscribe to — placed between the current command's events and the next command.
-4. Each **Projection cell** lists the event cells it subscribes to in brackets, e.g. `P: Restaurant [A2, A3]`.
-5. **All primitives (C, E, P) are identified by name.** Projections can repeat across the timeline — repeated occurrences refer to the same projection (e.g. `B1 = D1` when both are `P: Restaurant`).
-6. When a **projection repeats**, it only lists the new event cell(s) from the immediately preceding command — earlier subscriptions are already captured in the previous occurrence.
-7. **Event columns** under a projection are empty — projections never share a column with events.
+2. **Commands** occupy row 1 in their column. Events produced by that command
+   stack vertically below it (row 2, row 3, …).
+3. **Projections** sit in row 1, to the right of the event column(s) they
+   subscribe to — placed between the current command's events and the next
+   command.
+4. Each **Projection cell** lists the event cells it subscribes to in brackets,
+   e.g. `P: Restaurant [A2, A3]`.
+5. **All primitives (C, E, P) are identified by name.** Projections can repeat
+   across the timeline — repeated occurrences refer to the same projection (e.g.
+   `B1 = D1` when both are `P: Restaurant`).
+6. When a **projection repeats**, it only lists the new event cell(s) from the
+   immediately preceding command — earlier subscriptions are already captured in
+   the previous occurrence.
+7. **Event columns** under a projection are empty — projections never share a
+   column with events.
 
 ### Relationships
 
 - **Command → Event(s)**: vertical (same column, row 1 → row 2, 3, …)
-- **Event(s) → Projection**: horizontal (event column → next projection column to the right)
+- **Event(s) → Projection**: horizontal (event column → next projection column
+  to the right)
 - A single command can produce multiple events.
-- A single event can feed multiple projections (multiple P columns to its right before the next C column).
+- A single event can feed multiple projections (multiple P columns to its right
+  before the next C column).
 - Different events from the same command can feed different projections.
 
 ### Formula Notation
@@ -62,11 +75,11 @@ Arranged on a timeline from left to right.
 
 ### Table Example
 
-|       | A                      | B                  | C                      | D                  | E                 |
-|-------|------------------------|--------------------|------------------------|--------------------|-------------------|
-| Row 1 | C: Create Restaurant   | P: Restaurant [A2] | C: Place Order         | P: Order [C2, C3]  | P: Payments [C3]  |
-| Row 2 | E: Restaurant Created  |                    | E: Order Placed        |                    |                   |
-| Row 3 |                        |                    | E: Payment Initiated   |                    |                   |
+|       | A                     | B                  | C                    | D                 | E                |
+| ----- | --------------------- | ------------------ | -------------------- | ----------------- | ---------------- |
+| Row 1 | C: Create Restaurant  | P: Restaurant [A2] | C: Place Order       | P: Order [C2, C3] | P: Payments [C3] |
+| Row 2 | E: Restaurant Created |                    | E: Order Placed      |                   |                  |
+| Row 3 |                       |                    | E: Payment Initiated |                   |                  |
 
 ### Formulas
 
@@ -94,7 +107,8 @@ Also render a Mermaid diagram from the formulas.
 
 #### Rendering Rules
 
-1. **Direction**: `flowchart TD` — top-down, commands at the top, events and projections below.
+1. **Direction**: `flowchart TD` — top-down, commands at the top, events and
+   projections below.
 2. **Node shapes** (color makes C/E/P labels unnecessary):
    - **Command** → rectangle: `A1[Create Restaurant]`
    - **Event** → rounded: `A2(Restaurant Created)`
@@ -102,8 +116,10 @@ Also render a Mermaid diagram from the formulas.
 3. **Edges follow natural direction**:
    - Each `->` formula becomes a Command `-->` Event edge.
    - Each `<-` formula becomes an Event `-->` Projection edge.
-4. **Repeated projections reuse the same node ID** (first occurrence), e.g. `B1` and `D1` both map to `B1` if `B1 = D1`.
-5. **Three horizontal subgraphs** with `direction LR`: `Commands` (top), `Events` (middle), `Projections` (bottom).
+4. **Repeated projections reuse the same node ID** (first occurrence), e.g. `B1`
+   and `D1` both map to `B1` if `B1 = D1`.
+5. **Three horizontal subgraphs** with `direction LR`: `Commands` (top),
+   `Events` (middle), `Projections` (bottom).
 6. **Timeline order**: Commands listed left-to-right following the domain flow.
 7. **Node colors**:
    - Commands: blue (`fill:#4A90D9,color:#fff`)
@@ -152,7 +168,9 @@ flowchart TD
 
 ### Output
 
-TypeScript source files following the DCB (Dynamic Consistency Boundary) pattern:
+TypeScript source files following the DCB (Dynamic Consistency Boundary)
+pattern:
+
 - `api.ts` — shared domain types (IDs, entities, commands, events, errors)
 - One `*Decider.ts` per command
 - One `*View.ts` per projection
@@ -165,14 +183,16 @@ TypeScript source files following the DCB (Dynamic Consistency Boundary) pattern
 
 From the table, generate:
 
-- **Branded type IDs**: One branded type per unique ID field found in events, using the `Brand` utility:
+- **Branded type IDs**: One branded type per unique ID field found in events,
+  using the `Brand` utility:
   ```typescript
   type Brand<T, B> = T & { readonly __brand: B };
   export type RestaurantId = Brand<string, "RestaurantId">;
   export const restaurantId = (id: string): RestaurantId => id as RestaurantId;
   ```
 
-- **Domain errors**: One `DomainError` base class and specific error subclasses derived from the `Then Error` lines in GWT specs:
+- **Domain errors**: One `DomainError` base class and specific error subclasses
+  derived from the `Then Error` lines in GWT specs:
   ```typescript
   export class DomainError extends Error {
     constructor(message: string) {
@@ -198,9 +218,10 @@ From the table, generate:
   };
   ```
 
-- **Event types**: Using `TypeSafeEventShape` from `denoKvRepository.ts` with `tagFields` for indexing:
+- **Event types**: Using `TypeSafeEventShape` from `denoKvEventRepository.ts`
+  with `tagFields` for indexing:
   ```typescript
-  import type { TypeSafeEventShape } from "../../denoKvRepository.ts";
+  import type { TypeSafeEventShape } from "../../denoKvEventRepository.ts";
 
   export type Event = RestaurantCreatedEvent | RestaurantMenuChangedEvent;
   export type RestaurantCreatedEvent = TypeSafeEventShape<
@@ -215,7 +236,8 @@ From the table, generate:
   >;
   ```
 
-- **Shared value types**: Simple type aliases and object types for domain values:
+- **Shared value types**: Simple type aliases and object types for domain
+  values:
   ```typescript
   export type RestaurantName = string;
   export type MenuItem = {
@@ -231,7 +253,7 @@ For each `->` formula (e.g. `A1 -> [A2]`):
 
 ```typescript
 import { DcbDecider } from "../../decider.ts";
-import { /* command type, event types, error classes */ } from "./api.ts";
+import {/* command type, event types, error classes */} from "./api.ts";
 
 // STATE — minimal state needed for the decide function's validation logic
 type DeciderState = {
@@ -241,10 +263,10 @@ type DeciderState = {
 
 // DECIDER — exported as a const
 export const myDecider: DcbDecider<
-  MyCommand,        // C  — command type
-  DeciderState,     // S  — state type
-  InputEvent,       // Ei — input event union (events needed to build state)
-  OutputEvent       // Eo — output event type (events this decider produces)
+  MyCommand, // C  — command type
+  DeciderState, // S  — state type
+  InputEvent, // Ei — input event union (events needed to build state)
+  OutputEvent // Eo — output event type (events this decider produces)
 > = new DcbDecider<MyCommand, DeciderState, InputEvent, OutputEvent>(
   (command, currentState) => {
     switch (command?.kind) {
@@ -268,31 +290,38 @@ export const myDecider: DcbDecider<
   (currentState, event) => {
     switch (event?.kind) {
       case "RelevantInputEvent":
-        return { /* evolved state */ };
+        return {/* evolved state */};
       default:
         return currentState;
     }
   },
-  { fieldA: null, fieldB: false },  // initial state
+  { fieldA: null, fieldB: false }, // initial state
 );
 ```
 
 **Determining Ei (input events):**
-- Find all events this decider needs to reconstruct state (from GWT `Given` lists)
+
+- Find all events this decider needs to reconstruct state (from GWT `Given`
+  lists)
 - If all given events are the same type as Eo → `Ei = Eo` (simplest case)
-- If given events include events from other deciders → create a union type `EventA | EventB | EventC`
+- If given events include events from other deciders → create a union type
+  `EventA | EventB | EventC`
 
 **Determining State:**
+
 - Derive from the error scenarios — each error implies a state check:
   - `AlreadyExists` → state tracks existence (`SomeId | null` or `boolean`)
   - `NotFound` → state tracks existence
   - `DuplicateDetection` → state tracks a `Set` or `boolean`
-  - `ValidationError` → state tracks the data being validated (e.g. `RestaurantMenu | null`)
+  - `ValidationError` → state tracks the data being validated (e.g.
+    `RestaurantMenu | null`)
 
 **Determining tagFields:**
+
 - Events declare which string ID fields should be indexed via `tagFields`
 - These correspond to the ID fields used in repository query tuples
-- Typically: entity-scoped events use `["entityId"]`, cross-entity events use `["entityId1", "entityId2"]`
+- Typically: entity-scoped events use `["entityId"]`, cross-entity events use
+  `["entityId1", "entityId2"]`
 
 #### 3. Projection files (one per unique projection name)
 
@@ -300,7 +329,7 @@ For each unique P name, collect all `<-` formulas across the timeline:
 
 ```typescript
 import { Projection } from "../../view.ts";
-import type { /* event types, value types */ } from "./api.ts";
+import type {/* event types, value types */} from "./api.ts";
 
 // VIEW — exported as a const
 export const myView: Projection<MyViewState | null, MyViewEvent> =
@@ -308,10 +337,10 @@ export const myView: Projection<MyViewState | null, MyViewEvent> =
     (currentState, event) => {
       switch (event.kind) {
         case "SomeEvent":
-          return { /* build state from event */ };
+          return {/* build state from event */};
         case "AnotherEvent":
           return currentState !== null
-            ? { /* update existing state */ }
+            ? {/* update existing state */}
             : currentState;
         default: {
           const _exhaustiveCheck: never = event;
@@ -319,7 +348,7 @@ export const myView: Projection<MyViewState | null, MyViewEvent> =
         }
       }
     },
-    null,  // initial state
+    null, // initial state
   );
 
 // Event union type for this view
@@ -333,6 +362,7 @@ export type MyViewState = {
 ```
 
 **Key patterns:**
+
 - Views use `Projection<S | null, E>` with `null` initial state
 - First event typically creates the state, subsequent events update it
 - Use exhaustive `switch` with `never` check in `default` branch
@@ -348,9 +378,9 @@ import { myDecider } from "./myDecider.ts";
 import {
   type MyCommand,
   myId,
-  MyNotFoundError,
   type MyMenu,
   myMenuId,
+  MyNotFoundError,
 } from "./api.ts";
 
 // Reusable test data
@@ -412,12 +442,12 @@ Deno.test("My View - Build State from Events", () => {
 
 #### 5. Naming Conventions
 
-| Artifact | File Name | Export Name |
-|---|---|---|
-| Decider | `camelCaseDecider.ts` | `camelCaseDecider` |
-| Decider test | `camelCaseDecider_test.ts` | — |
-| View/Projection | `camelCaseView.ts` | `camelCaseView` |
-| View test | `camelCaseView_test.ts` | — |
-| Shared types | `api.ts` | named exports |
-| View state type | in view file | `PascalCaseView` |
-| Decider state type | in decider file | `PascalCaseState` (not exported) |
+| Artifact           | File Name                  | Export Name                      |
+| ------------------ | -------------------------- | -------------------------------- |
+| Decider            | `camelCaseDecider.ts`      | `camelCaseDecider`               |
+| Decider test       | `camelCaseDecider_test.ts` | —                                |
+| View/Projection    | `camelCaseView.ts`         | `camelCaseView`                  |
+| View test          | `camelCaseView_test.ts`    | —                                |
+| Shared types       | `api.ts`                   | named exports                    |
+| View state type    | in view file               | `PascalCaseView`                 |
+| Decider state type | in decider file            | `PascalCaseState` (not exported) |

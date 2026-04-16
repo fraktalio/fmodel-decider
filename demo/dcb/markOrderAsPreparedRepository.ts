@@ -8,7 +8,7 @@
  * and whether it has already been prepared.
  */
 
-import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
+import { DenoKvEventRepository } from "../../denoKvEventRepository.ts";
 import type {
   MarkOrderAsPreparedCommand,
   OrderPreparedEvent,
@@ -38,12 +38,12 @@ import type {
  */
 export const markOrderAsPreparedRepository = (
   kv: Deno.Kv,
-): DenoKvEventSourcedRepository<
+): DenoKvEventRepository<
   MarkOrderAsPreparedCommand,
   RestaurantOrderPlacedEvent | OrderPreparedEvent,
   OrderPreparedEvent
 > =>
-  new DenoKvEventSourcedRepository<
+  new DenoKvEventRepository<
     MarkOrderAsPreparedCommand,
     RestaurantOrderPlacedEvent | OrderPreparedEvent,
     OrderPreparedEvent

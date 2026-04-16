@@ -14,7 +14,7 @@ import { EventSourcedCommandHandler } from "../../application.ts";
 import { markOrderAsPreparedRepository } from "./markOrderAsPreparedRepository.ts";
 import { placeOrderRepository } from "./placeOrderRepository.ts";
 import { createRestaurantRepository } from "./createRestaurantRepository.ts";
-import type { EventMetadata } from "../../denoKvRepository.ts";
+import type { EventMetadata } from "../../denoKvEventRepository.ts";
 import { markOrderAsPreparedDecider } from "./markOrderAsPreparedDecider.ts";
 import { placeOrderDecider } from "./placeOrderDecider.ts";
 import { createRestaurantDecider } from "./createRestaurantDecider.ts";

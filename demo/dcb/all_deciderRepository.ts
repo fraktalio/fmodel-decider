@@ -55,9 +55,9 @@
  */
 
 import {
-  DenoKvEventSourcedRepository,
+  DenoKvEventRepository,
   type EventMetadata,
-} from "../../denoKvRepository.ts";
+} from "../../denoKvEventRepository.ts";
 import { all_domain_decider } from "./all_decider.ts";
 import type { Command, Event } from "./api.ts";
 
@@ -76,7 +76,7 @@ import type { Command, Event } from "./api.ts";
  * Choose based on your domain size and performance requirements.
  */
 export class AllDeciderRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+  private readonly repository: DenoKvEventRepository<
     Command,
     Event,
     Event
@@ -88,7 +88,7 @@ export class AllDeciderRepository {
    * @param kv - Deno KV instance for storage
    */
   constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
+    this.repository = new DenoKvEventRepository(
       kv,
       (cmd) => {
         // Determine which events to load based on command type

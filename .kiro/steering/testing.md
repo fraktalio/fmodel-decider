@@ -2,11 +2,15 @@
 
 ## Overview
 
-The Given-When-Then DSL is the **executable specification format** for fmodel-decider. It's not just testing - it's specification by example that serves as living documentation, formal requirements, and verification all in one.
+The Given-When-Then DSL is the **executable specification format** for
+fmodel-decider. It's not just testing - it's specification by example that
+serves as living documentation, formal requirements, and verification all in
+one.
 
 ## Philosophy
 
 **Tests are specifications.** Each test formally specifies:
+
 - What the system should do (happy paths)
 - What the system should reject (error cases)
 - How state evolves over time (event sequences)
@@ -16,21 +20,25 @@ The Given-When-Then DSL is the **executable specification format** for fmodel-de
 
 ### 1. Event-Sourced Decider Specification
 
-**Purpose:** Specify behavior of deciders that compute new events from event history and commands.
+**Purpose:** Specify behavior of deciders that compute new events from event
+history and commands.
 
 **Compatible with:**
+
 - `IDcbDecider<C, S, Ei, Eo>` - Dynamic consistency boundaries
 - `IAggregateDecider<C, S, E>` - Traditional aggregates (event-sourced mode)
 
 **Format:**
+
 ```typescript
 DeciderEventSourcedSpec.for(decider)
-  .given([events])      // Event history (past)
-  .when(command)        // Command (intent)
-  .then([events]);      // New events (outcome)
+  .given([events]) // Event history (past)
+  .when(command) // Command (intent)
+  .then([events]); // New events (outcome)
 ```
 
 **Example:**
+
 ```typescript
 Deno.test("Place Order - Success", () => {
   DeciderEventSourcedSpec.for(placeOrderDecider)
@@ -62,26 +70,31 @@ Deno.test("Place Order - Success", () => {
 ```
 
 **Semantics:**
+
 - `given`: Establishes the event history that forms current state
 - `when`: Represents user intent or external trigger
 - `then`: Specifies which events should be produced
 
 ### 2. State-Stored Decider Specification
 
-**Purpose:** Specify behavior of aggregates that compute new state directly from current state and commands.
+**Purpose:** Specify behavior of aggregates that compute new state directly from
+current state and commands.
 
 **Compatible with:**
+
 - `IAggregateDecider<C, S, E>` only (state-stored mode)
 
 **Format:**
+
 ```typescript
 DeciderStateStoredSpec.for(decider)
-  .given(state)         // Current state
-  .when(command)        // Command (intent)
-  .then(state);         // New state (outcome)
+  .given(state) // Current state
+  .when(command) // Command (intent)
+  .then(state); // New state (outcome)
 ```
 
 **Example:**
+
 ```typescript
 Deno.test("Ship Order - Success", () => {
   DeciderStateStoredSpec.for(orderDecider)
@@ -103,6 +116,7 @@ Deno.test("Ship Order - Success", () => {
 ```
 
 **Semantics:**
+
 - `given`: Current aggregate state
 - `when`: Command to process
 - `then`: Expected state after processing
@@ -112,16 +126,19 @@ Deno.test("Ship Order - Success", () => {
 **Purpose:** Specify how views build state from event streams.
 
 **Compatible with:**
+
 - `IProjection<S, E>` - Event-sourced projections
 
 **Format:**
+
 ```typescript
 ViewSpecification.for(view)
-  .given([events])      // Event stream
-  .then(state);         // Projected state
+  .given([events]) // Event stream
+  .then(state); // Projected state
 ```
 
 **Example:**
+
 ```typescript
 Deno.test("Restaurant View - Build State from Events", () => {
   ViewSpecification.for(restaurantView)
@@ -141,12 +158,13 @@ Deno.test("Restaurant View - Build State from Events", () => {
     .then({
       restaurantId: "restaurant-1",
       name: "Italian Bistro",
-      menu: newMenu,  // Latest menu
+      menu: newMenu, // Latest menu
     });
 });
 ```
 
 **Semantics:**
+
 - `given`: Event stream to process in order
 - `then`: Expected view state after processing all events
 
@@ -159,7 +177,7 @@ All three formats support error specifications using `thenThrows`:
 ```typescript
 Deno.test("Place Order - Restaurant Not Found", () => {
   DeciderEventSourcedSpec.for(placeOrderDecider)
-    .given([])  // No events = restaurant doesn't exist
+    .given([]) // No events = restaurant doesn't exist
     .when({
       kind: "PlaceOrderCommand",
       restaurantId: "restaurant-1",
@@ -173,9 +191,9 @@ Deno.test("Place Order - Order Already Exists", () => {
   DeciderEventSourcedSpec.for(placeOrderDecider)
     .given([
       restaurantCreatedEvent,
-      restaurantOrderPlacedEvent,  // Order already exists
+      restaurantOrderPlacedEvent, // Order already exists
     ])
-    .when(placeOrderCommand)  // Try to place same order
+    .when(placeOrderCommand) // Try to place same order
     .thenThrows((error) => error instanceof OrderAlreadyExistsError);
 });
 
@@ -272,13 +290,13 @@ placeOrderDecider_test.ts
 
 ```typescript
 // Happy path tests
-Deno.test("Place Order - Success", () => { /* ... */ });
-Deno.test("Place Order - After Menu Change", () => { /* ... */ });
+Deno.test("Place Order - Success", () => {/* ... */});
+Deno.test("Place Order - After Menu Change", () => {/* ... */});
 
 // Error case tests
-Deno.test("Place Order - Restaurant Not Found", () => { /* ... */ });
-Deno.test("Place Order - Order Already Exists", () => { /* ... */ });
-Deno.test("Place Order - Invalid Menu Items", () => { /* ... */ });
+Deno.test("Place Order - Restaurant Not Found", () => {/* ... */});
+Deno.test("Place Order - Order Already Exists", () => {/* ... */});
+Deno.test("Place Order - Invalid Menu Items", () => {/* ... */});
 ```
 
 ### Pattern 3: Test Data Setup
@@ -312,6 +330,7 @@ Deno.test("Place Order - Success", () => {
 ### 1. Executable Documentation
 
 Specifications are always up-to-date:
+
 - Tests run on every change
 - Failing tests indicate outdated documentation
 - Examples show actual usage
@@ -319,6 +338,7 @@ Specifications are always up-to-date:
 ### 2. Specification by Example
 
 Concrete examples clarify abstract requirements:
+
 - "Given a restaurant exists" is clearer than "restaurant must be valid"
 - "Then RestaurantNotFoundError" is clearer than "validation required"
 - Edge cases explicitly documented
@@ -326,6 +346,7 @@ Concrete examples clarify abstract requirements:
 ### 3. Living Requirements
 
 Business rules encoded as tests:
+
 - Stakeholders can read specifications
 - Requirements and implementation stay in sync
 - Changes to requirements immediately visible in tests
@@ -333,6 +354,7 @@ Business rules encoded as tests:
 ### 4. AI-Friendly Format
 
 Clear input/output examples guide AI:
+
 - AI can generate implementations from specifications
 - Type system constrains AI to valid implementations
 - Specifications reduce hallucinations
@@ -340,6 +362,7 @@ Clear input/output examples guide AI:
 ### 5. Refactoring Safety
 
 Specifications remain stable:
+
 - Refactor implementation without changing tests
 - Breaking changes immediately visible
 - Regression prevention
@@ -347,6 +370,7 @@ Specifications remain stable:
 ### 6. Progressive Refinement
 
 Add specifications incrementally:
+
 - Start with happy path
 - Add error cases
 - Add edge cases
@@ -357,6 +381,7 @@ Add specifications incrementally:
 ### 1. Write Specifications First
 
 Define behavior before implementation:
+
 ```typescript
 // ✅ Good: Specification first
 Deno.test("Place Order - Success", () => {
@@ -372,10 +397,11 @@ Deno.test("Place Order - Success", () => {
 ### 2. One Assertion Per Test
 
 Keep tests focused:
+
 ```typescript
 // ✅ Good: Single concern
-Deno.test("Place Order - Success", () => { /* ... */ });
-Deno.test("Place Order - Restaurant Not Found", () => { /* ... */ });
+Deno.test("Place Order - Success", () => {/* ... */});
+Deno.test("Place Order - Restaurant Not Found", () => {/* ... */});
 
 // ❌ Bad: Multiple concerns
 Deno.test("Place Order - All Cases", () => {
@@ -388,26 +414,28 @@ Deno.test("Place Order - All Cases", () => {
 ### 3. Descriptive Test Names
 
 Test names should read like specifications:
+
 ```typescript
 // ✅ Good: Clear intent
-Deno.test("Place Order - Success", () => { /* ... */ });
-Deno.test("Place Order - Restaurant Not Found", () => { /* ... */ });
-Deno.test("Place Order - Order Already Exists", () => { /* ... */ });
+Deno.test("Place Order - Success", () => {/* ... */});
+Deno.test("Place Order - Restaurant Not Found", () => {/* ... */});
+Deno.test("Place Order - Order Already Exists", () => {/* ... */});
 
 // ❌ Bad: Unclear intent
-Deno.test("test1", () => { /* ... */ });
-Deno.test("placeOrder", () => { /* ... */ });
+Deno.test("test1", () => {/* ... */});
+Deno.test("placeOrder", () => {/* ... */});
 ```
 
 ### 4. Arrange-Act-Assert Pattern
 
 Structure tests clearly:
+
 ```typescript
 Deno.test("Place Order - Success", () => {
   // Arrange: Set up test data
   const command = createPlaceOrderCommand();
   const events = [createRestaurantEvent()];
-  
+
   // Act & Assert: Use DSL
   DeciderEventSourcedSpec.for(placeOrderDecider)
     .given(events)
@@ -419,6 +447,7 @@ Deno.test("Place Order - Success", () => {
 ### 5. Test Error Cases Explicitly
 
 Don't just test happy paths:
+
 ```typescript
 // ✅ Good: Explicit error testing
 Deno.test("Place Order - Restaurant Not Found", () => {
@@ -432,6 +461,7 @@ Deno.test("Place Order - Restaurant Not Found", () => {
 ### 6. Use Type-Safe Test Data
 
 Leverage TypeScript for test data:
+
 ```typescript
 // ✅ Good: Type-safe test data
 const testMenu: RestaurantMenu = {
@@ -444,7 +474,7 @@ const testMenu: RestaurantMenu = {
 
 // ❌ Bad: Untyped test data
 const testMenu = {
-  menuId: "menu-1",  // No type safety
+  menuId: "menu-1", // No type safety
   cuisine: "ITALIAN",
   menuItems: [/* ... */],
 };
@@ -488,8 +518,10 @@ deno test --coverage
 
 The Given-When-Then DSL transforms testing from verification to specification:
 
-- **Tests are specifications** - Formal requirements encoded as executable examples
-- **Specifications guide implementation** - Write tests first, implement to satisfy
+- **Tests are specifications** - Formal requirements encoded as executable
+  examples
+- **Specifications guide implementation** - Write tests first, implement to
+  satisfy
 - **Living documentation** - Always up-to-date, never stale
 - **AI-friendly** - Clear examples guide AI code generation
 - **Type-safe** - Compile-time verification of specifications

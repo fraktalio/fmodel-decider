@@ -5,7 +5,7 @@
  * to Deno KV storage with optimistic locking.
  */
 
-import { DenoKvEventSourcedRepository } from "../../denoKvRepository.ts";
+import { DenoKvEventRepository } from "../../denoKvEventRepository.ts";
 import type { OrderCommand, OrderEvent } from "./api.ts";
 
 /**
@@ -26,12 +26,12 @@ import type { OrderCommand, OrderEvent } from "./api.ts";
  * const events = await repository.execute(command, orderDecider);
  * ```
  */
-export const orderRepository = (kv: Deno.Kv): DenoKvEventSourcedRepository<
+export const orderRepository = (kv: Deno.Kv): DenoKvEventRepository<
   OrderCommand,
   OrderEvent,
   OrderEvent
 > =>
-  new DenoKvEventSourcedRepository<
+  new DenoKvEventRepository<
     OrderCommand,
     OrderEvent,
     OrderEvent

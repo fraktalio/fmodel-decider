@@ -7,14 +7,14 @@
  */
 
 import type { EventShape, IEventLoader, QueryTuple } from "./application.ts";
-import type { Tag } from "./denoKvRepository.ts";
+import type { Tag } from "./denoKvEventRepository.ts";
 
 /**
  * Deno KV implementation of `IEventLoader`.
  *
  * @remarks
  * Loads events from Deno KV using the same two-index storage layout as
- * `DenoKvEventSourcedRepository`: primary storage at `["events", eventId]`
+ * `DenoKvEventRepository`: primary storage at `["events", eventId]`
  * and tag indexes at `["events_by_type", eventType, ...tags, eventId]`.
  *
  * Supports two loading modes:

@@ -65,9 +65,9 @@
  */
 
 import {
-  DenoKvEventSourcedRepository,
+  DenoKvEventRepository,
   type EventMetadata,
-} from "../../denoKvRepository.ts";
+} from "../../denoKvEventRepository.ts";
 import { all_domain_decider } from "./all_decider.ts";
 import type { Command, Event } from "./api.ts";
 
@@ -84,7 +84,7 @@ import type { Command, Event } from "./api.ts";
  * It must handle all aggregate types since this is a unified repository.
  */
 export class AllDeciderRepository {
-  private readonly repository: DenoKvEventSourcedRepository<
+  private readonly repository: DenoKvEventRepository<
     Command,
     Event,
     Event
@@ -96,7 +96,7 @@ export class AllDeciderRepository {
    * @param kv - Deno KV instance for storage
    */
   constructor(kv: Deno.Kv) {
-    this.repository = new DenoKvEventSourcedRepository(
+    this.repository = new DenoKvEventRepository(
       kv,
       (cmd) => {
         // Route query pattern based on aggregate type

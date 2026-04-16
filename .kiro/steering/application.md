@@ -2,68 +2,82 @@
 
 ## Overview
 
-The application layer bridges pure domain logic (deciders, views, processes) with infrastructure concerns (databases, event stores). Its primary role is to coordinate execution while introducing metadata at the boundary without polluting the core domain model.
+The application layer bridges pure domain logic (deciders, views, processes)
+with infrastructure concerns (databases, event stores). Its primary role is to
+coordinate execution while introducing metadata at the boundary without
+polluting the core domain model.
 
 ## Key Design Principle: Metadata Isolation
 
 **Domain layer** remains pure and metadata-free:
+
 ```typescript
 // Pure business logic - no metadata
-const orderDecider: IDcbDecider<OrderCommand, OrderState, OrderEvent, OrderEvent>;
+const orderDecider: IDcbDecider<
+  OrderCommand,
+  OrderState,
+  OrderEvent,
+  OrderEvent
+>;
 ```
 
 **Application layer** introduces metadata at the boundary:
+
 ```typescript
 // Metadata added here
 const handler: EventSourcedCommandHandler<
   OrderCommand,
   OrderEvent,
   OrderEvent,
-  CommandMetadata,  // ← Metadata introduced
-  EventMetadata     // ← Metadata introduced
+  CommandMetadata, // ← Metadata introduced
+  EventMetadata // ← Metadata introduced
 >;
 ```
 
 ## Repository Interfaces
 
 ### Event-Sourced Repository
+
 ```typescript
 interface IEventRepository<C, Ei, Eo, CM, EM> {
   execute(
-    command: C & CM,                    // Command + metadata
-    decider: IEventComputation<C, Ei, Eo>  // Pure computation
-  ): Promise<readonly (Eo & EM)[]>;    // Events + metadata
+    command: C & CM, // Command + metadata
+    decider: IEventComputation<C, Ei, Eo>, // Pure computation
+  ): Promise<readonly (Eo & EM)[]>; // Events + metadata
 }
 ```
 
 ### State-Stored Repository
+
 ```typescript
 interface IStateRepository<C, S, CM, SM> {
   execute(
-    command: C & CM,                    // Command + metadata
-    decider: IStateComputation<C, S>    // Pure computation
-  ): Promise<S & SM>;                  // State + metadata
+    command: C & CM, // Command + metadata
+    decider: IStateComputation<C, S>, // Pure computation
+  ): Promise<S & SM>; // State + metadata
 }
 ```
 
 ### View State Repository
+
 ```typescript
 interface IViewStateRepository<E, S, EM, SM> {
   execute(
-    event: E & EM,                      // Event + metadata
-    view: IProjection<S, E>             // Pure projection
-  ): Promise<S & SM>;                  // State + metadata
+    event: E & EM, // Event + metadata
+    view: IProjection<S, E>, // Pure projection
+  ): Promise<S & SM>; // State + metadata
 }
 ```
 
 ## Command Handlers (Bridge Pattern)
 
 ### Event-Sourced Command Handler
+
 ```typescript
 class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
   constructor(
     private readonly decider: IEventComputation<C, Ei, Eo>,
-    private readonly eventRepository: IEventRepository<C, Ei, Eo, CM, EM>
+    private readonly eventRepository: IEventRepository<C, Ei, Eo, CM, EM>,
   ) {}
 
   handle(command: C & CM): Promise<readonly (Eo & EM)[]> {
@@ -77,15 +91,17 @@ class EventSourcedCommandHandler<C, Ei, Eo, CM, EM> {
 ```
 
 **Compatible with:**
+
 - `IDcbDecider<C, S, Ei, Eo>` - Dynamic consistency boundaries
 - `IAggregateDecider<C, S, E>` - Traditional aggregates
 
 ### State-Stored Command Handler
+
 ```typescript
 class StateStoredCommandHandler<C, S, CM, SM> {
   constructor(
     private readonly decider: IStateComputation<C, S>,
-    private readonly stateRepository: IStateRepository<C, S, CM, SM>
+    private readonly stateRepository: IStateRepository<C, S, CM, SM>,
   ) {}
 
   handle(command: C & CM): Promise<S & SM> {
@@ -99,7 +115,9 @@ class StateStoredCommandHandler<C, S, CM, SM> {
 ```
 
 **Compatible with:**
-- `IAggregateDecider<C, S, E>` only (the only built-in StateComputation implementation)
+
+- `IAggregateDecider<C, S, E>` only (the only built-in StateComputation
+  implementation)
 
 ## Event Handlers (Read-Side Bridge)
 
@@ -107,7 +125,7 @@ class StateStoredCommandHandler<C, S, CM, SM> {
 class EventHandler<E, S, EM, SM> {
   constructor(
     private readonly view: IProjection<S, E>,
-    private readonly viewStateRepository: IViewStateRepository<E, S, EM, SM>
+    private readonly viewStateRepository: IViewStateRepository<E, S, EM, SM>,
   ) {}
 
   handle(event: E & EM): Promise<S & SM> {
@@ -125,11 +143,13 @@ class EventHandler<E, S, EM, SM> {
 ### Architecture
 
 **Primary Storage:**
+
 ```
 ["events", eventId] → full event data
 ```
 
 **Secondary Tag Indexes:**
+
 ```
 ["events_by_type", eventType, ...tags, eventId] → eventId (pointer)
 ```
@@ -171,20 +191,21 @@ export type RestaurantCreatedEvent = TypeSafeEventShape<
     readonly restaurantId: string;
     readonly name: string;
   },
-  ["restaurantId"]  // ← Only string fields can be tags
+  ["restaurantId"] // ← Only string fields can be tags
 >;
 ```
 
 ### Tag Subset Generation
 
-Repository automatically generates all tag subset combinations (2^n - 1 indexes per event):
+Repository automatically generates all tag subset combinations (2^n - 1 indexes
+per event):
 
-| Tag Fields | Index Entries | Formula |
-|------------|---------------|---------|
-| 1          | 1             | 2^1 - 1 |
-| 2          | 3             | 2^2 - 1 |
-| 3          | 7             | 2^3 - 1 |
-| 4          | 15            | 2^4 - 1 |
+| Tag Fields | Index Entries | Formula               |
+| ---------- | ------------- | --------------------- |
+| 1          | 1             | 2^1 - 1               |
+| 2          | 3             | 2^2 - 1               |
+| 3          | 7             | 2^3 - 1               |
+| 4          | 15            | 2^4 - 1               |
 | 5          | 31            | 2^5 - 1 (default max) |
 
 **Trade-off:** Write amplification for O(1) query performance
@@ -199,17 +220,19 @@ Repository automatically generates all tag subset combinations (2^n - 1 indexes 
 
 ```typescript
 export const placeOrderRepository = (kv: Deno.Kv) =>
-  new DenoKvEventSourcedRepository<
+  new DenoKvEventRepository<
     PlaceOrderCommand,
-    RestaurantCreatedEvent | RestaurantMenuChangedEvent | RestaurantOrderPlacedEvent,
+    | RestaurantCreatedEvent
+    | RestaurantMenuChangedEvent
+    | RestaurantOrderPlacedEvent,
     RestaurantOrderPlacedEvent
   >(
     kv,
     (cmd) => [
       ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
       ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
-      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"]
-    ]
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+    ],
   );
 ```
 
@@ -228,6 +251,7 @@ await placeOrderRepo.execute(placeOrderCommand);
 ```
 
 **Benefits:**
+
 - ✅ Only relevant decider processes each command
 - ✅ Simple, focused query patterns per use case
 - ✅ Explicit use case boundaries
@@ -236,6 +260,7 @@ await placeOrderRepo.execute(placeOrderCommand);
 - ✅ Better team organization - teams can own specific slices
 
 **Trade-offs:**
+
 - ⚠️ More repository instances to manage
 
 ### Combined Approach
@@ -250,23 +275,30 @@ await repository.execute(placeOrderCommand);
 ```
 
 **Benefits:**
+
 - ✅ Simpler application code (one repository instance)
 - ✅ Works due to graceful null handling in deciders
 
 **Trade-offs:**
+
 - ⚠️ All deciders process every command (more computation)
 - ⚠️ Complex query pattern must handle all use cases in a single place
 
 **When to use:**
+
 - Small domains or prototyping
 - All use cases are tightly coupled
 - Small teams
 
 ## Why This Design Matters
 
-1. **Separation of concerns:** Domain logic stays pure, infrastructure stays isolated
+1. **Separation of concerns:** Domain logic stays pure, infrastructure stays
+   isolated
 2. **Testability:** Test domain logic without infrastructure dependencies
-3. **Flexibility:** Swap infrastructure implementations without changing domain code
-4. **Metadata management:** Correlation IDs, timestamps, versions added at the boundary
+3. **Flexibility:** Swap infrastructure implementations without changing domain
+   code
+4. **Metadata management:** Correlation IDs, timestamps, versions added at the
+   boundary
 5. **Type safety:** Compile-time guarantees for command/event/state types
-6. **Framework-like capabilities:** Complete infrastructure with minimal boilerplate
+6. **Framework-like capabilities:** Complete infrastructure with minimal
+   boilerplate

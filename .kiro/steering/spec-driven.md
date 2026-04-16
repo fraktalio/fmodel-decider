@@ -2,16 +2,24 @@
 
 ## Overview
 
-fmodel-decider provides a **formal specification encoded into the type system** that serves as a foundation for spec-driven development. The library's type hierarchy and interfaces act as executable specifications that guide implementation while maintaining correctness guarantees.
+fmodel-decider provides a **formal specification encoded into the type system**
+that serves as a foundation for spec-driven development. The library's type
+hierarchy and interfaces act as executable specifications that guide
+implementation while maintaining correctness guarantees.
 
 ## From Vibing to Viable
 
-The library enables a progression from informal specifications to production-ready implementations:
+The library enables a progression from informal specifications to
+production-ready implementations:
 
-1. **Formal Foundation**: Type system encodes domain modeling patterns as executable specifications
-2. **Informal Layer**: Add human-readable specs, documentation, and business rules on top
-3. **AI-Assisted Development**: Formal types guide AI tools to generate correct implementations
-4. **Progressive Refinement**: Start general, add constraints incrementally as requirements clarify
+1. **Formal Foundation**: Type system encodes domain modeling patterns as
+   executable specifications
+2. **Informal Layer**: Add human-readable specs, documentation, and business
+   rules on top
+3. **AI-Assisted Development**: Formal types guide AI tools to generate correct
+   implementations
+4. **Progressive Refinement**: Start general, add constraints incrementally as
+   requirements clarify
 
 ## Type System as Formal Specification
 
@@ -30,6 +38,7 @@ interface StateComputation<C, S> {
 ```
 
 These interfaces are **executable specifications** that:
+
 - Define computation modes at the type level
 - Enforce purity (no side effects in signatures)
 - Enable compile-time verification of correctness
@@ -59,6 +68,7 @@ interface IAggregateDecider<C, S, E> extends IDcbDecider<C, S, E, E> {
 ```
 
 Each refinement level is a **formal specification** that:
+
 - Adds semantic constraints
 - Eliminates invalid states
 - Provides stronger guarantees
@@ -68,7 +78,8 @@ Each refinement level is a **formal specification** that:
 
 ### The DSL as Formal Specification Language
 
-The Given-When-Then DSL is **not just testing** - it's a formal specification language that:
+The Given-When-Then DSL is **not just testing** - it's a formal specification
+language that:
 
 - **Documents behavior** through executable examples
 - **Verifies correctness** at compile-time (types) and runtime (assertions)
@@ -83,20 +94,22 @@ For `IDcbDecider` and `IAggregateDecider` (event-sourced mode):
 
 ```typescript
 DeciderEventSourcedSpec.for(placeOrderDecider)
-  .given([                              // Past events (event history)
+  .given([ // Past events (event history)
     restaurantCreatedEvent,
-    restaurantMenuChangedEvent
+    restaurantMenuChangedEvent,
   ])
-  .when(placeOrderCommand)              // Command to process
-  .then([restaurantOrderPlacedEvent]);  // Expected new events
+  .when(placeOrderCommand) // Command to process
+  .then([restaurantOrderPlacedEvent]); // Expected new events
 ```
 
 **Specification semantics:**
+
 - `given`: Event history that establishes current state
 - `when`: Command representing user intent
 - `then`: New events that should be produced
 
 **Use for:**
+
 - DCB deciders (dynamic consistency boundaries)
 - Aggregate deciders in event-sourced mode
 - Any decider implementing `EventComputation`
@@ -113,11 +126,13 @@ DeciderStateStoredSpec.for(orderDecider)
 ```
 
 **Specification semantics:**
+
 - `given`: Current aggregate state
 - `when`: Command representing user intent
 - `then`: Expected state after command processing
 
 **Use for:**
+
 - Aggregate deciders in state-stored mode
 - Traditional DDD aggregates
 - Any decider implementing `StateComputation`
@@ -128,19 +143,21 @@ For `IProjection` (event-sourced views):
 
 ```typescript
 ViewSpecification.for(restaurantView)
-  .given([                              // Event stream
+  .given([ // Event stream
     restaurantCreatedEvent,
     menuChangedEvent,
-    orderPlacedEvent
+    orderPlacedEvent,
   ])
-  .then(expectedRestaurantState);       // Expected projected state
+  .then(expectedRestaurantState); // Expected projected state
 ```
 
 **Specification semantics:**
+
 - `given`: Event stream to process
 - `then`: Expected view state after processing all events
 
 **Use for:**
+
 - Read models
 - Query models
 - Event-sourced projections
@@ -152,7 +169,7 @@ All three formats support error specifications using `thenThrows`:
 ```typescript
 // Specify that command should fail
 DeciderEventSourcedSpec.for(placeOrderDecider)
-  .given([])  // No restaurant exists
+  .given([]) // No restaurant exists
   .when(placeOrderCommand)
   .thenThrows((error) => error instanceof RestaurantNotFoundError);
 
@@ -183,9 +200,13 @@ Deno.test("Place Order - Success", () => {
 **2. Specifications as requirements:**
 
 Each test is a formal requirement:
-- ✅ "Given a restaurant exists, when placing an order, then order placed event is produced"
-- ✅ "Given no restaurant exists, when placing an order, then RestaurantNotFoundError is thrown"
-- ✅ "Given invalid menu items, when placing an order, then MenuItemsNotAvailableError is thrown"
+
+- ✅ "Given a restaurant exists, when placing an order, then order placed event
+  is produced"
+- ✅ "Given no restaurant exists, when placing an order, then
+  RestaurantNotFoundError is thrown"
+- ✅ "Given invalid menu items, when placing an order, then
+  MenuItemsNotAvailableError is thrown"
 
 **3. Specifications guide AI implementation:**
 
@@ -250,7 +271,7 @@ Deno.test("Place Order - Success", () => {
 
 Deno.test("Place Order - Restaurant Not Found", () => {
   DeciderEventSourcedSpec.for(placeOrderDecider)
-    .given([])  // No events = restaurant doesn't exist
+    .given([]) // No events = restaurant doesn't exist
     .when(placeOrderCommand)
     .thenThrows((error) => error instanceof RestaurantNotFoundError);
 });
@@ -259,9 +280,9 @@ Deno.test("Place Order - Order Already Exists", () => {
   DeciderEventSourcedSpec.for(placeOrderDecider)
     .given([
       restaurantCreatedEvent,
-      restaurantOrderPlacedEvent,  // Order already placed
+      restaurantOrderPlacedEvent, // Order already placed
     ])
-    .when(placeOrderCommand)  // Try to place same order again
+    .when(placeOrderCommand) // Try to place same order again
     .thenThrows((error) => error instanceof OrderAlreadyExistsError);
 });
 
@@ -303,26 +324,31 @@ const placeOrderDecider: IDcbDecider<
 ### Benefits of Given-When-Then Specifications
 
 **1. Executable Documentation**
+
 - Specifications never go stale
 - Always reflect actual behavior
 - Self-documenting through examples
 
 **2. Specification by Example**
+
 - Concrete examples clarify abstract requirements
 - Edge cases explicitly documented
 - Error conditions formally specified
 
 **3. AI-Friendly Format**
+
 - Clear input/output examples
 - Explicit error conditions
 - Type-safe specifications
 
 **4. Refactoring Safety**
+
 - Specifications remain stable during refactoring
 - Breaking changes immediately visible
 - Regression prevention
 
 **5. Living Requirements**
+
 - Business rules encoded as tests
 - Stakeholders can read specifications
 - Requirements and implementation stay in sync
@@ -333,7 +359,7 @@ Define your domain using the library's type hierarchy:
 
 ```typescript
 // Formal spec: Commands
-type OrderCommand = 
+type OrderCommand =
   | PlaceOrderCommand
   | MarkOrderAsPreparedCommand;
 
@@ -385,12 +411,14 @@ const placeOrderDecider: IDcbDecider<
 ### 3. AI-Assisted Implementation
 
 The formal type specification guides AI tools to:
+
 - Generate type-correct implementations
 - Respect consistency boundaries
 - Follow computation patterns
 - Maintain purity guarantees
 
 Example AI prompt:
+
 ```
 Implement a placeOrderDecider that satisfies IDcbDecider<
   PlaceOrderCommand,
@@ -414,14 +442,14 @@ The type system provides compile-time verification:
 ```typescript
 // ✅ Type-safe: Compiler verifies this is valid
 const handler = new EventSourcedCommandHandler(
-  placeOrderDecider,  // IDcbDecider (implements EventComputation)
-  repository          // IEventRepository
+  placeOrderDecider, // IDcbDecider (implements EventComputation)
+  repository, // IEventRepository
 );
 
 // ❌ Type error: StateStoredCommandHandler requires StateComputation
 const invalidHandler = new StateStoredCommandHandler(
-  placeOrderDecider,  // IDcbDecider doesn't implement StateComputation
-  stateRepository
+  placeOrderDecider, // IDcbDecider doesn't implement StateComputation
+  stateRepository,
 );
 ```
 
@@ -430,6 +458,7 @@ const invalidHandler = new StateStoredCommandHandler(
 ### 1. Constrained Generation Space
 
 Formal types reduce the space of possible implementations:
+
 - AI can't generate invalid state transitions
 - Type system catches errors before runtime
 - Fewer hallucinations due to clear contracts
@@ -452,6 +481,7 @@ const allDecider = createRestaurantDecider
 ### 3. Refactoring Safety
 
 Type system enables safe refactoring:
+
 - Change consistency boundaries → compiler shows impact
 - Modify event types → all consumers must update
 - Refine types → invalid code won't compile
@@ -463,17 +493,17 @@ Types serve as always-up-to-date documentation:
 ```typescript
 // Self-documenting: Types tell the story
 export const placeOrderRepository = (kv: Deno.Kv) =>
-  new DenoKvEventSourcedRepository<
-    PlaceOrderCommand,           // What commands?
+  new DenoKvEventRepository<
+    PlaceOrderCommand, // What commands?
     RestaurantEvent | OrderEvent, // What events to load?
-    RestaurantOrderPlacedEvent   // What events to produce?
+    RestaurantOrderPlacedEvent // What events to produce?
   >(
     kv,
-    (cmd) => [                   // How to query?
+    (cmd) => [ // How to query?
       ["restaurantId:" + cmd.restaurantId, "RestaurantCreatedEvent"],
       ["restaurantId:" + cmd.restaurantId, "RestaurantMenuChangedEvent"],
-      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"]
-    ]
+      ["orderId:" + cmd.orderId, "RestaurantOrderPlacedEvent"],
+    ],
   );
 ```
 
@@ -487,21 +517,26 @@ Use Kiro's spec feature to layer informal specifications:
 # Place Order Feature
 
 ## Formal Specification
-- Decider: `IDcbDecider<PlaceOrderCommand, PlaceOrderState, RestaurantEvent | OrderEvent, RestaurantOrderPlacedEvent>`
+
+- Decider:
+  `IDcbDecider<PlaceOrderCommand, PlaceOrderState, RestaurantEvent | OrderEvent, RestaurantOrderPlacedEvent>`
 - Repository: Event-sourced with tuple-based queries
 - Handler: `EventSourcedCommandHandler`
 
 ## Business Requirements
+
 1. Customer can place order at active restaurant
 2. All menu items must be currently available
 3. Order total calculated from menu prices
 4. Order ID must be globally unique
 
 ## Consistency Boundary
+
 - **Reads**: Restaurant (created, menu changed)
 - **Writes**: Order (placed)
 
 ## Implementation Tasks
+
 - [ ] Define PlaceOrderCommand type
 - [ ] Define PlaceOrderState type
 - [ ] Implement decide() logic
@@ -515,8 +550,8 @@ Use Kiro's spec feature to layer informal specifications:
 Reference formal specifications directly:
 
 ```markdown
-See formal type specification: #[[file:demo/dcb/api.ts]]
-See repository implementation: #[[file:demo/dcb/placeOrderRepository.ts]]
+See formal type specification: #[[file:demo/dcb/api.ts]] See repository
+implementation: #[[file:demo/dcb/placeOrderRepository.ts]]
 ```
 
 ## Best Practices
@@ -524,6 +559,7 @@ See repository implementation: #[[file:demo/dcb/placeOrderRepository.ts]]
 ### 1. Start with Types
 
 Define types before implementation:
+
 ```typescript
 // Step 1: Define formal specification
 type Command = /* ... */;
@@ -539,6 +575,7 @@ const decider: IDcbDecider<Command, State, Event, Event>;
 ### 2. Use Type Hierarchy Intentionally
 
 Choose the right abstraction level:
+
 - `Decider` → Maximum flexibility, minimal constraints
 - `DcbDecider` → Event-sourced, dynamic boundaries
 - `AggregateDecider` → Traditional DDD, both computation modes
@@ -546,6 +583,7 @@ Choose the right abstraction level:
 ### 3. Leverage Repository Patterns
 
 Repository types encode infrastructure specifications:
+
 ```typescript
 // Formal spec: This decider is event-sourced
 const repo: IEventRepository<C, Ei, Eo, CM, EM>;
@@ -556,7 +594,9 @@ const repo: IStateRepository<C, S, CM, SM>;
 
 ### 4. Test Specifications with Given-When-Then DSL
 
-**CRITICAL**: The Given-When-Then DSL is the executable specification format that verifies your domain logic. It's not just testing - it's specification by example.
+**CRITICAL**: The Given-When-Then DSL is the executable specification format
+that verifies your domain logic. It's not just testing - it's specification by
+example.
 
 Use the DSL to specify and verify behavior:
 
@@ -565,7 +605,7 @@ Use the DSL to specify and verify behavior:
 DeciderEventSourcedSpec.for(placeOrderDecider)
   .given([
     restaurantCreatedEvent,
-    restaurantMenuChangedEvent
+    restaurantMenuChangedEvent,
   ])
   .when(placeOrderCommand)
   .then([restaurantOrderPlacedEvent]);
@@ -623,17 +663,28 @@ fmodel-decider transforms domain modeling from informal art to formal science:
 - **Repository interfaces** = Infrastructure specifications
 - **AI assistance** = Specification-guided generation
 
-This approach bridges the gap between "vibing" (informal requirements) and "viable" (production-ready implementations) by providing a formal foundation that both humans and AI can reason about.
+This approach bridges the gap between "vibing" (informal requirements) and
+"viable" (production-ready implementations) by providing a formal foundation
+that both humans and AI can reason about.
 
 ## Event Model Skills
 
 Two Kiro skills bridge the gap between visual event models and working code:
 
-- **map-event-model-to-code** — Takes a visual Event Model diagram (image, Miro board, or screenshot) and produces a Markdown table with cell references and formulas, then generates TypeScript `DcbDecider` and `Projection` source files from that table. Use when starting from a domain modeling session and you want working code.
+- **map-event-model-to-code** — Takes a visual Event Model diagram (image, Miro
+  board, or screenshot) and produces a Markdown table with cell references and
+  formulas, then generates TypeScript `DcbDecider` and `Projection` source files
+  from that table. Use when starting from a domain modeling session and you want
+  working code.
 
-- **map-code-to-event-model** — Reads existing `DcbDecider` and `Projection` source files and extracts commands, events, and projections into a spreadsheet-style Markdown table with a Mermaid diagram and Given/When/Then specifications. Use when you want to visualize or document the event model from existing code.
+- **map-code-to-event-model** — Reads existing `DcbDecider` and `Projection`
+  source files and extracts commands, events, and projections into a
+  spreadsheet-style Markdown table with a Mermaid diagram and Given/When/Then
+  specifications. Use when you want to visualize or document the event model
+  from existing code.
 
-These skills close the loop between design and implementation: model visually → generate code → evolve code → regenerate the model.
+These skills close the loop between design and implementation: model visually →
+generate code → evolve code → regenerate the model.
 
 ## Further Reading
 

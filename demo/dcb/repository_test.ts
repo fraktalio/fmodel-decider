@@ -16,7 +16,7 @@ import {
   restaurantMenuId,
 } from "./api.ts";
 
-Deno.test("EventSourcedRepository - tuple-based query pattern allows flexible entity/event type combinations", async () => {
+Deno.test("DenoKvEventRepository - tuple-based query pattern allows flexible entity/event type combinations", async () => {
   const kv = await Deno.openKv(":memory:");
 
   try {

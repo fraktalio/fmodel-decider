@@ -11,7 +11,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { EventSourcedCommandHandler } from "../../application.ts";
 import { orderRepository } from "./orderRepository.ts";
-import type { EventMetadata } from "../../denoKvRepository.ts";
+import type { EventMetadata } from "../../denoKvEventRepository.ts";
 import { orderDecider } from "./orderDecider.ts";
 import {
   type CreateOrderCommand,

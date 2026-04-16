@@ -3,7 +3,7 @@ export * from "./process.ts";
 export * from "./process_workflow.ts";
 export * from "./view.ts";
 export * from "./application.ts";
-export * from "./denoKvRepository.ts";
+export * from "./denoKvEventRepository.ts";
 export * from "./denoKvEventLoader.ts";
 export * from "./test_specification.ts";
 
