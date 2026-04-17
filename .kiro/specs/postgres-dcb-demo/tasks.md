@@ -161,7 +161,8 @@ untouched.
     pass after reverting
   - Ensure all tests pass, ask the user if questions arise.
 
-- [~] 7. Create separate Postgres view event loader tests
+-
+  7. [ ] Create separate Postgres view event loader tests
   - [ ] 7.1 Create `demo/dcb/restaurantViewPostgresEventLoader_test.ts`
     - Test restaurant view projection from events using `PostgresEventLoader`
     - Persist events via Postgres repository, then load and project via

@@ -67,10 +67,10 @@ rules.
 
 ### Resulting Table
 
-|       | A                               | B                           | C                                   | D                           | E                                  | F                      | G                                  | H                      |
-| ----- | ------------------------------- | --------------------------- | ----------------------------------- | --------------------------- | ---------------------------------- | ---------------------- | ---------------------------------- | ---------------------- |
-| Row 1 | 🔵 C: CreateRestaurantCommand   | 🟢 P: RestaurantView [A2]  | 🔵 C: ChangeRestaurantMenuCommand   | 🟢 P: RestaurantView [C2]  | 🔵 C: PlaceOrderCommand           | 🟢 P: OrderView [E2]  | 🔵 C: MarkOrderAsPreparedCommand   | 🟢 P: OrderView [G2]  |
-| Row 2 | 🟠 E: RestaurantCreatedEvent    |                             | 🟠 E: RestaurantMenuChangedEvent    |                             | 🟠 E: RestaurantOrderPlacedEvent   |                        | 🟠 E: OrderPreparedEvent           |                        |
+|       | A                             | B                         | C                                 | D                         | E                                | F                    | G                                | H                    |
+| ----- | ----------------------------- | ------------------------- | --------------------------------- | ------------------------- | -------------------------------- | -------------------- | -------------------------------- | -------------------- |
+| Row 1 | 🔵 C: CreateRestaurantCommand | 🟢 P: RestaurantView [A2] | 🔵 C: ChangeRestaurantMenuCommand | 🟢 P: RestaurantView [C2] | 🔵 C: PlaceOrderCommand          | 🟢 P: OrderView [E2] | 🔵 C: MarkOrderAsPreparedCommand | 🟢 P: OrderView [G2] |
+| Row 2 | 🟠 E: RestaurantCreatedEvent  |                           | 🟠 E: RestaurantMenuChangedEvent  |                           | 🟠 E: RestaurantOrderPlacedEvent |                      | 🟠 E: OrderPreparedEvent         |                      |
 
 ### Formulas
 
