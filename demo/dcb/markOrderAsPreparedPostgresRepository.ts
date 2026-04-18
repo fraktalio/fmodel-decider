@@ -8,7 +8,7 @@
  * and whether it has already been prepared.
  */
 
-import type { Client } from "@bartlomieju/postgres";
+import type { SqlClient } from "../../postgresEventRepository.ts";
 import { PostgresEventRepository } from "../../postgresEventRepository.ts";
 import type {
   MarkOrderAsPreparedCommand,
@@ -28,7 +28,7 @@ import type {
  * @returns Repository instance for handling MarkOrderAsPreparedCommand
  */
 export const markOrderAsPreparedPostgresRepository = (
-  client: Client,
+  client: SqlClient,
 ): PostgresEventRepository<
   MarkOrderAsPreparedCommand,
   RestaurantOrderPlacedEvent | OrderPreparedEvent,

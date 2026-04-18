@@ -4,13 +4,13 @@
  * @remarks
  * This is the Postgres equivalent of `AllDeciderRepository` (Deno KV).
  * It uses `PostgresEventRepository` instead of `DenoKvEventRepository`
- * and accepts a `Client` from `@bartlomieju/postgres`.
+ * and accepts a `SqlClient` instance.
  *
  * See `all_deciderRepository.ts` for detailed documentation on the
  * combined vs sliced approach.
  */
 
-import type { Client } from "@bartlomieju/postgres";
+import type { SqlClient } from "../../postgresEventRepository.ts";
 import { PostgresEventRepository } from "../../postgresEventRepository.ts";
 import type { EventMetadata } from "../../infrastructure.ts";
 import { all_domain_decider } from "./all_decider.ts";
@@ -27,7 +27,7 @@ import type { Command, Event } from "./api.ts";
 export class AllDeciderPostgresRepository {
   private readonly repository: PostgresEventRepository<Command, Event, Event>;
 
-  constructor(client: Client) {
+  constructor(client: SqlClient) {
     this.repository = new PostgresEventRepository(
       client,
       (cmd) => {

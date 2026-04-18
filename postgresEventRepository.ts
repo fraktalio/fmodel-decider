@@ -3,14 +3,13 @@
  *
  * This module provides the PostgreSQL-specific repository and loader implementations,
  * delegating storage, indexing, and conflict detection to predefined SQL functions
- * in the `dcb` schema via the `@bartlomieju/postgres` JSR client.
+ * in the `dcb` schema via any PostgreSQL client that implements the `SqlClient` interface.
  *
  * The Postgres repository mirrors the `DenoKvEventRepository` API surface — same
  * generic type parameters, same `execute`/`executeBatch`/`load` methods — so that
  * switching from Deno KV to Postgres requires only swapping the repository instance.
  */
 
-import type { Client } from "@bartlomieju/postgres";
 import type { IEventComputation } from "./decider.ts";
 import type {
   CommandShape,
@@ -51,6 +50,38 @@ export const defaultSerializer: Serializer<unknown> = (event) =>
  */
 export const defaultDeserializer: Deserializer<unknown> = (data) =>
   JSON.parse(new TextDecoder().decode(data));
+
+// ---------------------------------------------------------------------------
+// SqlClient – minimal interface for PostgreSQL client abstraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal SQL client interface for the PostgreSQL event repository.
+ *
+ * Any Postgres client library can be adapted to this single-method interface.
+ * The built-in `@bartlomieju/postgres` `Client` satisfies it out of the box.
+ *
+ * @example Adapter for node-postgres (`pg`) / `@neondatabase/serverless`:
+ * ```typescript
+ * import pg from "pg";
+ * const pgClient = new pg.Client("postgres://...");
+ * const client: SqlClient = { queryObject: (sql) => pgClient.query(sql) };
+ * ```
+ *
+ * @example Adapter for `postgres.js` (porsager):
+ * ```typescript
+ * import postgres from "postgres";
+ * const sql = postgres("postgres://...");
+ * const client: SqlClient = {
+ *   queryObject: async <T>(query: string) =>
+ *     ({ rows: await sql.unsafe(query) as T[] }),
+ * };
+ * ```
+ */
+export interface SqlClient {
+  /** Execute a SQL string and return rows as typed objects. */
+  queryObject<T>(sql: string): Promise<{ rows: T[] }>;
+}
 
 // ---------------------------------------------------------------------------
 // Internal helpers (exported for property-based testing)
@@ -167,7 +198,7 @@ export class PostgresEventRepository<
 > implements
   IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
   constructor(
-    private readonly client: Client,
+    private readonly client: SqlClient,
     private readonly getQueryTuples: (command: C) => QueryTuple<Ei>[],
     private readonly maxRetries: number = 10,
     private readonly idempotent: boolean = true,
@@ -383,11 +414,13 @@ export class PostgresEventRepository<
       const eventTuplesSql = buildEventTuples(events, this.serializer);
 
       // Call conditional_append
-      const appendResult = await this.client.queryArray(
+      const appendResult = await this.client.queryObject<{
+        conditional_append: unknown;
+      }>(
         `SELECT dcb.conditional_append(${queryItemsSql}::dcb.dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb.dcb_event_tt[])`,
       );
 
-      const returnedValue = appendResult.rows[0]?.[0];
+      const returnedValue = appendResult.rows[0]?.conditional_append;
 
       // NULL means conflict
       if (returnedValue === null || returnedValue === undefined) {
@@ -436,7 +469,7 @@ export class PostgresEventRepository<
 export class PostgresEventLoader<Ei extends EventShape>
   implements IEventLoader<Ei> {
   constructor(
-    private readonly client: Client,
+    private readonly client: SqlClient,
     private readonly deserializer: Deserializer<Ei> =
       defaultDeserializer as Deserializer<Ei>,
     private readonly idempotent: boolean = true,

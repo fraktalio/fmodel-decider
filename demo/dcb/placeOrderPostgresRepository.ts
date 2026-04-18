@@ -8,7 +8,7 @@
  * events related to both the restaurant state and existing orders.
  */
 
-import type { Client } from "@bartlomieju/postgres";
+import type { SqlClient } from "../../postgresEventRepository.ts";
 import { PostgresEventRepository } from "../../postgresEventRepository.ts";
 import type {
   PlaceOrderCommand,
@@ -30,7 +30,7 @@ import type {
  * @returns Repository instance for handling PlaceOrderCommand
  */
 export const placeOrderPostgresRepository = (
-  client: Client,
+  client: SqlClient,
 ): PostgresEventRepository<
   PlaceOrderCommand,
   | RestaurantCreatedEvent

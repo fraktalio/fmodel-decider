@@ -5,7 +5,7 @@
  * to PostgreSQL storage via `dcb.conditional_append` with optimistic locking.
  */
 
-import type { Client } from "@bartlomieju/postgres";
+import type { SqlClient } from "../../postgresEventRepository.ts";
 import { PostgresEventRepository } from "../../postgresEventRepository.ts";
 import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
 
@@ -19,7 +19,7 @@ import type { CreateRestaurantCommand, RestaurantCreatedEvent } from "./api.ts";
  * @returns Repository instance for handling CreateRestaurantCommand
  */
 export const createRestaurantPostgresRepository = (
-  client: Client,
+  client: SqlClient,
 ): PostgresEventRepository<
   CreateRestaurantCommand,
   RestaurantCreatedEvent,
