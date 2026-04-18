@@ -1,4 +1,4 @@
-import { ViewSpecification } from "../../test_specification.ts";
+import { ViewSpecification } from "../../test_specification_deno.ts";
 import { orderView } from "./orderView.ts";
 import { type MenuItem, menuItemId, orderId, restaurantId } from "./api.ts";
 

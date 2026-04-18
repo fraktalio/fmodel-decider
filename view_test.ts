@@ -13,7 +13,7 @@
  */
 
 import { Projection } from "./view.ts";
-import { ViewSpecification } from "./test_specification.ts";
+import { ViewSpecification } from "./test_specification_deno.ts";
 
 // Order Fulfillment View/Projection Domain Model
 

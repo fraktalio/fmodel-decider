@@ -124,6 +124,13 @@ Three specification formats are available:
 | `DeciderStateStoredSpec`  | State-stored aggregate behavior | `IAggregateDecider` only           |
 | `ViewSpecification`       | View/projection behavior        | `IProjection`                      |
 
+The Given-When-Then DSL is runtime-agnostic. It depends on an `Assertions`
+interface (just `assertEquals` and `assert`) rather than a specific test
+framework. Call `createSpecs(assertions)` to wire your own assertion library and
+get back all three spec builders. For Deno, a pre-wired adapter is provided in
+`test_specification_deno.ts`; for Vitest, Jest, or Node's built-in assert,
+create an equivalent adapter file (see JSDoc on `createSpecs` for examples).
+
 ### The Workflow: From Vibing to Viable
 
 1. **Define types** (formal specification) → constrain the solution space
@@ -635,10 +642,16 @@ converts these into `dcb_query_item_tt[]` arrays for the SQL functions:
 // ]
 ```
 
-### Concrete Repository Example
+### Concrete Repository Example (PostgreSQL)
+
+The `PostgresEventRepository` accepts any client implementing the `SqlClient`
+interface — a single-method abstraction over `queryObject<T>(sql)`. The
+`@bartlomieju/postgres` `Client` satisfies it structurally; other libraries need
+a thin adapter (see JSDoc on `SqlClient` for `pg`, `postgres.js`, and
+`@neondatabase/serverless` examples).
 
 ```ts
-export const placeOrderPostgresRepository = (client: Client) =>
+export const placeOrderPostgresRepository = (client: SqlClient) =>
   new PostgresEventRepository<
     PlaceOrderCommand,
     | RestaurantCreatedEvent

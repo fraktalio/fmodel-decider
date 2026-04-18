@@ -2,7 +2,7 @@ import { AggregateDecider, DcbDecider } from "./decider.ts";
 import {
   DeciderEventSourcedSpec,
   DeciderStateStoredSpec,
-} from "./test_specification.ts";
+} from "./test_specification_deno.ts";
 import { assertEquals } from "@std/assert";
 
 // Simple Counter Example with Exhaustive Matching

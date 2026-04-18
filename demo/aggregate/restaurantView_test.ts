@@ -1,4 +1,4 @@
-import { ViewSpecification } from "../../test_specification.ts";
+import { ViewSpecification } from "../../test_specification_deno.ts";
 import { restaurantView } from "./restaurantView.ts";
 import {
   menuItemId,

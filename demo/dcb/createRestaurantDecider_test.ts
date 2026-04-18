@@ -1,4 +1,4 @@
-import { DeciderEventSourcedSpec } from "../../test_specification.ts";
+import { DeciderEventSourcedSpec } from "../../test_specification_deno.ts";
 import { createRestaurantDecider } from "./createRestaurantDecider.ts";
 import {
   type CreateRestaurantCommand,
