@@ -26,7 +26,6 @@ import {
   type RestaurantMenu,
   restaurantMenuId,
 } from "./api.ts";
-import type { CommandMetadata } from "../../infrastructure.ts";
 import { type RestaurantEvent, restaurantView } from "./restaurantView.ts";
 import {
   createPostgresClient,

@@ -32,7 +32,6 @@ import {
   restaurantMenuId,
   type RestaurantOrderPlacedEvent,
 } from "./api.ts";
-import type { CommandMetadata } from "../../infrastructure.ts";
 import { orderView } from "./orderView.ts";
 import {
   createPostgresClient,

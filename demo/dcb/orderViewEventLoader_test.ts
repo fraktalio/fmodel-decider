@@ -23,7 +23,6 @@ import {
   type RestaurantMenu,
   restaurantMenuId,
 } from "./api.ts";
-import type { CommandMetadata } from "../../infrastructure.ts";
 
 const testMenu: RestaurantMenu = {
   menuId: restaurantMenuId("m1"),
