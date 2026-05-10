@@ -20,6 +20,7 @@ import type {
 } from "./application.ts";
 import {
   IdempotencyConflictError,
+  IdempotencyKeyMismatchError,
   matchesQueryTuple,
   OptimisticLockingError,
   RepositoryError,
@@ -241,8 +242,16 @@ export class PostgresEventRepository<
       attempts++;
 
       // Step 1: Idempotency check — circuit-break if key already used
-      const existing = await this.loadEventsByIdempotencyKey(idempotencyKey);
+      const { events: existing, commandKind } = await this
+        .loadEventsByIdempotencyKey(idempotencyKey);
       if (existing.length > 0) {
+        if (commandKind !== null && commandKind !== command.kind) {
+          throw new IdempotencyKeyMismatchError(
+            idempotencyKey,
+            command.kind,
+            commandKind,
+          );
+        }
         return existing;
       }
 
@@ -262,6 +271,7 @@ export class PostgresEventRepository<
           queryTuples,
           afterId,
           idempotencyKey,
+          command.kind,
         );
 
         if (result !== null) {
@@ -304,8 +314,16 @@ export class PostgresEventRepository<
       attempts++;
 
       // Step 1: Idempotency check — circuit-break if key already used
-      const existing = await this.loadEventsByIdempotencyKey(idempotencyKey);
+      const { events: existing, commandKind } = await this
+        .loadEventsByIdempotencyKey(idempotencyKey);
       if (existing.length > 0) {
+        if (commandKind !== null && commandKind !== commands[0].kind) {
+          throw new IdempotencyKeyMismatchError(
+            idempotencyKey,
+            commands[0].kind,
+            commandKind,
+          );
+        }
         return existing;
       }
 
@@ -361,6 +379,7 @@ export class PostgresEventRepository<
           allQueryTuples,
           afterId,
           idempotencyKey,
+          commands[0].kind,
         );
 
         if (result !== null) {
@@ -456,9 +475,25 @@ export class PostgresEventRepository<
    */
   private async loadEventsByIdempotencyKey(
     idempotencyKey: string,
-  ): Promise<readonly (Eo & EventMetadata)[]> {
+  ): Promise<
+    { events: readonly (Eo & EventMetadata)[]; commandKind: string | null }
+  > {
     try {
       const escapedKey = escapeSqlString(idempotencyKey);
+
+      // Check idempotency_keys table for the stored command_kind
+      const keyResult = await this.client.queryObject<{
+        command_kind: string;
+      }>(
+        `SELECT command_kind FROM dcb.idempotency_keys WHERE idempotency_key = '${escapedKey}'`,
+      );
+
+      if (keyResult.rows.length === 0) {
+        return { events: [], commandKind: null };
+      }
+
+      const commandKind = keyResult.rows[0].command_kind;
+
       const result = await this.client.queryObject<{
         id: bigint;
         type: string;
@@ -468,11 +503,7 @@ export class PostgresEventRepository<
         `SELECT id, type, data, created_at FROM dcb.events WHERE idempotency_key = '${escapedKey}' ORDER BY id ASC`,
       );
 
-      if (result.rows.length === 0) {
-        return [];
-      }
-
-      return result.rows.map((row) => {
+      const events = result.rows.map((row) => {
         const event = this.deserializer(row.data) as Eo;
         return {
           ...event,
@@ -482,6 +513,8 @@ export class PostgresEventRepository<
           idempotencyKey,
         };
       });
+
+      return { events, commandKind };
     } catch (error) {
       throw new RepositoryError("load", error as Error);
     }
@@ -497,17 +530,19 @@ export class PostgresEventRepository<
     queryTuples: QueryTuple<Ei>[],
     afterId: bigint,
     idempotencyKey: string,
+    commandKind: string,
   ): Promise<readonly (Eo & EventMetadata)[] | null> {
     try {
       const queryItemsSql = mapQueryTuplesToSql(queryTuples);
       const eventTuplesSql = buildEventTuples(events, this.serializer);
       const escapedKey = escapeSqlString(idempotencyKey);
+      const escapedKind = escapeSqlString(commandKind);
 
-      // Call conditional_append with idempotency key
+      // Call conditional_append with idempotency key and command kind
       const appendResult = await this.client.queryObject<{
         conditional_append: unknown;
       }>(
-        `SELECT dcb.conditional_append(${queryItemsSql}::dcb.dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb.dcb_event_tt[], '${escapedKey}')`,
+        `SELECT dcb.conditional_append(${queryItemsSql}::dcb.dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb.dcb_event_tt[], '${escapedKey}', '${escapedKind}')`,
       );
 
       const returnedValue = appendResult.rows[0]?.conditional_append;

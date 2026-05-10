@@ -16,6 +16,7 @@ import type {
   QueryTuple,
 } from "./application.ts";
 import {
+  IdempotencyKeyMismatchError,
   matchesQueryTuple,
   OptimisticLockingError,
   RepositoryError,
@@ -175,13 +176,22 @@ export class DenoKvEventRepository<
       attempts++;
 
       // Step 1: Idempotency check — circuit-break if key already used
-      const idempotencyEntry = await this.kv.get<string[]>(
+      const idempotencyEntry = await this.kv.get<
+        { eventIds: string[]; commandKind: string }
+      >(
         ["events_by_idempotency_key", idempotencyKey],
       );
       if (idempotencyEntry.value !== null) {
+        if (idempotencyEntry.value.commandKind !== command.kind) {
+          throw new IdempotencyKeyMismatchError(
+            idempotencyKey,
+            command.kind,
+            idempotencyEntry.value.commandKind,
+          );
+        }
         // Load and return existing events by their IDs
         return await this.loadEventsByIds(
-          idempotencyEntry.value,
+          idempotencyEntry.value.eventIds,
           idempotencyKey,
         );
       }
@@ -202,6 +212,7 @@ export class DenoKvEventRepository<
         newEvents,
         indexKeys,
         idempotencyKey,
+        command.kind,
       );
 
       if (persistedEvents) {
@@ -250,13 +261,22 @@ export class DenoKvEventRepository<
       attempts++;
 
       // Step 1: Idempotency check — circuit-break if key already used
-      const idempotencyEntry = await this.kv.get<string[]>(
+      const idempotencyEntry = await this.kv.get<
+        { eventIds: string[]; commandKind: string }
+      >(
         ["events_by_idempotency_key", idempotencyKey],
       );
       if (idempotencyEntry.value !== null) {
+        if (idempotencyEntry.value.commandKind !== commands[0].kind) {
+          throw new IdempotencyKeyMismatchError(
+            idempotencyKey,
+            commands[0].kind,
+            idempotencyEntry.value.commandKind,
+          );
+        }
         // Load and return existing events by their IDs
         return await this.loadEventsByIds(
-          idempotencyEntry.value,
+          idempotencyEntry.value.eventIds,
           idempotencyKey,
         );
       }
@@ -344,6 +364,7 @@ export class DenoKvEventRepository<
         allNewEvents,
         allIndexKeys,
         idempotencyKey,
+        commands[0].kind,
       );
 
       if (persistedEvents) {
@@ -499,6 +520,7 @@ export class DenoKvEventRepository<
     events: readonly Eo[],
     indexKeys: { key: Deno.KvKey; versionstamp: string | null }[],
     idempotencyKey: string,
+    commandKind: string,
   ): Promise<readonly (Eo & EventMetadata)[] | null> {
     try {
       const atomic = this.kv.atomic();
@@ -566,8 +588,11 @@ export class DenoKvEventRepository<
         });
       }
 
-      // Store idempotency key → eventIds mapping
-      atomic.set(["events_by_idempotency_key", idempotencyKey], eventIds);
+      // Store idempotency key → eventIds + commandKind mapping
+      atomic.set(["events_by_idempotency_key", idempotencyKey], {
+        eventIds,
+        commandKind,
+      });
 
       const result = await atomic.commit();
 

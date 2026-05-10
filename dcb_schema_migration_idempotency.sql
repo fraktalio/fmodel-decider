@@ -37,6 +37,7 @@ ALTER TABLE dcb.events
 
 CREATE TABLE IF NOT EXISTS dcb.idempotency_keys (
     idempotency_key TEXT        PRIMARY KEY,
+    command_kind    TEXT        NOT NULL DEFAULT 'unknown',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -44,8 +45,8 @@ CREATE TABLE IF NOT EXISTS dcb.idempotency_keys (
 -- Step 5: Backfill idempotency_keys from existing events
 -- ------------------------------------------------------------
 
-INSERT INTO dcb.idempotency_keys (idempotency_key)
-SELECT DISTINCT idempotency_key FROM dcb.events
+INSERT INTO dcb.idempotency_keys (idempotency_key, command_kind)
+SELECT DISTINCT idempotency_key, 'unknown' FROM dcb.events
 ON CONFLICT DO NOTHING;
 
 -- ------------------------------------------------------------
@@ -63,8 +64,9 @@ CREATE INDEX IF NOT EXISTS idx_events_idempotency_key
 -- (will be re-applied with new signature at the end)
 
 CREATE OR REPLACE FUNCTION dcb.unconditional_append(
-    new_events       dcb.dcb_event_tt[],
-    _idempotency_key TEXT
+    new_events      dcb.dcb_event_tt[],
+    idempotency_key TEXT,
+    command_kind    TEXT
 )
 RETURNS bigint
 LANGUAGE plpgsql
@@ -76,15 +78,15 @@ DECLARE
     tag_item     text;
 BEGIN
     -- Insert into idempotency_keys table (PK rejects duplicates)
-    INSERT INTO dcb.idempotency_keys (idempotency_key)
-    VALUES (_idempotency_key);
+    INSERT INTO dcb.idempotency_keys (idempotency_key, command_kind)
+    VALUES (unconditional_append.idempotency_key, unconditional_append.command_kind);
 
     max_id := 0;
 
     FOREACH event_record IN ARRAY new_events
     LOOP
         INSERT INTO dcb.events (type, data, tags, idempotency_key)
-        VALUES (event_record.type, event_record.data, event_record.tags, _idempotency_key)
+        VALUES (event_record.type, event_record.data, event_record.tags, unconditional_append.idempotency_key)
         RETURNING id INTO inserted_id;
 
         max_id := GREATEST(max_id, inserted_id);
@@ -101,14 +103,15 @@ END;
 $$;
 
 -- ------------------------------------------------------------
--- Step 8: Update conditional_append to accept _idempotency_key
+-- Step 8: Update conditional_append
 -- ------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION dcb.conditional_append(
-    query_items      dcb.dcb_query_item_tt[],
-    after_id         bigint,
-    new_events       dcb.dcb_event_tt[],
-    _idempotency_key TEXT
+    query_items     dcb.dcb_query_item_tt[],
+    after_id        bigint,
+    new_events      dcb.dcb_event_tt[],
+    idempotency_key TEXT,
+    command_kind    TEXT
 )
 RETURNS bigint
 LANGUAGE plpgsql
@@ -160,7 +163,7 @@ BEGIN
       INTO conflict_exists;
 
     IF NOT conflict_exists THEN
-        RETURN dcb.unconditional_append(new_events, _idempotency_key);
+        RETURN dcb.unconditional_append(new_events, conditional_append.idempotency_key, conditional_append.command_kind);
     END IF;
 
     RETURN NULL;
@@ -177,12 +180,18 @@ DROP FUNCTION IF EXISTS dcb.unconditional_append(dcb.dcb_event_tt[]);
 -- Drop the old 3-argument conditional_append (no longer needed)
 DROP FUNCTION IF EXISTS dcb.conditional_append(dcb.dcb_query_item_tt[], bigint, dcb.dcb_event_tt[]);
 
+-- Drop the old 2-argument unconditional_append (pre-command_kind)
+DROP FUNCTION IF EXISTS dcb.unconditional_append(dcb.dcb_event_tt[], text);
+
+-- Drop the old 4-argument conditional_append (pre-command_kind)
+DROP FUNCTION IF EXISTS dcb.conditional_append(dcb.dcb_query_item_tt[], bigint, dcb.dcb_event_tt[], text);
+
 -- ------------------------------------------------------------
 -- Step 10: Access control for new function signatures
 -- ------------------------------------------------------------
 
 -- unconditional_append is an internal helper called only by conditional_append.
 -- Revoke public access so external callers cannot bypass the EXCLUSIVE lock.
-REVOKE ALL ON FUNCTION dcb.unconditional_append(dcb.dcb_event_tt[], text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION dcb.unconditional_append(dcb.dcb_event_tt[], text, text) FROM PUBLIC;
 
 COMMIT;

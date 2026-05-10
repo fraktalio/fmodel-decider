@@ -32,6 +32,7 @@ import {
   type RestaurantOrderPlacedEvent,
 } from "./api.ts";
 import type { CommandMetadata } from "../../infrastructure.ts";
+import { IdempotencyKeyMismatchError } from "../../infrastructure.ts";
 
 Deno.test("PlaceOrderRepository - successful order placement via handler.handle() (happy path)", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -716,6 +717,65 @@ Deno.test("PlaceOrderRepository - same command with different idempotencyKey thr
         });
       },
       OrderAlreadyExistsError,
+    );
+  } finally {
+    kv.close();
+  }
+});
+
+Deno.test("PlaceOrderRepository - different command reusing same idempotencyKey throws IdempotencyKeyMismatchError", async () => {
+  const kv = await Deno.openKv(":memory:");
+
+  try {
+    // Create restaurant first
+    const createRepo = createRestaurantRepository(kv);
+    const createHandler = new EventSourcedCommandHandler(
+      createRestaurantDecider,
+      createRepo,
+    );
+
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
+      kind: "CreateRestaurantCommand",
+      restaurantId: restaurantId("r-reuse-key-1"),
+      name: "Bistro",
+      menu: {
+        menuId: restaurantMenuId("m1"),
+        cuisine: "ITALIAN",
+        menuItems: [
+          { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+        ],
+      },
+      idempotencyKey: "test-shared-key-across-repos",
+    };
+
+    // First execution — CreateRestaurant succeeds, persists RestaurantCreatedEvent under this key
+    const createResult = await createHandler.handle(createCommand);
+    assertEquals(createResult.length, 1);
+    assertEquals(createResult[0].kind, "RestaurantCreatedEvent");
+
+    // Second execution — PlaceOrder with the SAME idempotencyKey (caller bug)
+    // The repository detects the command_kind mismatch and throws
+    const placeRepo = placeOrderRepository(kv);
+    const placeHandler = new EventSourcedCommandHandler(
+      placeOrderDecider,
+      placeRepo,
+    );
+
+    const placeCommand: PlaceOrderCommand & CommandMetadata = {
+      kind: "PlaceOrderCommand",
+      restaurantId: restaurantId("r-reuse-key-1"),
+      orderId: orderId("o-reuse-key-1"),
+      menuItems: [
+        { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
+      ],
+      idempotencyKey: "test-shared-key-across-repos", // same key — caller bug
+    };
+
+    await assertRejects(
+      async () => {
+        await placeHandler.handle(placeCommand);
+      },
+      IdempotencyKeyMismatchError,
     );
   } finally {
     kv.close();

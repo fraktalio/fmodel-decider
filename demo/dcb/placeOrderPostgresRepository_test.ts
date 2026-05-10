@@ -34,6 +34,7 @@ import {
   type RestaurantOrderPlacedEvent,
 } from "./api.ts";
 import type { CommandMetadata, EventMetadata } from "../../infrastructure.ts";
+import { IdempotencyKeyMismatchError } from "../../infrastructure.ts";
 import {
   createPostgresClient,
   startPostgresContainer,
@@ -556,6 +557,71 @@ Deno.test({
         });
       },
       OrderAlreadyExistsError,
+    );
+  },
+});
+
+Deno.test({
+  name:
+    "Postgres: PlaceOrderRepository - different command reusing same idempotencyKey throws IdempotencyKeyMismatchError",
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    // Create restaurant with a specific idempotency key
+    const createRepository = createRestaurantPostgresRepository(client);
+    const createHandler = new EventSourcedCommandHandler(
+      createRestaurantDecider,
+      createRepository,
+    );
+
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
+      kind: "CreateRestaurantCommand",
+      restaurantId: restaurantId("r-mismatch-1"),
+      name: "Bistro",
+      menu: {
+        menuId: restaurantMenuId("m1"),
+        cuisine: "ITALIAN",
+        menuItems: [
+          {
+            menuItemId: menuItemId("item1"),
+            name: "Pizza",
+            price: "12.99",
+          },
+        ],
+      },
+      idempotencyKey: "test-pg-shared-key-mismatch",
+    };
+
+    // First execution — CreateRestaurant succeeds under this key
+    await createHandler.handle(createCommand);
+
+    // Second execution — PlaceOrder with the SAME idempotencyKey (caller bug)
+    // The repository detects the command_kind mismatch and throws
+    const placeRepo = placeOrderPostgresRepository(client);
+    const placeHandler = new EventSourcedCommandHandler(
+      placeOrderDecider,
+      placeRepo,
+    );
+
+    const placeCommand: PlaceOrderCommand & CommandMetadata = {
+      kind: "PlaceOrderCommand",
+      restaurantId: restaurantId("r-mismatch-1"),
+      orderId: orderId("o-mismatch-1"),
+      menuItems: [
+        {
+          menuItemId: menuItemId("item1"),
+          name: "Pizza",
+          price: "12.99",
+        },
+      ],
+      idempotencyKey: "test-pg-shared-key-mismatch", // same key — caller bug
+    };
+
+    await assertRejects(
+      async () => {
+        await placeHandler.handle(placeCommand);
+      },
+      IdempotencyKeyMismatchError,
     );
   },
 });

@@ -72,6 +72,7 @@ architectures with progressive type refinement.
   - [Usage](#usage)
   - [Decider Purity](#decider-purity)
   - [Race Condition Safety](#race-condition-safety)
+  - [Command Kind Mismatch Detection](#command-kind-mismatch-detection)
   - [Batch Execution](#batch-execution)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
   - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
@@ -795,6 +796,27 @@ If two concurrent executions bypass the application-level check, one wins the
 write and the other gets a constraint violation. The repository catches this
 internally, retries, finds the existing events on the next loop, and
 circuit-breaks. Both callers receive the same result.
+
+### Command Kind Mismatch Detection
+
+The repository stores the command's `kind` alongside the idempotency key. On
+circuit-break, it validates that the incoming command's `kind` matches the
+stored one. If they differ, it throws `IdempotencyKeyMismatchError` — catching a
+common caller bug where the same key is accidentally reused across different
+operations.
+
+```ts
+// First execution: CreateRestaurantCommand with key "abc"
+await createHandler.handle({ ...createCommand, idempotencyKey: "abc" });
+
+// Second execution: PlaceOrderCommand reusing key "abc" — throws!
+await placeHandler.handle({ ...placeCommand, idempotencyKey: "abc" });
+// → IdempotencyKeyMismatchError: key "abc" was used by "CreateRestaurantCommand",
+//   cannot reuse for "PlaceOrderCommand"
+```
+
+Without this guard, the second call would silently return the first command's
+events — a type-unsafe result that could cause subtle downstream bugs.
 
 ### Batch Execution
 

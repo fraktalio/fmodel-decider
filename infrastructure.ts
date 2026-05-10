@@ -132,6 +132,24 @@ export class IdempotencyConflictError extends Error {
 }
 
 /**
+ * Error thrown when a command's idempotency key was previously used by a different
+ * command kind. This indicates a caller bug — the same key must not be reused
+ * across different operations.
+ */
+export class IdempotencyKeyMismatchError extends Error {
+  constructor(
+    public readonly idempotencyKey: string,
+    public readonly expectedCommandKind: string,
+    public readonly actualCommandKind: string,
+  ) {
+    super(
+      `Idempotency key "${idempotencyKey}" was already used by command "${actualCommandKind}", cannot reuse for "${expectedCommandKind}"`,
+    );
+    this.name = "IdempotencyKeyMismatchError";
+  }
+}
+
+/**
  * Checks whether an event matches a query tuple.
  *
  * A query tuple has the format `[...tags, eventType]` where:
