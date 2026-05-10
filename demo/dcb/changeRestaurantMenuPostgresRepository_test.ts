@@ -27,6 +27,7 @@ import {
   restaurantMenuId,
   RestaurantNotFoundError,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import {
   createPostgresClient,
   startPostgresContainer,
@@ -48,7 +49,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-happy-1"),
       name: "Bistro",
@@ -63,6 +64,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-change-menu-happy-create",
     };
 
     await createHandler.handle(createCommand);
@@ -74,7 +76,7 @@ Deno.test({
       changeRepository,
     );
 
-    const changeCommand: ChangeRestaurantMenuCommand = {
+    const changeCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-happy-1"),
       menu: {
@@ -93,6 +95,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-change-menu-happy-change",
     };
 
     const events = await changeHandler.handle(changeCommand);
@@ -122,7 +125,7 @@ Deno.test({
       repository,
     );
 
-    const command: ChangeRestaurantMenuCommand = {
+    const command: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-noexist-999"),
       menu: {
@@ -136,6 +139,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-change-menu-nonexist",
     };
 
     // Should fail with domain error
@@ -160,7 +164,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-seq-1"),
       name: "Bistro",
@@ -175,6 +179,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-change-menu-seq-create",
     };
 
     await createHandler.handle(createCommand);
@@ -186,7 +191,7 @@ Deno.test({
       changeRepository,
     );
 
-    const changeCommand1: ChangeRestaurantMenuCommand = {
+    const changeCommand1: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-seq-1"),
       menu: {
@@ -200,9 +205,10 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-change-menu-seq-1",
     };
 
-    const changeCommand2: ChangeRestaurantMenuCommand = {
+    const changeCommand2: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-seq-1"),
       menu: {
@@ -216,6 +222,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-change-menu-seq-2",
     };
 
     // First change should succeed

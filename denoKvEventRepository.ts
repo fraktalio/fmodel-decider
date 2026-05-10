@@ -20,7 +20,7 @@ import {
   OptimisticLockingError,
   RepositoryError,
 } from "./infrastructure.ts";
-import type { EventMetadata, Tag } from "./infrastructure.ts";
+import type { CommandMetadata, EventMetadata, Tag } from "./infrastructure.ts";
 
 // Re-export from application.ts for backward compatibility
 export type { CommandShape, EventShape, QueryTuple } from "./application.ts";
@@ -32,6 +32,7 @@ export {
   RepositoryError,
 } from "./infrastructure.ts";
 export type {
+  CommandMetadata,
   EventMetadata,
   StringFields,
   Tag,
@@ -126,8 +127,7 @@ export class DenoKvEventRepository<
   C extends CommandShape,
   Ei extends EventShape,
   Eo extends EventShape,
-> implements
-  IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
+> implements IEventRepository<C, Ei, Eo, CommandMetadata, EventMetadata> {
   /**
    * Creates a new DenoKvEventRepository.
    *
@@ -151,44 +151,57 @@ export class DenoKvEventRepository<
   /**
    * Executes a command by loading events, computing new events, and persisting them.
    *
-   * Implements optimistic locking with automatic retry:
-   * 1. Load events with versionstamps
-   * 2. Compute new events using decider
-   * 3. Attempt to persist with versionstamp checks
-   * 4. Retry on conflict up to maxRetries
+   * Implements optimistic locking with automatic retry and idempotency circuit-break:
+   * 1. Check if idempotencyKey already exists — if so, return existing events (circuit-break)
+   * 2. Load events with versionstamps
+   * 3. Compute new events using decider
+   * 4. Attempt to persist with versionstamp checks and atomic idempotency key check
+   * 5. Retry on conflict up to maxRetries
    *
-   * @param command - The command to execute
+   * @param command - The command with CommandMetadata to execute
    * @param decider - The decider that computes new events
-   * @returns Newly produced events with metadata
+   * @returns Newly produced events with metadata, or existing events on circuit-break
    * @throws OptimisticLockingError if max retries exceeded
    * @throws RepositoryError if storage operations fail
    */
   async execute(
-    command: C,
+    command: C & CommandMetadata,
     decider: IEventComputation<C, Ei, Eo>,
   ): Promise<readonly (Eo & EventMetadata)[]> {
     let attempts = 0;
+    const { idempotencyKey } = command;
 
     while (attempts < this.maxRetries) {
       attempts++;
 
-      // 1. Load events with index keys
+      // Step 1: Idempotency check — circuit-break if key already used
+      const idempotencyEntry = await this.kv.get<string[]>(
+        ["events_by_idempotency_key", idempotencyKey],
+      );
+      if (idempotencyEntry.value !== null) {
+        // Load and return existing events by their IDs
+        return await this.loadEventsByIds(
+          idempotencyEntry.value,
+          idempotencyKey,
+        );
+      }
+
+      // Step 2: Normal flow — load events for decider
       const queryTuples = this.getQueryTuples(command);
       const { events, indexKeys } = await this.loadEvents(
         queryTuples,
       );
 
-      // 2. Compute new events using decider
+      // Step 3: Compute new events using decider
       const newEvents = decider.computeNewEvents(events, command);
 
-      if (newEvents.length === 0) {
-        return []; // No events to persist
-      }
+      if (newEvents.length === 0) return [];
 
-      // 3. Attempt to persist with optimistic locking
+      // Step 4: Attempt to persist with optimistic locking and atomic idempotency check
       const persistedEvents = await this.persistEvents(
         newEvents,
         indexKeys,
+        idempotencyKey,
       );
 
       if (persistedEvents) {
@@ -213,24 +226,42 @@ export class DenoKvEventRepository<
    * Optimistic locking checks cover the union of all `last_event` pointer keys across
    * all commands in the batch (deduplicated). On conflict, the entire batch retries.
    *
-   * @param commands - The ordered list of commands to execute
+   * The single `idempotencyKey` from the first command's metadata deduplicates the entire
+   * batch as one logical operation.
+   *
+   * @param commands - The ordered list of commands with CommandMetadata to execute
    * @param decider - The decider that computes new events from each command and event history
    * @returns All produced events with metadata, preserving production order
    * @throws OptimisticLockingError if max retries exceeded
    * @throws RepositoryError if storage operations fail
    */
   async executeBatch(
-    commands: readonly C[],
+    commands: readonly (C & CommandMetadata)[],
     decider: IEventComputation<C, Ei, Eo>,
   ): Promise<readonly (Eo & EventMetadata)[]> {
     if (commands.length === 0) return [];
+
+    // Use the idempotencyKey from the first command for the entire batch
+    const { idempotencyKey } = commands[0];
 
     let attempts = 0;
 
     while (attempts < this.maxRetries) {
       attempts++;
 
-      // 1. Load events using query tuples from the first command
+      // Step 1: Idempotency check — circuit-break if key already used
+      const idempotencyEntry = await this.kv.get<string[]>(
+        ["events_by_idempotency_key", idempotencyKey],
+      );
+      if (idempotencyEntry.value !== null) {
+        // Load and return existing events by their IDs
+        return await this.loadEventsByIds(
+          idempotencyEntry.value,
+          idempotencyKey,
+        );
+      }
+
+      // Step 2: Load events using query tuples from the first command
       const firstQueryTuples = this.getQueryTuples(commands[0]);
       const { events: initialEvents, indexKeys } = await this.loadEvents(
         firstQueryTuples,
@@ -245,7 +276,7 @@ export class DenoKvEventRepository<
         allIndexKeysMap.set(JSON.stringify(ik.key), ik);
       }
 
-      // 2. Process each command sequentially, accumulating events
+      // Step 3: Process each command sequentially, accumulating events
       const accumulatedEvents: Eo[] = [];
       const allNewEvents: Eo[] = [];
 
@@ -307,11 +338,12 @@ export class DenoKvEventRepository<
         return [];
       }
 
-      // 3. Persist all events in a single atomic operation
+      // Step 4: Persist all events in a single atomic operation with idempotency check
       const allIndexKeys = [...allIndexKeysMap.values()];
       const persistedEvents = await this.persistEvents(
         allNewEvents,
         allIndexKeys,
+        idempotencyKey,
       );
 
       if (persistedEvents) {
@@ -447,37 +479,49 @@ export class DenoKvEventRepository<
   }
 
   /**
-   * Persists events with optimistic locking.
+   * Persists events with optimistic locking and atomic idempotency key check.
    *
    * Creates an atomic operation that:
    * 1. Checks all loaded last_event pointer versionstamps (including null for empty result sets)
-   * 2. Writes new events to primary storage
-   * 3. Writes pointers to type indexes
-   * 4. Updates last_event pointers for all tag subsets
+   * 2. Checks that the idempotency key does NOT already exist (versionstamp is null)
+   * 3. Writes new events to primary storage
+   * 4. Writes pointers to type indexes
+   * 5. Updates last_event pointers for all tag subsets
+   * 6. Stores the idempotency key → eventIds mapping
    *
    * @param events - Events to persist
    * @param indexKeys - Last_event pointer keys with versionstamps for conflict detection
+   * @param idempotencyKey - The idempotency key from the command's CommandMetadata
    * @returns Persisted events with metadata, or null if conflict detected
    * @throws RepositoryError if persist operation fails
    */
   private async persistEvents(
     events: readonly Eo[],
     indexKeys: { key: Deno.KvKey; versionstamp: string | null }[],
+    idempotencyKey: string,
   ): Promise<readonly (Eo & EventMetadata)[] | null> {
     try {
       const atomic = this.kv.atomic();
       const timestamp = Date.now();
       const eventsWithMetadata: (Eo & EventMetadata)[] = [];
+      const eventIds: string[] = [];
 
       // Check all loaded last_event pointer versionstamps
       for (const { key, versionstamp } of indexKeys) {
         atomic.check({ key, versionstamp });
       }
 
+      // Atomic idempotency check: ensure key does NOT already exist
+      atomic.check({
+        key: ["events_by_idempotency_key", idempotencyKey],
+        versionstamp: null,
+      });
+
       // Write new events
       for (const event of events) {
         const eventId = monotonicUlid();
         const eventType = (event as { kind: string }).kind;
+        eventIds.push(eventId);
 
         // Primary storage
         atomic.set(["events", eventId], event);
@@ -518,13 +562,17 @@ export class DenoKvEventRepository<
           eventId,
           timestamp,
           versionstamp: "", // Will be set after commit
+          idempotencyKey,
         });
       }
+
+      // Store idempotency key → eventIds mapping
+      atomic.set(["events_by_idempotency_key", idempotencyKey], eventIds);
 
       const result = await atomic.commit();
 
       if (!result.ok) {
-        return null; // Conflict detected
+        return null; // Conflict detected (optimistic lock OR idempotency race)
       }
 
       // Update versionstamps from commit result
@@ -536,6 +584,45 @@ export class DenoKvEventRepository<
       throw new RepositoryError("persist", error as Error);
     }
   }
+  /**
+   * Loads events by their IDs and returns them with EventMetadata.
+   *
+   * Used by the idempotency circuit-break path to return previously persisted events
+   * when a duplicate idempotency key is detected.
+   *
+   * @param eventIds - Array of event IDs to load
+   * @param idempotencyKey - The idempotency key to include in EventMetadata
+   * @returns Events with their metadata
+   * @throws RepositoryError if load operation fails
+   */
+  private async loadEventsByIds(
+    eventIds: string[],
+    idempotencyKey: string,
+  ): Promise<readonly (Eo & EventMetadata)[]> {
+    try {
+      const primaryKeys = eventIds.map((id) => ["events", id] as Deno.KvKey);
+      const results = await this.kv.getMany(primaryKeys);
+
+      return results.map((result, i) => {
+        if (result.value === null) {
+          throw new Error(
+            `Event ${eventIds[i]} not found in primary storage`,
+          );
+        }
+        return {
+          ...(result.value as Eo),
+          eventId: eventIds[i],
+          timestamp: 0, // Original timestamp not stored separately; use 0 as placeholder
+          versionstamp: result.versionstamp ?? "",
+          idempotencyKey,
+        };
+      });
+    } catch (error) {
+      if (error instanceof RepositoryError) throw error;
+      throw new RepositoryError("load", error as Error);
+    }
+  }
+
   /**
    * Extracts tags from event fields in "fieldName:fieldValue" format.
    *

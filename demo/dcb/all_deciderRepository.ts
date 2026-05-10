@@ -58,6 +58,7 @@ import {
   DenoKvEventRepository,
   type EventMetadata,
 } from "../../denoKvEventRepository.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import { all_domain_decider } from "./all_decider.ts";
 import type { Command, Event } from "./api.ts";
 
@@ -141,10 +142,8 @@ export class AllDeciderRepository {
    * All deciders handle the command, but only the relevant one produces events.
    */
   execute(
-    command: Command,
+    command: Command & CommandMetadata,
   ): Promise<readonly (Event & EventMetadata)[]> {
-    // WARNING: This will fail because all_domain_decider uses combineViaTuples()
-    // which causes ALL deciders to process EVERY command
     return this.repository.execute(command, all_domain_decider);
   }
 
@@ -161,7 +160,7 @@ export class AllDeciderRepository {
    * via accumulated event propagation with query tuple filtering.
    */
   executeBatch(
-    commands: readonly Command[],
+    commands: readonly (Command & CommandMetadata)[],
   ): Promise<readonly (Event & EventMetadata)[]> {
     return this.repository.executeBatch(commands, all_domain_decider);
   }

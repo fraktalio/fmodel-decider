@@ -21,6 +21,7 @@ import {
   restaurantId,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 Deno.test("CreateRestaurantRepository - successful restaurant creation via handler.handle() (happy path)", async () => {
   // Use in-memory Deno KV
@@ -35,7 +36,7 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
     );
 
     // Execute command via handler
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -47,6 +48,7 @@ Deno.test("CreateRestaurantRepository - successful restaurant creation via handl
           { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
         ],
       },
+      idempotencyKey: "test-create-restaurant-happy-path",
     };
 
     const events = await handler.handle(command);
@@ -102,7 +104,7 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
       repository,
     );
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -113,6 +115,7 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-create-restaurant-duplicate-1",
     };
 
     // First creation should succeed
@@ -121,7 +124,10 @@ Deno.test("CreateRestaurantRepository - duplicate restaurant rejection (domain e
     // Second creation should fail with domain error
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-create-restaurant-duplicate-2",
+        });
       },
       RestaurantAlreadyExistsError,
     );
@@ -140,7 +146,7 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
       repository,
     );
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -151,6 +157,7 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-create-restaurant-concurrent-1",
     };
 
     // First creation should succeed
@@ -162,7 +169,10 @@ Deno.test("CreateRestaurantRepository - concurrent creation detection (optimisti
     // because the restaurant already exists
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-create-restaurant-concurrent-2",
+        });
       },
       RestaurantAlreadyExistsError,
     );

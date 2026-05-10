@@ -32,6 +32,7 @@ import {
   restaurantId,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 /**
  * Helper to set up a restaurant and place an order for testing.
@@ -48,7 +49,7 @@ async function setupRestaurantAndOrder(
     createRepo,
   );
 
-  const createCommand: CreateRestaurantCommand = {
+  const createCommand: CreateRestaurantCommand & CommandMetadata = {
     kind: "CreateRestaurantCommand",
     restaurantId: restId,
     name: "Test Bistro",
@@ -59,6 +60,7 @@ async function setupRestaurantAndOrder(
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
     },
+    idempotencyKey: `setup-create-${restId}`,
   };
 
   await createHandler.handle(createCommand);
@@ -70,13 +72,14 @@ async function setupRestaurantAndOrder(
     placeRepo,
   );
 
-  const placeCommand: PlaceOrderCommand = {
+  const placeCommand: PlaceOrderCommand & CommandMetadata = {
     kind: "PlaceOrderCommand",
     restaurantId: restId,
     orderId: ordId,
     menuItems: [
       { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
     ],
+    idempotencyKey: `setup-place-${ordId}`,
   };
 
   await placeHandler.handle(placeCommand);
@@ -100,9 +103,10 @@ Deno.test("MarkOrderAsPreparedRepository - successful order preparation via hand
       repository,
     );
 
-    const command: MarkOrderAsPreparedCommand = {
+    const command: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-prep-1"),
+      idempotencyKey: "test-mark-prepared-happy",
     };
 
     const events = await handler.handle(command);
@@ -152,9 +156,10 @@ Deno.test("MarkOrderAsPreparedRepository - non-existent order rejection (domain 
       repository,
     );
 
-    const command: MarkOrderAsPreparedCommand = {
+    const command: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-nonexist-999"), // Non-existent order
+      idempotencyKey: "test-mark-prepared-nonexist",
     };
 
     // Should fail with domain error
@@ -187,9 +192,10 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
       repository,
     );
 
-    const command: MarkOrderAsPreparedCommand = {
+    const command: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-already-1"),
+      idempotencyKey: "test-mark-prepared-already-1",
     };
 
     // First preparation should succeed
@@ -199,7 +205,10 @@ Deno.test("MarkOrderAsPreparedRepository - already prepared order rejection (dom
     // Second preparation should fail
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-mark-prepared-already-2",
+        });
       },
       OrderAlreadyPreparedError,
     );
@@ -226,13 +235,14 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
       placeRepo,
     );
 
-    const placeCommand: PlaceOrderCommand = {
+    const placeCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-concurrent-1"),
       orderId: orderId("o-concurrent-2"),
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: "test-mark-prepared-concurrent-place",
     };
 
     await placeHandler.handle(placeCommand);
@@ -244,14 +254,16 @@ Deno.test("MarkOrderAsPreparedRepository - concurrent modification detection (op
       repository,
     );
 
-    const command1: MarkOrderAsPreparedCommand = {
+    const command1: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-concurrent-1"),
+      idempotencyKey: "test-mark-prepared-concurrent-1",
     };
 
-    const command2: MarkOrderAsPreparedCommand = {
+    const command2: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-concurrent-2"),
+      idempotencyKey: "test-mark-prepared-concurrent-2",
     };
 
     const result1 = await handler.handle(command1);
@@ -298,13 +310,14 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
       placeRepo,
     );
 
-    const placeCommand: PlaceOrderCommand = {
+    const placeCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-index-1"),
       orderId: orderId("o-index-2"),
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: "test-mark-prepared-index-place",
     };
 
     await placeHandler.handle(placeCommand);
@@ -316,15 +329,21 @@ Deno.test("MarkOrderAsPreparedRepository - verify events indexed by order ID cor
       repository,
     );
 
-    await handler.handle({
-      kind: "MarkOrderAsPreparedCommand",
-      orderId: orderId("o-index-1"),
-    });
+    await handler.handle(
+      {
+        kind: "MarkOrderAsPreparedCommand",
+        orderId: orderId("o-index-1"),
+        idempotencyKey: "test-mark-prepared-index-1",
+      } satisfies MarkOrderAsPreparedCommand & CommandMetadata,
+    );
 
-    await handler.handle({
-      kind: "MarkOrderAsPreparedCommand",
-      orderId: orderId("o-index-2"),
-    });
+    await handler.handle(
+      {
+        kind: "MarkOrderAsPreparedCommand",
+        orderId: orderId("o-index-2"),
+        idempotencyKey: "test-mark-prepared-index-2",
+      } satisfies MarkOrderAsPreparedCommand & CommandMetadata,
+    );
 
     // Query events by order ID - should find specific order
     const iterByOrder1 = kv.list({

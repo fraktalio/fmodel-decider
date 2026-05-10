@@ -19,11 +19,12 @@ import type {
   QueryTuple,
 } from "./application.ts";
 import {
+  IdempotencyConflictError,
   matchesQueryTuple,
   OptimisticLockingError,
   RepositoryError,
 } from "./infrastructure.ts";
-import type { EventMetadata } from "./infrastructure.ts";
+import type { CommandMetadata, EventMetadata } from "./infrastructure.ts";
 
 // ---------------------------------------------------------------------------
 // Serializer / Deserializer
@@ -195,8 +196,7 @@ export class PostgresEventRepository<
   C extends CommandShape,
   Ei extends EventShape,
   Eo extends EventShape,
-> implements
-  IEventRepository<C, Ei, Eo, Record<PropertyKey, never>, EventMetadata> {
+> implements IEventRepository<C, Ei, Eo, CommandMetadata, EventMetadata> {
   constructor(
     private readonly client: SqlClient,
     private readonly getQueryTuples: (command: C) => QueryTuple<Ei>[],
@@ -204,8 +204,8 @@ export class PostgresEventRepository<
     private readonly idempotent: boolean = true,
     private readonly serializer: Serializer<Eo> =
       defaultSerializer as Serializer<Eo>,
-    private readonly deserializer: Deserializer<Ei> =
-      defaultDeserializer as Deserializer<Ei>,
+    private readonly deserializer: Deserializer<Ei & Eo> =
+      defaultDeserializer as Deserializer<Ei & Eo>,
   ) {}
 
   /**
@@ -222,36 +222,60 @@ export class PostgresEventRepository<
   /**
    * Executes a command by loading events, computing new events via the decider,
    * and persisting them with optimistic locking via `conditional_append`.
+   *
+   * Implements idempotency circuit-break:
+   * 1. Check if idempotencyKey already exists — if so, return existing events
+   * 2. Load events with query tuples
+   * 3. Compute new events using decider
+   * 4. Persist with idempotencyKey
+   * 5. Retry on conflict (optimistic lock or idempotency race)
    */
   async execute(
-    command: C,
+    command: C & CommandMetadata,
     decider: IEventComputation<C, Ei, Eo>,
   ): Promise<readonly (Eo & EventMetadata)[]> {
     let attempts = 0;
+    const { idempotencyKey } = command;
 
     while (attempts < this.maxRetries) {
       attempts++;
 
+      // Step 1: Idempotency check — circuit-break if key already used
+      const existing = await this.loadEventsByIdempotencyKey(idempotencyKey);
+      if (existing.length > 0) {
+        return existing;
+      }
+
+      // Step 2: Normal flow — load events for decider
       const queryTuples = this.getQueryTuples(command);
       const { events, afterId } = await this.loadEvents(queryTuples);
 
-      // Decider errors propagate directly — never wrapped
+      // Step 3: Decider errors propagate directly — never wrapped
       const newEvents = decider.computeNewEvents(events, command);
 
-      if (newEvents.length === 0) {
-        return [];
-      }
+      if (newEvents.length === 0) return [];
 
-      const result = await this.persistEvents(
-        newEvents,
-        queryTuples,
-        afterId,
-      );
+      // Step 4: Persist with idempotencyKey
+      try {
+        const result = await this.persistEvents(
+          newEvents,
+          queryTuples,
+          afterId,
+          idempotencyKey,
+        );
 
-      if (result !== null) {
-        return result;
+        if (result !== null) {
+          return result;
+        }
+        // NULL → optimistic locking conflict, retry
+      } catch (error) {
+        if (error instanceof IdempotencyConflictError) {
+          // Race condition: another execution persisted with same key
+          // Retry — next iteration's idempotency check will find existing events
+          continue;
+        }
+        throw error;
       }
-      // NULL → conflict, retry
     }
 
     throw new OptimisticLockingError(attempts, "unknown");
@@ -261,18 +285,31 @@ export class PostgresEventRepository<
    * Executes a batch of commands: load once using first command's tuples,
    * process each command sequentially with accumulated event propagation,
    * single `conditional_append` for all events.
+   *
+   * The single `idempotencyKey` from the first command's metadata deduplicates
+   * the entire batch as one logical operation.
    */
   async executeBatch(
-    commands: readonly C[],
+    commands: readonly (C & CommandMetadata)[],
     decider: IEventComputation<C, Ei, Eo>,
   ): Promise<readonly (Eo & EventMetadata)[]> {
     if (commands.length === 0) return [];
+
+    // Use the idempotencyKey from the first command for the entire batch
+    const { idempotencyKey } = commands[0];
 
     let attempts = 0;
 
     while (attempts < this.maxRetries) {
       attempts++;
 
+      // Step 1: Idempotency check — circuit-break if key already used
+      const existing = await this.loadEventsByIdempotencyKey(idempotencyKey);
+      if (existing.length > 0) {
+        return existing;
+      }
+
+      // Step 2: Load events using first command's tuples
       const firstQueryTuples = this.getQueryTuples(commands[0]);
       const { events: initialEvents, afterId } = await this.loadEvents(
         firstQueryTuples,
@@ -317,20 +354,27 @@ export class PostgresEventRepository<
         allNewEvents.push(...newEvents);
       }
 
-      if (allNewEvents.length === 0) {
-        return [];
-      }
+      // Step 3: Persist all events with idempotencyKey
+      try {
+        const result = await this.persistEvents(
+          allNewEvents,
+          allQueryTuples,
+          afterId,
+          idempotencyKey,
+        );
 
-      const result = await this.persistEvents(
-        allNewEvents,
-        allQueryTuples,
-        afterId,
-      );
-
-      if (result !== null) {
-        return result;
+        if (result !== null) {
+          return result;
+        }
+        // NULL → optimistic locking conflict, retry entire batch
+      } catch (error) {
+        if (error instanceof IdempotencyConflictError) {
+          // Race condition: another execution persisted with same key
+          // Retry — next iteration's idempotency check will find existing events
+          continue;
+        }
+        throw error;
       }
-      // NULL → conflict, retry entire batch
     }
 
     throw new OptimisticLockingError(attempts, "batch");
@@ -401,28 +445,74 @@ export class PostgresEventRepository<
   }
 
   /**
+   * Loads events by idempotency key for circuit-break detection.
+   *
+   * Queries `dcb.events` for all events with the given idempotency key.
+   * If events exist, deserializes and returns them with full EventMetadata.
+   * If no events exist, returns an empty array.
+   *
+   * @param idempotencyKey - The idempotency key to look up
+   * @returns Events with metadata if found, empty array otherwise
+   */
+  private async loadEventsByIdempotencyKey(
+    idempotencyKey: string,
+  ): Promise<readonly (Eo & EventMetadata)[]> {
+    try {
+      const escapedKey = escapeSqlString(idempotencyKey);
+      const result = await this.client.queryObject<{
+        id: bigint;
+        type: string;
+        data: Uint8Array;
+        created_at: Date;
+      }>(
+        `SELECT id, type, data, created_at FROM dcb.events WHERE idempotency_key = '${escapedKey}' ORDER BY id ASC`,
+      );
+
+      if (result.rows.length === 0) {
+        return [];
+      }
+
+      return result.rows.map((row) => {
+        const event = this.deserializer(row.data) as Eo;
+        return {
+          ...event,
+          eventId: String(row.id),
+          timestamp: row.created_at.getTime(),
+          versionstamp: String(row.id),
+          idempotencyKey,
+        };
+      });
+    } catch (error) {
+      throw new RepositoryError("load", error as Error);
+    }
+  }
+
+  /**
    * Persists events via `conditional_append` and enriches with EventMetadata.
    * Returns null on conflict (NULL from conditional_append).
+   * Throws IdempotencyConflictError on PK violation on dcb.idempotency_keys.
    */
   private async persistEvents(
     events: readonly Eo[],
     queryTuples: QueryTuple<Ei>[],
     afterId: bigint,
+    idempotencyKey: string,
   ): Promise<readonly (Eo & EventMetadata)[] | null> {
     try {
       const queryItemsSql = mapQueryTuplesToSql(queryTuples);
       const eventTuplesSql = buildEventTuples(events, this.serializer);
+      const escapedKey = escapeSqlString(idempotencyKey);
 
-      // Call conditional_append
+      // Call conditional_append with idempotency key
       const appendResult = await this.client.queryObject<{
         conditional_append: unknown;
       }>(
-        `SELECT dcb.conditional_append(${queryItemsSql}::dcb.dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb.dcb_event_tt[])`,
+        `SELECT dcb.conditional_append(${queryItemsSql}::dcb.dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb.dcb_event_tt[], '${escapedKey}')`,
       );
 
       const returnedValue = appendResult.rows[0]?.conditional_append;
 
-      // NULL means conflict
+      // NULL means optimistic locking conflict
       if (returnedValue === null || returnedValue === undefined) {
         return null;
       }
@@ -437,7 +527,7 @@ export class PostgresEventRepository<
 
       const metadataRows = metadataResult.rows;
 
-      // Enrich events with metadata
+      // Enrich events with metadata including idempotencyKey
       return events.map((event, i) => {
         const meta = metadataRows[i];
         return {
@@ -445,9 +535,18 @@ export class PostgresEventRepository<
           eventId: String(meta.id),
           timestamp: meta.created_at.getTime(),
           versionstamp: String(meta.id),
+          idempotencyKey,
         };
       });
     } catch (error) {
+      // Check for PK violation on dcb.idempotency_keys (unique_violation = 23505)
+      const pgError = error as { code?: string; message?: string };
+      if (
+        pgError.code === "23505" ||
+        (pgError.message && pgError.message.includes("idempotency_keys"))
+      ) {
+        throw new IdempotencyConflictError(idempotencyKey);
+      }
       throw new RepositoryError("persist", error as Error);
     }
   }

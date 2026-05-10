@@ -44,6 +44,7 @@ import {
   restaurantMenuId,
   RestaurantNotFoundError,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (but processes through all deciders)", async () => {
   // Use in-memory Deno KV
@@ -52,7 +53,7 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (but processe
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -63,6 +64,7 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (but processe
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-all-decider-create-1",
     };
 
     // This SUCCEEDS because all deciders handle null commands gracefully:
@@ -87,7 +89,7 @@ Deno.test("AllDeciderRepository - ChangeRestaurantMenuCommand fails (restaurant 
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const changeCommand: ChangeRestaurantMenuCommand = {
+    const changeCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
       menu: {
@@ -97,6 +99,7 @@ Deno.test("AllDeciderRepository - ChangeRestaurantMenuCommand fails (restaurant 
           { menuItemId: menuItemId("item3"), name: "Croissant", price: "5.99" },
         ],
       },
+      idempotencyKey: "test-all-decider-change-fail",
     };
 
     // This FAILS because restaurant doesn't exist (domain error)
@@ -116,13 +119,14 @@ Deno.test("AllDeciderRepository - PlaceOrderCommand fails (restaurant doesn't ex
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const placeOrderCommand: PlaceOrderCommand = {
+    const placeOrderCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r1"),
       orderId: orderId("o1"),
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: "test-all-decider-place-fail",
     };
 
     // This FAILS because restaurant doesn't exist (domain error)
@@ -142,9 +146,10 @@ Deno.test("AllDeciderRepository - MarkOrderAsPreparedCommand fails (order doesn'
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const markCommand: MarkOrderAsPreparedCommand = {
+    const markCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: "test-all-decider-mark-fail",
     };
 
     // This FAILS because order doesn't exist (domain error)
@@ -165,7 +170,7 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     const repository = new AllDeciderRepository(kv);
 
     // 1. Create restaurant
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -176,6 +181,7 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-all-decider-workflow-create",
     };
 
     const createEvents = await repository.execute(createCommand);
@@ -183,13 +189,14 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     assertEquals(createEvents[0].kind, "RestaurantCreatedEvent");
 
     // 2. Place order
-    const placeOrderCommand: PlaceOrderCommand = {
+    const placeOrderCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r1"),
       orderId: orderId("o1"),
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: "test-all-decider-workflow-place",
     };
 
     const orderEvents = await repository.execute(placeOrderCommand);
@@ -197,9 +204,10 @@ Deno.test("AllDeciderRepository - Full workflow succeeds with combined approach"
     assertEquals(orderEvents[0].kind, "RestaurantOrderPlacedEvent");
 
     // 3. Mark order as prepared
-    const markCommand: MarkOrderAsPreparedCommand = {
+    const markCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: "test-all-decider-workflow-mark",
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -230,7 +238,7 @@ Deno.test("AllDeciderRepository - Educational summary: Two valid approaches", as
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -241,6 +249,7 @@ Deno.test("AllDeciderRepository - Educational summary: Two valid approaches", as
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-all-decider-educational",
     };
 
     // This test demonstrates two valid approaches:
@@ -303,7 +312,7 @@ Deno.test("AllDeciderRepository - executeBatch: single-command batch matches sin
     const repo1 = new AllDeciderRepository(kv1);
     const repo2 = new AllDeciderRepository(kv2);
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -314,6 +323,7 @@ Deno.test("AllDeciderRepository - executeBatch: single-command batch matches sin
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-all-decider-batch-single",
     };
 
     const singleEvents = await repo1.execute(command);
@@ -348,7 +358,8 @@ Deno.test("AllDeciderRepository - executeBatch: CreateRestaurant + PlaceOrder in
             { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
           ],
         },
-      } satisfies CreateRestaurantCommand,
+        idempotencyKey: "test-all-decider-batch-create-place",
+      } satisfies CreateRestaurantCommand & CommandMetadata,
       {
         kind: "PlaceOrderCommand",
         restaurantId: restaurantId("r1"),
@@ -356,7 +367,8 @@ Deno.test("AllDeciderRepository - executeBatch: CreateRestaurant + PlaceOrder in
         menuItems: [
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
-      } satisfies PlaceOrderCommand,
+        idempotencyKey: "test-all-decider-batch-create-place",
+      } satisfies PlaceOrderCommand & CommandMetadata,
     ]);
 
     // Both commands produce events in order
@@ -390,7 +402,8 @@ Deno.test("AllDeciderRepository - executeBatch: domain error mid-batch prevents 
                 price: "12.99",
               },
             ],
-          } satisfies PlaceOrderCommand,
+            idempotencyKey: "test-all-decider-batch-error",
+          } satisfies PlaceOrderCommand & CommandMetadata,
           {
             kind: "CreateRestaurantCommand",
             restaurantId: restaurantId("r1"),
@@ -406,7 +419,8 @@ Deno.test("AllDeciderRepository - executeBatch: domain error mid-batch prevents 
                 },
               ],
             },
-          } satisfies CreateRestaurantCommand,
+            idempotencyKey: "test-all-decider-batch-error",
+          } satisfies CreateRestaurantCommand & CommandMetadata,
         ]),
       RestaurantNotFoundError,
     );
@@ -421,6 +435,7 @@ Deno.test("AllDeciderRepository - executeBatch: domain error mid-batch prevents 
           menuItems: [
             { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
           ],
+          idempotencyKey: "test-all-decider-batch-error-verify",
         }),
       RestaurantNotFoundError,
     );
@@ -449,7 +464,8 @@ Deno.test("AllDeciderRepository - executeBatch: filter exclusion - accumulated e
             { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
           ],
         },
-      } satisfies CreateRestaurantCommand,
+        idempotencyKey: "test-all-decider-batch-filter",
+      } satisfies CreateRestaurantCommand & CommandMetadata,
       {
         kind: "CreateRestaurantCommand",
         restaurantId: restaurantId("r2"),
@@ -461,7 +477,8 @@ Deno.test("AllDeciderRepository - executeBatch: filter exclusion - accumulated e
             { menuItemId: menuItemId("item2"), name: "Sushi", price: "15.99" },
           ],
         },
-      } satisfies CreateRestaurantCommand,
+        idempotencyKey: "test-all-decider-batch-filter",
+      } satisfies CreateRestaurantCommand & CommandMetadata,
       {
         kind: "PlaceOrderCommand",
         restaurantId: restaurantId("r1"),
@@ -469,7 +486,8 @@ Deno.test("AllDeciderRepository - executeBatch: filter exclusion - accumulated e
         menuItems: [
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
-      } satisfies PlaceOrderCommand,
+        idempotencyKey: "test-all-decider-batch-filter",
+      } satisfies PlaceOrderCommand & CommandMetadata,
     ]);
 
     assertEquals(events.length, 3);
@@ -499,7 +517,8 @@ Deno.test("AllDeciderRepository - executeBatch: three-step workflow in single ba
             { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
           ],
         },
-      } satisfies CreateRestaurantCommand,
+        idempotencyKey: "test-all-decider-batch-workflow",
+      } satisfies CreateRestaurantCommand & CommandMetadata,
       {
         kind: "PlaceOrderCommand",
         restaurantId: restaurantId("r1"),
@@ -507,11 +526,13 @@ Deno.test("AllDeciderRepository - executeBatch: three-step workflow in single ba
         menuItems: [
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
-      } satisfies PlaceOrderCommand,
+        idempotencyKey: "test-all-decider-batch-workflow",
+      } satisfies PlaceOrderCommand & CommandMetadata,
       {
         kind: "MarkOrderAsPreparedCommand",
         orderId: orderId("o1"),
-      } satisfies MarkOrderAsPreparedCommand,
+        idempotencyKey: "test-all-decider-batch-workflow",
+      } satisfies MarkOrderAsPreparedCommand & CommandMetadata,
     ]);
 
     assertEquals(events.length, 3);

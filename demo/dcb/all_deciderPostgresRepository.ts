@@ -12,7 +12,7 @@
 
 import type { SqlClient } from "../../postgresEventRepository.ts";
 import { PostgresEventRepository } from "../../postgresEventRepository.ts";
-import type { EventMetadata } from "../../infrastructure.ts";
+import type { CommandMetadata, EventMetadata } from "../../infrastructure.ts";
 import { all_domain_decider } from "./all_decider.ts";
 import type { Command, Event } from "./api.ts";
 
@@ -63,12 +63,14 @@ export class AllDeciderPostgresRepository {
     );
   }
 
-  execute(command: Command): Promise<readonly (Event & EventMetadata)[]> {
+  execute(
+    command: Command & CommandMetadata,
+  ): Promise<readonly (Event & EventMetadata)[]> {
     return this.repository.execute(command, all_domain_decider);
   }
 
   executeBatch(
-    commands: readonly Command[],
+    commands: readonly (Command & CommandMetadata)[],
   ): Promise<readonly (Event & EventMetadata)[]> {
     return this.repository.executeBatch(commands, all_domain_decider);
   }

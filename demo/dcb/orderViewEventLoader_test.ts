@@ -23,6 +23,7 @@ import {
   type RestaurantMenu,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 const testMenu: RestaurantMenu = {
   menuId: restaurantMenuId("m1"),
@@ -50,6 +51,7 @@ async function setupRestaurantAndOrder(kv: Deno.Kv) {
     restaurantId: restaurantId("r1"),
     name: "Italian Bistro",
     menu: testMenu,
+    idempotencyKey: "test-order-view-setup-create",
   });
 
   const placeRepo = placeOrderRepository(kv);
@@ -63,6 +65,7 @@ async function setupRestaurantAndOrder(kv: Deno.Kv) {
     restaurantId: restaurantId("r1"),
     orderId: orderId("o1"),
     menuItems: testMenuItems,
+    idempotencyKey: "test-order-view-setup-place",
   });
 }
 
@@ -101,6 +104,7 @@ Deno.test("OrderViewEventLoader - project state after order prepared", async () 
     await prepareHandler.handle({
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: "test-order-view-prepare",
     });
 
     const queryHandler = orderViewQueryHandler(kv);

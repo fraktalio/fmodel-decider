@@ -41,6 +41,7 @@ Deno.test("RestaurantViewEventLoader (aggregate) - project restaurant state from
       restaurantId: restaurantId("r1"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: crypto.randomUUID(),
     });
 
     const queryHandler = restaurantViewQueryHandler(kv);
@@ -69,6 +70,7 @@ Deno.test("RestaurantViewEventLoader (aggregate) - project state after menu chan
       restaurantId: restaurantId("r1"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: crypto.randomUUID(),
     });
 
     const newMenu: RestaurantMenu = {
@@ -84,6 +86,7 @@ Deno.test("RestaurantViewEventLoader (aggregate) - project state after menu chan
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
       menu: newMenu,
+      idempotencyKey: crypto.randomUUID(),
     });
 
     const queryHandler = restaurantViewQueryHandler(kv);
@@ -113,6 +116,7 @@ Deno.test("RestaurantViewEventLoader (aggregate) - project state with order plac
       restaurantId: restaurantId("r1"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: crypto.randomUUID(),
     });
 
     await handler.handle({
@@ -125,6 +129,7 @@ Deno.test("RestaurantViewEventLoader (aggregate) - project state with order plac
         name: "Pizza",
         price: "12.99",
       }],
+      idempotencyKey: crypto.randomUUID(),
     });
 
     const queryHandler = restaurantViewQueryHandler(kv);

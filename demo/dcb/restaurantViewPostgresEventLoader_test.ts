@@ -26,6 +26,7 @@ import {
   type RestaurantMenu,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import { type RestaurantEvent, restaurantView } from "./restaurantView.ts";
 import {
   createPostgresClient,
@@ -63,6 +64,7 @@ Deno.test({
       restaurantId: restaurantId("r-view-1"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: "test-pg-restaurant-view-create-1",
     });
 
     // Query the restaurant view via PostgresEventLoader
@@ -98,6 +100,7 @@ Deno.test({
       restaurantId: restaurantId("r-view-2"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: "test-pg-restaurant-view-create-2",
     });
 
     // Change menu
@@ -119,6 +122,7 @@ Deno.test({
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-view-2"),
       menu: newMenu,
+      idempotencyKey: "test-pg-restaurant-view-change-2",
     });
 
     // Query both event types to build full state

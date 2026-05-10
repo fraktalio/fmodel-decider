@@ -1,4 +1,5 @@
 import type { IEventComputation, IStateComputation } from "./decider.ts";
+import type { CommandMetadata, EventMetadata } from "./infrastructure.ts";
 import type { IProjection } from "./view.ts";
 
 /**
@@ -75,8 +76,8 @@ export interface IEventRepository<
   C extends CommandShape,
   Ei extends EventShape,
   Eo extends EventShape,
-  CM,
-  EM,
+  CM extends CommandMetadata,
+  EM extends EventMetadata,
 > extends IEventLoader<Ei> {
   /**
    * Executes a command by loading events, computing new events via the decider, and persisting them.
@@ -118,7 +119,12 @@ export interface IEventRepository<
  * @typeParam SM - State metadata type (e.g., version, timestamp)
  */
 // TODO: add demo usage
-export interface IStateRepository<C extends CommandShape, S, CM, SM> {
+export interface IStateRepository<
+  C extends CommandShape,
+  S,
+  CM extends CommandMetadata,
+  SM,
+> {
   /**
    * Executes a command by loading state, computing new state via the decider, and persisting it.
    *
@@ -172,8 +178,8 @@ export class EventSourcedCommandHandler<
   C extends CommandShape,
   Ei extends EventShape,
   Eo extends EventShape,
-  CM,
-  EM,
+  CM extends CommandMetadata,
+  EM extends EventMetadata,
 > {
   constructor(
     private readonly decider: IEventComputation<C, Ei, Eo>,
@@ -224,7 +230,12 @@ export class EventSourcedCommandHandler<
  * @typeParam SM - State metadata type
  */
 // TODO: add demo usage
-export class StateStoredCommandHandler<C extends CommandShape, S, CM, SM> {
+export class StateStoredCommandHandler<
+  C extends CommandShape,
+  S,
+  CM extends CommandMetadata,
+  SM,
+> {
   constructor(
     private readonly decider: IStateComputation<C, S>,
     private readonly stateRepository: IStateRepository<C, S, CM, SM>,

@@ -33,6 +33,7 @@ import {
   RestaurantNotFoundError,
   type RestaurantOrderPlacedEvent,
 } from "./api.ts";
+import type { CommandMetadata, EventMetadata } from "../../infrastructure.ts";
 import {
   createPostgresClient,
   startPostgresContainer,
@@ -54,7 +55,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-happy-1"),
       name: "Bistro",
@@ -74,6 +75,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-place-order-happy-create",
     };
 
     await createHandler.handle(createCommand);
@@ -85,7 +87,7 @@ Deno.test({
       repository,
     );
 
-    const command: PlaceOrderCommand = {
+    const command: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-happy-1"),
       orderId: orderId("o-happy-1"),
@@ -96,6 +98,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-place-order-happy-order",
     };
 
     const events = await handler.handle(command);
@@ -124,7 +127,7 @@ Deno.test({
       repository,
     );
 
-    const command: PlaceOrderCommand = {
+    const command: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-nonexist-999"),
       orderId: orderId("o-nonexist-1"),
@@ -135,6 +138,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-place-order-nonexist",
     };
 
     // Should fail with domain error
@@ -160,7 +164,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-invalid-1"),
       name: "Bistro",
@@ -175,6 +179,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-place-order-invalid-create",
     };
 
     await createHandler.handle(createCommand);
@@ -186,7 +191,7 @@ Deno.test({
       repository,
     );
 
-    const command: PlaceOrderCommand = {
+    const command: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-invalid-1"),
       orderId: orderId("o-invalid-1"),
@@ -197,6 +202,7 @@ Deno.test({
           price: "99.99",
         },
       ],
+      idempotencyKey: "test-pg-place-order-invalid-order",
     };
 
     // Should fail with domain error
@@ -222,7 +228,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-dup-1"),
       name: "Bistro",
@@ -237,6 +243,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-place-order-dup-create",
     };
 
     await createHandler.handle(createCommand);
@@ -248,7 +255,7 @@ Deno.test({
       repository,
     );
 
-    const command: PlaceOrderCommand = {
+    const command: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-dup-1"),
       orderId: orderId("o-dup-1"),
@@ -259,6 +266,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-place-order-dup-1",
     };
 
     // First order should succeed
@@ -268,7 +276,10 @@ Deno.test({
     // Second order with same ID should fail
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-pg-place-order-dup-2",
+        });
       },
       OrderAlreadyExistsError,
     );
@@ -288,7 +299,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-menu-1"),
       name: "Bistro",
@@ -308,6 +319,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-place-order-menu-create",
     };
 
     await createHandler.handle(createCommand);
@@ -321,7 +333,7 @@ Deno.test({
       changeRepository,
     );
 
-    const changeCommand: ChangeRestaurantMenuCommand = {
+    const changeCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-menu-1"),
       menu: {
@@ -345,6 +357,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-place-order-menu-change",
     };
 
     await changeHandler.handle(changeCommand);
@@ -356,7 +369,7 @@ Deno.test({
       repository,
     );
 
-    const command: PlaceOrderCommand = {
+    const command: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-menu-1"),
       orderId: orderId("o-menu-1"),
@@ -367,6 +380,7 @@ Deno.test({
           price: "8.99",
         },
       ],
+      idempotencyKey: "test-pg-place-order-menu-order",
     };
 
     const events = await handler.handle(command);
@@ -381,6 +395,167 @@ Deno.test({
     assertEquals(
       (events[0] as RestaurantOrderPlacedEvent).menuItems[0].menuItemId,
       menuItemId("item3"),
+    );
+  },
+});
+
+Deno.test({
+  name:
+    "Postgres: PlaceOrderRepository - idempotency circuit-break returns same events on duplicate key",
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    // Create restaurant first
+    const createRepository = createRestaurantPostgresRepository(client);
+    const createHandler = new EventSourcedCommandHandler(
+      createRestaurantDecider,
+      createRepository,
+    );
+
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
+      kind: "CreateRestaurantCommand",
+      restaurantId: restaurantId("r-idempotent-1"),
+      name: "Bistro",
+      menu: {
+        menuId: restaurantMenuId("m1"),
+        cuisine: "ITALIAN",
+        menuItems: [
+          {
+            menuItemId: menuItemId("item1"),
+            name: "Pizza",
+            price: "12.99",
+          },
+        ],
+      },
+      idempotencyKey: "test-pg-place-order-idempotent-create",
+    };
+
+    await createHandler.handle(createCommand);
+
+    // Place order
+    const repository = placeOrderPostgresRepository(client);
+    const handler = new EventSourcedCommandHandler(
+      placeOrderDecider,
+      repository,
+    );
+
+    const command: PlaceOrderCommand & CommandMetadata = {
+      kind: "PlaceOrderCommand",
+      restaurantId: restaurantId("r-idempotent-1"),
+      orderId: orderId("o-idempotent-1"),
+      menuItems: [
+        {
+          menuItemId: menuItemId("item1"),
+          name: "Pizza",
+          price: "12.99",
+        },
+      ],
+      idempotencyKey: "test-pg-place-order-idempotent-key",
+    };
+
+    // First execution — should succeed and persist events
+    const firstResult = await handler.handle(command);
+    assertEquals(firstResult.length, 1);
+    const firstEvent = firstResult[0] as
+      & RestaurantOrderPlacedEvent
+      & EventMetadata;
+    assertEquals(firstEvent.kind, "RestaurantOrderPlacedEvent");
+    assertEquals(firstEvent.orderId, orderId("o-idempotent-1"));
+    assertEquals(
+      firstEvent.idempotencyKey,
+      "test-pg-place-order-idempotent-key",
+    );
+
+    // Second execution — same command, same idempotencyKey
+    // Should circuit-break and return the same events without invoking the decider
+    const secondResult = await handler.handle(command);
+    assertEquals(secondResult.length, 1);
+    const secondEvent = secondResult[0] as
+      & RestaurantOrderPlacedEvent
+      & EventMetadata;
+
+    // Same event data
+    assertEquals(secondEvent.kind, "RestaurantOrderPlacedEvent");
+    assertEquals(secondEvent.orderId, orderId("o-idempotent-1"));
+    assertEquals(
+      secondEvent.idempotencyKey,
+      "test-pg-place-order-idempotent-key",
+    );
+
+    // Same eventId — proves it's the same persisted event, not a new one
+    assertEquals(secondEvent.eventId, firstEvent.eventId);
+  },
+});
+
+Deno.test({
+  name:
+    "Postgres: PlaceOrderRepository - same command with different idempotencyKey throws OrderAlreadyExistsError",
+  sanitizeResources: false,
+  sanitizeOps: false,
+  fn: async () => {
+    // Create restaurant first
+    const createRepository = createRestaurantPostgresRepository(client);
+    const createHandler = new EventSourcedCommandHandler(
+      createRestaurantDecider,
+      createRepository,
+    );
+
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
+      kind: "CreateRestaurantCommand",
+      restaurantId: restaurantId("r-diffkey-1"),
+      name: "Bistro",
+      menu: {
+        menuId: restaurantMenuId("m1"),
+        cuisine: "ITALIAN",
+        menuItems: [
+          {
+            menuItemId: menuItemId("item1"),
+            name: "Pizza",
+            price: "12.99",
+          },
+        ],
+      },
+      idempotencyKey: "test-pg-place-order-diffkey-create",
+    };
+
+    await createHandler.handle(createCommand);
+
+    // Place order
+    const repository = placeOrderPostgresRepository(client);
+    const handler = new EventSourcedCommandHandler(
+      placeOrderDecider,
+      repository,
+    );
+
+    const command: PlaceOrderCommand & CommandMetadata = {
+      kind: "PlaceOrderCommand",
+      restaurantId: restaurantId("r-diffkey-1"),
+      orderId: orderId("o-diffkey-1"),
+      menuItems: [
+        {
+          menuItemId: menuItemId("item1"),
+          name: "Pizza",
+          price: "12.99",
+        },
+      ],
+      idempotencyKey: "test-pg-place-order-diffkey-1",
+    };
+
+    // First execution — succeeds
+    const result = await handler.handle(command);
+    assertEquals(result.length, 1);
+    assertEquals(result[0].kind, "RestaurantOrderPlacedEvent");
+
+    // Second execution — same order ID but different idempotencyKey
+    // No circuit-break (different key), so decider runs and sees the order already exists
+    await assertRejects(
+      async () => {
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-pg-place-order-diffkey-2",
+        });
+      },
+      OrderAlreadyExistsError,
     );
   },
 });

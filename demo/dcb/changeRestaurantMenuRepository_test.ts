@@ -24,6 +24,7 @@ import {
   restaurantMenuId,
   RestaurantNotFoundError,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.handle() (happy path)", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -36,7 +37,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -47,6 +48,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-change-menu-happy-create",
     };
 
     await createHandler.handle(createCommand);
@@ -58,7 +60,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
       changeRepository,
     );
 
-    const changeCommand: ChangeRestaurantMenuCommand = {
+    const changeCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
       menu: {
@@ -69,6 +71,7 @@ Deno.test("ChangeRestaurantMenuRepository - successful menu update via handler.h
           { menuItemId: menuItemId("item4"), name: "Burrito", price: "11.99" },
         ],
       },
+      idempotencyKey: "test-change-menu-happy-change",
     };
 
     const events = await changeHandler.handle(changeCommand);
@@ -124,7 +127,7 @@ Deno.test("ChangeRestaurantMenuRepository - non-existent restaurant rejection (d
       repository,
     );
 
-    const command: ChangeRestaurantMenuCommand = {
+    const command: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r999"),
       menu: {
@@ -134,6 +137,7 @@ Deno.test("ChangeRestaurantMenuRepository - non-existent restaurant rejection (d
           { menuItemId: menuItemId("item3"), name: "Tacos", price: "8.99" },
         ],
       },
+      idempotencyKey: "test-change-menu-nonexistent",
     };
 
     // Should fail with domain error
@@ -159,7 +163,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -170,6 +174,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-change-menu-concurrent-create",
     };
 
     await createHandler.handle(createCommand);
@@ -181,7 +186,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
       changeRepository,
     );
 
-    const changeCommand1: ChangeRestaurantMenuCommand = {
+    const changeCommand1: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
       menu: {
@@ -191,9 +196,10 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
           { menuItemId: menuItemId("item3"), name: "Tacos", price: "8.99" },
         ],
       },
+      idempotencyKey: "test-change-menu-concurrent-1",
     };
 
-    const changeCommand2: ChangeRestaurantMenuCommand = {
+    const changeCommand2: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
       menu: {
@@ -207,6 +213,7 @@ Deno.test("ChangeRestaurantMenuRepository - concurrent modification detection (o
           },
         ],
       },
+      idempotencyKey: "test-change-menu-concurrent-2",
     };
 
     // First change should succeed

@@ -65,16 +65,26 @@ export type TypeSafeEventShape<
 export type Tag = string;
 
 /**
+ * Infrastructure metadata required on every command submission.
+ * The CM type parameter in repositories and handlers extends this interface.
+ */
+export interface CommandMetadata {
+  readonly idempotencyKey: string;
+}
+
+/**
  * Metadata attached to persisted events.
  *
  * @property eventId - ULID identifier for the event
  * @property timestamp - Unix timestamp in milliseconds when event was created
  * @property versionstamp - Deno KV versionstamp for optimistic locking
+ * @property idempotencyKey - The idempotency key from the originating command
  */
 export interface EventMetadata {
   readonly eventId: string;
   readonly timestamp: number;
   readonly versionstamp: string;
+  readonly idempotencyKey: string;
 }
 
 /**
@@ -107,6 +117,17 @@ export class OptimisticLockingError extends Error {
       `Optimistic locking failed after ${attempts} attempts for entity ${entityId}`,
     );
     this.name = "OptimisticLockingError";
+  }
+}
+
+/**
+ * Internal error raised when a DB unique constraint violation occurs
+ * due to a race condition on the idempotency key. Never propagates to callers.
+ */
+export class IdempotencyConflictError extends Error {
+  constructor(public readonly idempotencyKey: string) {
+    super(`Idempotency conflict: key=${idempotencyKey} already exists`);
+    this.name = "IdempotencyConflictError";
   }
 }
 

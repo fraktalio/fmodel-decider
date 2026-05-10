@@ -15,6 +15,7 @@ import {
   restaurantId,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 Deno.test("DenoKvEventRepository - tuple-based query pattern allows flexible entity/event type combinations", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -40,7 +41,7 @@ Deno.test("DenoKvEventRepository - tuple-based query pattern allows flexible ent
       repository,
     );
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
       name: "Bistro",
@@ -51,6 +52,7 @@ Deno.test("DenoKvEventRepository - tuple-based query pattern allows flexible ent
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: "test-repository-tuple-query",
     };
 
     const events = await handler.handle(command);

@@ -66,6 +66,13 @@ architectures with progressive type refinement.
   - [Concrete Repository Example (PostgreSQL)](#concrete-repository-example-1)
   - [Metadata Mapping](#metadata-mapping)
   - [Event Serialization](#event-serialization)
+- [Idempotency Key](#idempotency-key)
+  - [How It Works](#how-it-works)
+  - [CommandMetadata & EventMetadata](#commandmetadata--eventmetadata)
+  - [Usage](#usage)
+  - [Decider Purity](#decider-purity)
+  - [Race Condition Safety](#race-condition-safety)
+  - [Batch Execution](#batch-execution)
 - [Demo: Restaurant & Order Management](#demo-restaurant--order-management)
   - [Scenario 1: Aggregate Pattern](#scenario-1-aggregate-pattern-demoaggregate)
   - [Scenario 2: Dynamic Consistency Boundary](#scenario-2-dynamic-consistency-boundary-demodcb)
@@ -684,6 +691,116 @@ Both backends produce `EventMetadata` but map different underlying concepts:
 
 Events are serialized as JSON → `Uint8Array` (stored as `bytea`). Custom
 serializers/deserializers can be provided to the repository constructor.
+
+## Idempotency Key
+
+Both repositories enforce **mandatory idempotency** at the persistence layer.
+Every command must carry an `idempotencyKey` via `CommandMetadata`, and every
+persisted event records the key that produced it. This guarantees that executing
+the same logical operation multiple times produces the same observable outcome —
+true idempotency for retried workflow steps, durable execution environments, and
+at-least-once delivery patterns.
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant Repository
+    participant Store
+    participant Decider
+
+    Caller->>Repository: command & { idempotencyKey }
+    Repository->>Store: lookup events by idempotencyKey
+    alt Events exist (duplicate key)
+        Store-->>Repository: existing events
+        Repository-->>Caller: return existing events (circuit-break)
+    else No events found (first execution)
+        Repository->>Store: load events by query tuples
+        Store-->>Repository: event history
+        Repository->>Decider: computeNewEvents(events, command)
+        Decider-->>Repository: new events
+        Repository->>Store: persist events with idempotencyKey stamped
+        Store-->>Repository: persisted events + metadata
+        Repository-->>Caller: return new events
+    end
+```
+
+1. **First execution**: The repository checks if any events exist for the given
+   key. Finding none, it proceeds normally — loads events, runs the decider,
+   persists new events with the key stamped on each one.
+2. **Retry (same key)**: The repository finds existing events for the key and
+   returns them immediately without invoking the decider. The caller gets the
+   same result as the first execution.
+
+### CommandMetadata & EventMetadata
+
+```ts
+// Required on every command submission
+interface CommandMetadata {
+  readonly idempotencyKey: string;
+}
+
+// Attached to every persisted event
+interface EventMetadata {
+  readonly eventId: string;
+  readonly timestamp: number;
+  readonly versionstamp: string;
+  readonly idempotencyKey: string; // stamped from the originating command
+}
+```
+
+The `idempotencyKey` accepts any non-empty string — UUIDs, composite keys like
+`workflowId:stepName`, or any caller-defined format.
+
+### Usage
+
+```ts
+// Every command must include an idempotencyKey
+const events = await handler.handle({
+  kind: "PlaceOrderCommand",
+  restaurantId: restaurantId("r1"),
+  orderId: orderId("o1"),
+  menuItems: [...],
+  idempotencyKey: "workflow-123:place-order",  // caller-provided
+});
+
+// Retrying with the same key returns the same events (no duplicate processing)
+const sameEvents = await handler.handle({
+  kind: "PlaceOrderCommand",
+  restaurantId: restaurantId("r1"),
+  orderId: orderId("o1"),
+  menuItems: [...],
+  idempotencyKey: "workflow-123:place-order",  // same key → circuit-break
+});
+```
+
+### Decider Purity
+
+The decider never sees the idempotency key. It receives only the domain command
+and current state. The key is a repository-level concern — stamped onto events
+at persist time, used for deduplication at load time. Domain logic stays pure
+and testable without infrastructure coupling.
+
+### Race Condition Safety
+
+Both backends prevent duplicate persistence under concurrent first-executions:
+
+| Backend    | Mechanism                                                 |
+| ---------- | --------------------------------------------------------- |
+| Deno KV    | Atomic check-and-set on `events_by_idempotency_key` entry |
+| PostgreSQL | `dcb.idempotency_keys` table with PRIMARY KEY constraint  |
+
+If two concurrent executions bypass the application-level check, one wins the
+write and the other gets a constraint violation. The repository catches this
+internally, retries, finds the existing events on the next loop, and
+circuit-breaks. Both callers receive the same result.
+
+### Batch Execution
+
+For `executeBatch`, the single `idempotencyKey` from the command metadata
+deduplicates the entire batch as one logical operation. All commands in a batch
+share the same key.
 
 ## Demo: Restaurant & Order Management
 

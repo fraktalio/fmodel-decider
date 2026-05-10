@@ -56,6 +56,7 @@ import {
   restaurantMenuId,
   RestaurantNotFoundError,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (processed by all deciders)", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -63,7 +64,7 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (processed by
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
@@ -75,6 +76,7 @@ Deno.test("AllDeciderRepository - CreateRestaurantCommand succeeds (processed by
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // This succeeds with combineViaTuples():
@@ -97,7 +99,7 @@ Deno.test("AllDeciderRepository - CreateOrderCommand succeeds (processed by all 
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const command: CreateOrderCommand = {
+    const command: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -105,6 +107,7 @@ Deno.test("AllDeciderRepository - CreateOrderCommand succeeds (processed by all 
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // This succeeds with combineViaTuples():
@@ -127,7 +130,7 @@ Deno.test("AllDeciderRepository - duplicate restaurant rejection (domain error)"
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
@@ -139,6 +142,7 @@ Deno.test("AllDeciderRepository - duplicate restaurant rejection (domain error)"
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // First creation succeeds
@@ -146,7 +150,11 @@ Deno.test("AllDeciderRepository - duplicate restaurant rejection (domain error)"
 
     // Second creation fails with domain error
     await assertRejects(
-      async () => await repository.execute(command),
+      async () =>
+        await repository.execute({
+          ...command,
+          idempotencyKey: crypto.randomUUID(),
+        }),
       RestaurantAlreadyExistsError,
     );
   } finally {
@@ -160,7 +168,7 @@ Deno.test("AllDeciderRepository - duplicate order rejection (domain error)", asy
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const command: CreateOrderCommand = {
+    const command: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -168,6 +176,7 @@ Deno.test("AllDeciderRepository - duplicate order rejection (domain error)", asy
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // First creation succeeds
@@ -175,7 +184,11 @@ Deno.test("AllDeciderRepository - duplicate order rejection (domain error)", asy
 
     // Second creation fails with domain error
     await assertRejects(
-      async () => await repository.execute(command),
+      async () =>
+        await repository.execute({
+          ...command,
+          idempotencyKey: crypto.randomUUID(),
+        }),
       OrderAlreadyExistsError,
     );
   } finally {
@@ -189,7 +202,7 @@ Deno.test("AllDeciderRepository - change menu on non-existent restaurant", async
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const changeCommand: ChangeRestaurantMenuCommand = {
+    const changeCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
@@ -200,6 +213,7 @@ Deno.test("AllDeciderRepository - change menu on non-existent restaurant", async
           { menuItemId: menuItemId("item3"), name: "Croissant", price: "5.99" },
         ],
       },
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // Fails because restaurant doesn't exist
@@ -218,10 +232,11 @@ Deno.test("AllDeciderRepository - mark non-existent order as prepared", async ()
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const markCommand: MarkOrderAsPreparedCommand = {
+    const markCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // Fails because order doesn't exist
@@ -241,7 +256,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     const repository = new AllDeciderRepository(kv);
 
     // 1. Create restaurant
-    const createRestaurantCommand: CreateRestaurantCommand = {
+    const createRestaurantCommand: CreateRestaurantCommand & CommandMetadata = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
@@ -253,6 +268,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: crypto.randomUUID(),
     };
 
     const restaurantEvents = await repository.execute(createRestaurantCommand);
@@ -260,7 +276,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     assertEquals(restaurantEvents[0].kind, "RestaurantCreatedEvent");
 
     // 2. Change restaurant menu
-    const changeMenuCommand: ChangeRestaurantMenuCommand = {
+    const changeMenuCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       decider: "Restaurant",
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
@@ -271,6 +287,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
           { menuItemId: menuItemId("item2"), name: "Croissant", price: "5.99" },
         ],
       },
+      idempotencyKey: crypto.randomUUID(),
     };
 
     const menuEvents = await repository.execute(changeMenuCommand);
@@ -278,7 +295,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     assertEquals(menuEvents[0].kind, "RestaurantMenuChangedEvent");
 
     // 3. Create order
-    const createOrderCommand: CreateOrderCommand = {
+    const createOrderCommand: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -286,6 +303,7 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
       menuItems: [
         { menuItemId: menuItemId("item2"), name: "Croissant", price: "5.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     const orderEvents = await repository.execute(createOrderCommand);
@@ -293,10 +311,11 @@ Deno.test("AllDeciderRepository - full workflow with combined approach", async (
     assertEquals(orderEvents[0].kind, "OrderCreatedEvent");
 
     // 4. Mark order as prepared
-    const markCommand: MarkOrderAsPreparedCommand = {
+    const markCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: crypto.randomUUID(),
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -328,7 +347,7 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
   try {
     const repository = new AllDeciderRepository(kv);
 
-    const restaurantCommand: CreateRestaurantCommand = {
+    const restaurantCommand: CreateRestaurantCommand & CommandMetadata = {
       decider: "Restaurant",
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r1"),
@@ -340,9 +359,10 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
           { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         ],
       },
+      idempotencyKey: crypto.randomUUID(),
     };
 
-    const orderCommand: CreateOrderCommand = {
+    const orderCommand: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -350,6 +370,7 @@ Deno.test("AllDeciderRepository - demonstrates tuple-based composition", async (
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // Key insight: combineViaTuples() sends commands to ALL deciders

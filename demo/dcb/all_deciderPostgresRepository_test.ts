@@ -26,6 +26,7 @@ import {
   restaurantMenuId,
   RestaurantNotFoundError,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import {
   createPostgresClient,
   startPostgresContainer,
@@ -46,7 +47,7 @@ Deno.test({
   fn: async () => {
     const repository = new AllDeciderPostgresRepository(client);
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-create-1"),
       name: "Bistro",
@@ -61,6 +62,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-all-decider-create-1",
     };
 
     const events = await repository.execute(command);
@@ -78,7 +80,7 @@ Deno.test({
   fn: async () => {
     const repository = new AllDeciderPostgresRepository(client);
 
-    const changeCommand: ChangeRestaurantMenuCommand = {
+    const changeCommand: ChangeRestaurantMenuCommand & CommandMetadata = {
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r-changemenu-noexist-1"),
       menu: {
@@ -92,6 +94,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-all-decider-change-fail",
     };
 
     await assertRejects(
@@ -109,7 +112,7 @@ Deno.test({
   fn: async () => {
     const repository = new AllDeciderPostgresRepository(client);
 
-    const placeOrderCommand: PlaceOrderCommand = {
+    const placeOrderCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-placeorder-noexist-1"),
       orderId: orderId("o-placeorder-noexist-1"),
@@ -120,6 +123,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-all-decider-place-fail",
     };
 
     await assertRejects(
@@ -137,9 +141,10 @@ Deno.test({
   fn: async () => {
     const repository = new AllDeciderPostgresRepository(client);
 
-    const markCommand: MarkOrderAsPreparedCommand = {
+    const markCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-mark-noexist-1"),
+      idempotencyKey: "test-pg-all-decider-mark-fail",
     };
 
     await assertRejects(
@@ -157,7 +162,7 @@ Deno.test({
     const repository = new AllDeciderPostgresRepository(client);
 
     // 1. Create restaurant
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-workflow-1"),
       name: "Bistro",
@@ -172,6 +177,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-all-decider-workflow-create",
     };
 
     const createEvents = await repository.execute(createCommand);
@@ -179,7 +185,7 @@ Deno.test({
     assertEquals(createEvents[0].kind, "RestaurantCreatedEvent");
 
     // 2. Place order
-    const placeOrderCommand: PlaceOrderCommand = {
+    const placeOrderCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-workflow-1"),
       orderId: orderId("o-workflow-1"),
@@ -190,6 +196,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-all-decider-workflow-place",
     };
 
     const orderEvents = await repository.execute(placeOrderCommand);
@@ -197,9 +204,10 @@ Deno.test({
     assertEquals(orderEvents[0].kind, "RestaurantOrderPlacedEvent");
 
     // 3. Mark order as prepared
-    const markCommand: MarkOrderAsPreparedCommand = {
+    const markCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-workflow-1"),
+      idempotencyKey: "test-pg-all-decider-workflow-mark",
     };
 
     const preparedEvents = await repository.execute(markCommand);
@@ -248,7 +256,8 @@ Deno.test({
             },
           ],
         },
-      } satisfies CreateRestaurantCommand,
+        idempotencyKey: "test-pg-all-decider-batch-create-place",
+      } satisfies CreateRestaurantCommand & CommandMetadata,
       {
         kind: "PlaceOrderCommand",
         restaurantId: restaurantId("r-batch-1"),
@@ -260,7 +269,8 @@ Deno.test({
             price: "12.99",
           },
         ],
-      } satisfies PlaceOrderCommand,
+        idempotencyKey: "test-pg-all-decider-batch-create-place",
+      } satisfies PlaceOrderCommand & CommandMetadata,
     ]);
 
     assertEquals(events.length, 2);
@@ -292,7 +302,8 @@ Deno.test({
                 price: "12.99",
               },
             ],
-          } satisfies PlaceOrderCommand,
+            idempotencyKey: "test-pg-all-decider-batch-error",
+          } satisfies PlaceOrderCommand & CommandMetadata,
           {
             kind: "CreateRestaurantCommand",
             restaurantId: restaurantId("r-batcherr-1"),
@@ -308,7 +319,8 @@ Deno.test({
                 },
               ],
             },
-          } satisfies CreateRestaurantCommand,
+            idempotencyKey: "test-pg-all-decider-batch-error",
+          } satisfies CreateRestaurantCommand & CommandMetadata,
         ]),
       RestaurantNotFoundError,
     );
@@ -339,7 +351,8 @@ Deno.test({
             },
           ],
         },
-      } satisfies CreateRestaurantCommand,
+        idempotencyKey: "test-pg-all-decider-batch-workflow",
+      } satisfies CreateRestaurantCommand & CommandMetadata,
       {
         kind: "PlaceOrderCommand",
         restaurantId: restaurantId("r-batch3-1"),
@@ -351,11 +364,13 @@ Deno.test({
             price: "12.99",
           },
         ],
-      } satisfies PlaceOrderCommand,
+        idempotencyKey: "test-pg-all-decider-batch-workflow",
+      } satisfies PlaceOrderCommand & CommandMetadata,
       {
         kind: "MarkOrderAsPreparedCommand",
         orderId: orderId("o-batch3-1"),
-      } satisfies MarkOrderAsPreparedCommand,
+        idempotencyKey: "test-pg-all-decider-batch-workflow",
+      } satisfies MarkOrderAsPreparedCommand & CommandMetadata,
     ]);
 
     assertEquals(events.length, 3);

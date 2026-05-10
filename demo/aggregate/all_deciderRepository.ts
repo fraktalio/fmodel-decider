@@ -65,6 +65,7 @@
  */
 
 import {
+  type CommandMetadata,
   DenoKvEventRepository,
   type EventMetadata,
 } from "../../denoKvEventRepository.ts";
@@ -146,7 +147,7 @@ export class AllDeciderRepository {
    * - Only the relevant decider produces events (others return [])
    */
   execute(
-    command: Command,
+    command: Command & CommandMetadata,
   ): Promise<readonly (Event & EventMetadata)[]> {
     return this.repository.execute(command, all_domain_decider);
   }

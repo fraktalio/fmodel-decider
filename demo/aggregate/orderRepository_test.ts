@@ -24,6 +24,7 @@ import {
   type OrderPreparedEvent,
   restaurantId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 Deno.test("OrderRepository - successful order creation (happy path)", async () => {
   const kv = await Deno.openKv(":memory:");
@@ -32,7 +33,7 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
     const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
-    const command: CreateOrderCommand = {
+    const command: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -41,6 +42,7 @@ Deno.test("OrderRepository - successful order creation (happy path)", async () =
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
         { menuItemId: menuItemId("item2"), name: "Pasta", price: "10.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     const events = await handler.handle(command);
@@ -90,7 +92,7 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
     const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
-    const command: CreateOrderCommand = {
+    const command: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -98,6 +100,7 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // First creation should succeed
@@ -106,7 +109,10 @@ Deno.test("OrderRepository - duplicate order rejection (domain error)", async ()
     // Second creation should fail with domain error
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: crypto.randomUUID(),
+        });
       },
       OrderAlreadyExistsError,
     );
@@ -123,7 +129,7 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
     // Create order
-    const createCommand: CreateOrderCommand = {
+    const createCommand: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -131,14 +137,16 @@ Deno.test("OrderRepository - mark order as prepared", async () => {
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
     await handler.handle(createCommand);
 
     // Mark as prepared
-    const prepareCommand: MarkOrderAsPreparedCommand = {
+    const prepareCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: crypto.randomUUID(),
     };
     const events = await handler.handle(prepareCommand);
 
@@ -160,10 +168,11 @@ Deno.test("OrderRepository - mark non-existent order as prepared", async () => {
     const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
-    const prepareCommand: MarkOrderAsPreparedCommand = {
+    const prepareCommand: MarkOrderAsPreparedCommand & CommandMetadata = {
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: crypto.randomUUID(),
     };
 
     await assertRejects(
@@ -184,7 +193,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
     const repository = orderRepository(kv);
     const handler = new EventSourcedCommandHandler(orderDecider, repository);
 
-    const command: CreateOrderCommand = {
+    const command: CreateOrderCommand & CommandMetadata = {
       decider: "Order",
       kind: "CreateOrderCommand",
       orderId: orderId("o1"),
@@ -192,6 +201,7 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
       menuItems: [
         { menuItemId: menuItemId("item1"), name: "Pizza", price: "12.99" },
       ],
+      idempotencyKey: crypto.randomUUID(),
     };
 
     // First creation should succeed
@@ -202,7 +212,10 @@ Deno.test("OrderRepository - concurrent modification detection", async () => {
     // Second concurrent creation attempt should fail with domain error
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: crypto.randomUUID(),
+        });
       },
       OrderAlreadyExistsError,
     );

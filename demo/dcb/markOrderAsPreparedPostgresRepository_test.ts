@@ -31,6 +31,7 @@ import {
   restaurantId,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import {
   createPostgresClient,
   startPostgresContainer,
@@ -52,7 +53,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-prep-1"),
       name: "Bistro",
@@ -67,6 +68,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-mark-prepared-happy-create",
     };
 
     await createHandler.handle(createCommand);
@@ -78,7 +80,7 @@ Deno.test({
       placeRepository,
     );
 
-    const placeCommand: PlaceOrderCommand = {
+    const placeCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-prep-1"),
       orderId: orderId("o-prep-1"),
@@ -89,6 +91,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-mark-prepared-happy-place",
     };
 
     await placeHandler.handle(placeCommand);
@@ -100,9 +103,10 @@ Deno.test({
       repository,
     );
 
-    const command: MarkOrderAsPreparedCommand = {
+    const command: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-prep-1"),
+      idempotencyKey: "test-pg-mark-prepared-happy-mark",
     };
 
     const events = await handler.handle(command);
@@ -128,9 +132,10 @@ Deno.test({
       repository,
     );
 
-    const command: MarkOrderAsPreparedCommand = {
+    const command: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-nonexist-999"),
+      idempotencyKey: "test-pg-mark-prepared-nonexist",
     };
 
     // Should fail with domain error
@@ -156,7 +161,7 @@ Deno.test({
       createRepository,
     );
 
-    const createCommand: CreateRestaurantCommand = {
+    const createCommand: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-already-1"),
       name: "Bistro",
@@ -171,6 +176,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-mark-prepared-already-create",
     };
 
     await createHandler.handle(createCommand);
@@ -182,7 +188,7 @@ Deno.test({
       placeRepository,
     );
 
-    const placeCommand: PlaceOrderCommand = {
+    const placeCommand: PlaceOrderCommand & CommandMetadata = {
       kind: "PlaceOrderCommand",
       restaurantId: restaurantId("r-already-1"),
       orderId: orderId("o-already-1"),
@@ -193,6 +199,7 @@ Deno.test({
           price: "12.99",
         },
       ],
+      idempotencyKey: "test-pg-mark-prepared-already-place",
     };
 
     await placeHandler.handle(placeCommand);
@@ -204,9 +211,10 @@ Deno.test({
       repository,
     );
 
-    const command: MarkOrderAsPreparedCommand = {
+    const command: MarkOrderAsPreparedCommand & CommandMetadata = {
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-already-1"),
+      idempotencyKey: "test-pg-mark-prepared-already-1",
     };
 
     // First preparation should succeed
@@ -220,7 +228,10 @@ Deno.test({
     // Second preparation should fail
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-pg-mark-prepared-already-2",
+        });
       },
       OrderAlreadyPreparedError,
     );

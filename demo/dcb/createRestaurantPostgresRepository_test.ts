@@ -23,6 +23,7 @@ import {
   restaurantId,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import {
   createPostgresClient,
   startPostgresContainer,
@@ -43,7 +44,7 @@ Deno.test({
       repository,
     );
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-happy-1"),
       name: "Bistro",
@@ -63,6 +64,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-create-restaurant-happy",
     };
 
     const events = await handler.handle(command);
@@ -92,7 +94,7 @@ Deno.test({
       repository,
     );
 
-    const command: CreateRestaurantCommand = {
+    const command: CreateRestaurantCommand & CommandMetadata = {
       kind: "CreateRestaurantCommand",
       restaurantId: restaurantId("r-dup-1"),
       name: "Bistro",
@@ -107,6 +109,7 @@ Deno.test({
           },
         ],
       },
+      idempotencyKey: "test-pg-create-restaurant-dup-1",
     };
 
     // First creation should succeed
@@ -115,7 +118,10 @@ Deno.test({
     // Second creation should fail with domain error
     await assertRejects(
       async () => {
-        await handler.handle(command);
+        await handler.handle({
+          ...command,
+          idempotencyKey: "test-pg-create-restaurant-dup-2",
+        });
       },
       RestaurantAlreadyExistsError,
     );

@@ -19,6 +19,7 @@ import {
   type RestaurantMenu,
   restaurantMenuId,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 
 const testMenu: RestaurantMenu = {
   menuId: restaurantMenuId("m1"),
@@ -45,6 +46,7 @@ Deno.test("RestaurantViewEventLoader - project restaurant state from events", as
       restaurantId: restaurantId("r1"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: "test-restaurant-view-create-1",
     });
 
     // Query the restaurant view via event loader
@@ -76,6 +78,7 @@ Deno.test("RestaurantViewEventLoader - project state after menu change", async (
       restaurantId: restaurantId("r1"),
       name: "Italian Bistro",
       menu: testMenu,
+      idempotencyKey: "test-restaurant-view-create-2",
     });
 
     const changeRepo = changeRestaurantMenuRepository(kv);
@@ -96,6 +99,7 @@ Deno.test("RestaurantViewEventLoader - project state after menu change", async (
       kind: "ChangeRestaurantMenuCommand",
       restaurantId: restaurantId("r1"),
       menu: newMenu,
+      idempotencyKey: "test-restaurant-view-change-2",
     });
 
     // Query both event types to build full state

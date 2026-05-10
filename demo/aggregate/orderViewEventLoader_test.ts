@@ -30,6 +30,7 @@ Deno.test("OrderViewEventLoader (aggregate) - project order state from created e
       orderId: orderId("o1"),
       restaurantId: restaurantId("r1"),
       menuItems: testMenuItems,
+      idempotencyKey: crypto.randomUUID(),
     });
 
     const queryHandler = orderViewQueryHandler(kv);
@@ -59,12 +60,14 @@ Deno.test("OrderViewEventLoader (aggregate) - project state after order prepared
       orderId: orderId("o1"),
       restaurantId: restaurantId("r1"),
       menuItems: testMenuItems,
+      idempotencyKey: crypto.randomUUID(),
     });
 
     await handler.handle({
       decider: "Order",
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o1"),
+      idempotencyKey: crypto.randomUUID(),
     });
 
     const queryHandler = orderViewQueryHandler(kv);

@@ -152,7 +152,10 @@ export function createSpecs(assertions: Assertions): SpecBuilders {
           const handle = () => decider.computeNewEvents(events, command);
           return {
             then: (expectedEvents: Eo[]) => {
-              assertEquals(handle(), expectedEvents);
+              assertEquals(
+                handle() as readonly Eo[],
+                expectedEvents,
+              );
             },
             thenThrows: (check?: (error: Error) => boolean) => {
               try {

@@ -32,6 +32,7 @@ import {
   restaurantMenuId,
   type RestaurantOrderPlacedEvent,
 } from "./api.ts";
+import type { CommandMetadata } from "../../infrastructure.ts";
 import { orderView } from "./orderView.ts";
 import {
   createPostgresClient,
@@ -71,6 +72,7 @@ async function setupRestaurantAndOrder(client: any, rId: string, oId: string) {
     restaurantId: restaurantId(rId),
     name: "Italian Bistro",
     menu: testMenu,
+    idempotencyKey: `test-pg-order-view-setup-create-${rId}`,
   });
 
   const placeRepo = placeOrderPostgresRepository(client);
@@ -84,6 +86,7 @@ async function setupRestaurantAndOrder(client: any, rId: string, oId: string) {
     restaurantId: restaurantId(rId),
     orderId: orderId(oId),
     menuItems: testMenuItems,
+    idempotencyKey: `test-pg-order-view-setup-place-${oId}`,
   });
 }
 
@@ -125,6 +128,7 @@ Deno.test({
     await prepareHandler.handle({
       kind: "MarkOrderAsPreparedCommand",
       orderId: orderId("o-oview-2"),
+      idempotencyKey: "test-pg-order-view-prepare-2",
     });
 
     const loader = new PostgresEventLoader<OrderEvent>(client);
