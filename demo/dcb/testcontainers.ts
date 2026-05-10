@@ -27,7 +27,18 @@ export async function startPostgresContainer(): Promise<PostgresContainer> {
   const container = await PostgresTestContainer.start("postgres:17");
 
   // Create the database and load the DCB schema
-  await container.create("fmodel");
+  // Retry logic for CI environments where the container may need extra time
+  let retries = 5;
+  while (retries > 0) {
+    try {
+      await container.create("fmodel");
+      break;
+    } catch (error) {
+      retries--;
+      if (retries === 0) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
 
   const schemaPath = path.resolve("dcb_schema.sql");
   const schemaSql = await Deno.readTextFile(schemaPath);
