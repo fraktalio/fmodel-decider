@@ -1,6 +1,6 @@
 {
   "name": "@fraktalio/fmodel-decider",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "exports": "./mod.ts",
   "tasks": {
     "dev": "deno test --watch --unstable-kv",
