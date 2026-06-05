@@ -11,7 +11,11 @@
  * language governing permissions and limitations under the License.
  */
 
-import type { IAggregateDecider, IDcbDecider, IDecider } from "./decider.ts";
+import type {
+  IDecider,
+  IEventComputation,
+  IStateComputation,
+} from "./decider.ts";
 import { identity } from "./mod.ts";
 
 /**
@@ -28,8 +32,14 @@ import { identity } from "./mod.ts";
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-concept scenarios
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  */
-export interface IProcess<AR, Si, So, Ei, Eo, A>
-  extends IDecider<AR, Si, So, Ei, Eo> {
+export interface IProcess<AR, Si, So, Ei, Eo, A> extends
+  IDecider<
+    AR,
+    Si,
+    So,
+    Ei,
+    Eo
+  > {
   /**
    * Determines which actions from the ToDo list are made ready by an event.
    *
@@ -55,6 +65,9 @@ export interface IProcess<AR, Si, So, Ei, Eo, A>
  * Event-sourced process manager with `Si = So = S` constraint enabling consistent state evolution.
  * Acts as a ToDo list for orchestrating business processes with event-sourced computation capabilities.
  *
+ * Extends `IProcess` with the `Si = So = S` constraint and adds `IEventComputation` directly,
+ * providing `computeNewEvents` to derive current state from event history before making decisions.
+ *
  * @typeParam AR - Action Result type representing results from executed actions
  * @typeParam S - State type (both input and output), constrained to be identical for consistent event-sourced evolution
  * @typeParam Ei - Input event type consumed by the evolve function and react method
@@ -62,8 +75,7 @@ export interface IProcess<AR, Si, So, Ei, Eo, A>
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  */
 export interface IDcbProcess<AR, S, Ei, Eo, A>
-  extends IProcess<AR, S, S, Ei, Eo, A>, IDcbDecider<AR, S, Ei, Eo> {
-}
+  extends IProcess<AR, S, S, Ei, Eo, A>, IEventComputation<AR, Ei, Eo> {}
 
 /**
  * The most refined form in the progressive process manager hierarchy with dual computation capabilities.
@@ -71,6 +83,9 @@ export interface IDcbProcess<AR, S, Ei, Eo, A>
  * @remarks
  * Final refinement step with dual constraints `Si = So = S` and `Ei = Eo = E`, supporting both event-sourced and state-stored computation patterns.
  * Acts as a ToDo list for orchestrating business processes within aggregate boundaries with maximum type safety.
+ *
+ * Extends `IDcbProcess` with the `Ei = Eo = E` constraint and adds `IStateComputation` directly,
+ * providing `computeNewState` to apply decision results immediately to the current state without replaying event history.
  *
  * A process manager maintains a ToDo list of actions and determines:
  * - **All pending actions** based on current state (complete ToDo list)
@@ -84,8 +99,7 @@ export interface IDcbProcess<AR, S, Ei, Eo, A>
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  */
 export interface IAggregateProcess<AR, S, E, A>
-  extends IDcbProcess<AR, S, E, E, A>, IAggregateDecider<AR, S, E> {
-}
+  extends IDcbProcess<AR, S, E, E, A>, IStateComputation<AR, S> {}
 
 /**
  * The foundational process manager implementation with independent type parameters.
@@ -101,8 +115,15 @@ export interface IAggregateProcess<AR, S, E, A>
  * @typeParam Eo - Output event type produced by the decide function
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  */
-export class Process<AR, Si, So, Ei, Eo, A>
-  implements IProcess<AR, Si, So, Ei, Eo, A> {
+export class Process<AR, Si, So, Ei, Eo, A> implements
+  IProcess<
+    AR,
+    Si,
+    So,
+    Ei,
+    Eo,
+    A
+  > {
   /**
    * Creates a new Process instance.
    *
@@ -259,26 +280,14 @@ export class Process<AR, Si, So, Ei, Eo, A>
     y: Process<AR2, Si2, So2, Ei2, Eo2, A2>,
   ): Process<AR | AR2, Si & Si2, So & So2, Ei | Ei2, Eo | Eo2, A | A2> {
     const processX = this.mapContraOnActionResult<AR | AR2>((ar) => ar as AR)
-      .dimapOnState<Si & Si2, So>(
-        (sin) => sin as Si,
-        identity,
-      )
-      .dimapOnEvent<Ei | Ei2, Eo | Eo2>(
-        (ein) => ein as Ei,
-        identity,
-      )
+      .dimapOnState<Si & Si2, So>((sin) => sin as Si, identity)
+      .dimapOnEvent<Ei | Ei2, Eo | Eo2>((ein) => ein as Ei, identity)
       .mapOnAction<A | A2>(identity);
 
     const processY = y
       .mapContraOnActionResult<AR | AR2>((ar) => ar as AR2)
-      .dimapOnState<Si & Si2, So2>(
-        (sin) => sin as Si2,
-        identity,
-      )
-      .dimapOnEvent<Ei | Ei2, Eo | Eo2>(
-        (ein) => ein as Ei2,
-        identity,
-      )
+      .dimapOnState<Si & Si2, So2>((sin) => sin as Si2, identity)
+      .dimapOnEvent<Ei | Ei2, Eo | Eo2>((ein) => ein as Ei2, identity)
       .mapOnAction<A | A2>(identity);
 
     return processX.productOnState(processY);
@@ -343,8 +352,14 @@ export class Process<AR, Si, So, Ei, Eo, A>
  * @typeParam Eo - Output event type produced by the decide function, may differ from Ei for cross-boundary scenarios
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  */
-export class DcbProcess<AR, S, Ei, Eo, A>
-  implements IDcbProcess<AR, S, Ei, Eo, A> {
+export class DcbProcess<AR, S, Ei, Eo, A> implements
+  IDcbProcess<
+    AR,
+    S,
+    Ei,
+    Eo,
+    A
+  > {
   private readonly _process: Process<AR, S, S, Ei, Eo, A>;
 
   /**
@@ -504,13 +519,7 @@ export class DcbProcess<AR, S, Ei, Eo, A>
    */
   combineViaTuples<AR2, S2, Ei2, Eo2, A2>(
     y: DcbProcess<AR2, S2, Ei2, Eo2, A2>,
-  ): DcbProcess<
-    AR | AR2,
-    readonly [S, S2],
-    Ei | Ei2,
-    Eo | Eo2,
-    A | A2
-  > {
+  ): DcbProcess<AR | AR2, readonly [S, S2], Ei | Ei2, Eo | Eo2, A | A2> {
     const combinedProcess = this._process.combineViaTuples(y._process);
     return new DcbProcess(
       combinedProcess.decide,
@@ -538,8 +547,13 @@ export class DcbProcess<AR, S, Ei, Eo, A>
  * @typeParam E - Event type (both input and output) representing domain events that directly correspond to state changes
  * @typeParam A - Action type representing actions that can be executed as part of the business process
  */
-export class AggregateProcess<AR, S, E, A>
-  implements IAggregateProcess<AR, S, E, A> {
+export class AggregateProcess<AR, S, E, A> implements
+  IAggregateProcess<
+    AR,
+    S,
+    E,
+    A
+  > {
   private readonly _process: Process<AR, S, S, E, E, A>;
 
   /**
@@ -711,12 +725,7 @@ export class AggregateProcess<AR, S, E, A>
    */
   combineViaTuples<AR2, S2, E2, A2>(
     y: AggregateProcess<AR2, S2, E2, A2>,
-  ): AggregateProcess<
-    AR | AR2,
-    readonly [S, S2],
-    E | E2,
-    A | A2
-  > {
+  ): AggregateProcess<AR | AR2, readonly [S, S2], E | E2, A | A2> {
     const combinedProcess = this._process.combineViaTuples(y._process);
     return new AggregateProcess(
       combinedProcess.decide,

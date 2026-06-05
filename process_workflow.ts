@@ -11,7 +11,8 @@
  * language governing permissions and limitations under the License.
  */
 
-import type { IAggregateProcess, IDcbProcess, IProcess } from "./process.ts";
+import type { IEventComputation, IStateComputation } from "./decider.ts";
+import type { IProcess } from "./process.ts";
 import { AggregateProcess, DcbProcess, Process } from "./process.ts";
 
 /**
@@ -229,9 +230,8 @@ export interface IWorkflowProcess<AR, A, TaskName extends string = string>
  * Event-sourced workflow process interface with type-safe task names.
  *
  * @remarks
- * Extends IDcbProcess with workflow-specific functionality and constraints.
- * State type is fixed to WorkflowState for consistent event-sourced evolution and type safety.
- * Maintains WorkflowEvent constraints for both input and output event types.
+ * Extends IWorkflowProcess with event-sourced computation by adding IEventComputation directly,
+ * providing `computeNewEvents` to derive current state from event history before making decisions.
  * Inherits all workflow helper methods from IWorkflowProcess for standardized task management.
  *
  * @typeParam AR - Action Result type representing results from executed actions
@@ -241,24 +241,17 @@ export interface IWorkflowProcess<AR, A, TaskName extends string = string>
 export interface IDcbWorkflowProcess<AR, A, TaskName extends string = string>
   extends
     IWorkflowProcess<AR, A, TaskName>,
-    IDcbProcess<
-      AR,
-      WorkflowState<TaskName>,
-      WorkflowEvent<TaskName>,
-      WorkflowEvent<TaskName>,
-      A
-    > {
+    IEventComputation<AR, WorkflowEvent<TaskName>, WorkflowEvent<TaskName>> {
 }
 
 /**
  * Aggregate workflow process interface with dual computation capabilities and type-safe task names.
  *
  * @remarks
- * Extends IAggregateProcess with workflow-specific functionality and constraints.
- * State type is fixed to WorkflowState and event type is fixed to WorkflowEvent for maximum type safety.
+ * Extends IDcbWorkflowProcess and adds IStateComputation directly,
+ * providing `computeNewState` to apply decision results immediately to the current state without replaying event history.
  * Supports both event-sourced and state-stored workflow computation patterns.
- * Inherits all workflow helper methods from IWorkflowProcess for standardized task management.
- * Provides dual computation capabilities within aggregate boundaries with workflow-specific events.
+ * Inherits all workflow helper methods from IDcbWorkflowProcess for standardized task management.
  *
  * @typeParam AR - Action Result type representing results from executed actions within the aggregate boundary
  * @typeParam A - Action type representing actions that can be executed as part of the business process
@@ -269,8 +262,8 @@ export interface IAggregateWorkflowProcess<
   A,
   TaskName extends string = string,
 > extends
-  IWorkflowProcess<AR, A, TaskName>,
-  IAggregateProcess<AR, WorkflowState<TaskName>, WorkflowEvent<TaskName>, A> {
+  IDcbWorkflowProcess<AR, A, TaskName>,
+  IStateComputation<AR, WorkflowState<TaskName>> {
 }
 /**
  * The foundational workflow process implementation with fixed WorkflowState type.

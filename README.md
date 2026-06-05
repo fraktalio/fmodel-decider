@@ -180,13 +180,8 @@ graph LR
     end
     
     D -.->|"extends"| V
-    DCB -.->|"extends"| P
     PR -.->|"extends"| D
-    DCBP -.->|"extends"| DCB
-    AGGP -.->|"extends"| AGG
     WP -.->|"extends"| PR
-    DCBWP -.->|"extends"| DCBP
-    AGGWP -.->|"extends"| AGGP
     
     style D fill:#e1f5fe,color:#000
     style DCB fill:#b3e5fc,color:#000

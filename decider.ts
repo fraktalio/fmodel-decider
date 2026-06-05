@@ -12,7 +12,7 @@
  */
 
 import { identity } from "./mod.ts";
-import type { IProjection, IView } from "./view.ts";
+import type { IView } from "./view.ts";
 
 /**
  * The foundational contract for decision-making algorithms with independent type parameters.
@@ -133,10 +133,7 @@ export interface IStateComputation<C, S> {
  * @author Fraktalio
  */
 export interface IDcbDecider<C, S, Ei, Eo>
-  extends
-    IDecider<C, S, S, Ei, Eo>,
-    IProjection<S, Ei>,
-    IEventComputation<C, Ei, Eo> {}
+  extends IDecider<C, S, S, Ei, Eo>, IEventComputation<C, Ei, Eo> {}
 
 /**
  * The most refined form in the progressive type system, constraining both state and event types to be identical.
@@ -535,10 +532,7 @@ export class DcbDecider<C, S, Ei, Eo> implements IDcbDecider<C, S, Ei, Eo> {
    * @returns A readonly array of new output events representing what should happen as a result of processing the command
    */
   computeNewEvents(events: readonly Ei[], command: C): readonly Eo[] {
-    const currentState = events.reduce(
-      this.evolve,
-      this.initialState,
-    );
+    const currentState = events.reduce(this.evolve, this.initialState);
     return this.decide(command, currentState);
   }
 
@@ -710,10 +704,7 @@ export class AggregateDecider<C, S, E> implements IAggregateDecider<C, S, E> {
    * Computes new events from a command by first replaying all past events to derive the current state.
    */
   computeNewEvents(events: readonly E[], command: C): readonly E[] {
-    const currentState = events.reduce(
-      this.evolve,
-      this.initialState,
-    );
+    const currentState = events.reduce(this.evolve, this.initialState);
     return this.decide(command, currentState);
   }
 
