@@ -5,7 +5,7 @@
  * but targets the PostgreSQL backend via placeOrderPostgresRepository.
  *
  * Tests verify:
- * - Event persistence to PostgreSQL via conditional_append
+ * - Event persistence to PostgreSQL via append
  * - Domain error propagation (RestaurantNotFoundError, MenuItemsNotAvailableError, OrderAlreadyExistsError)
  * - Order placement after menu change
  *

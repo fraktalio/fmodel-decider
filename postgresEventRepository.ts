@@ -181,7 +181,7 @@ export function buildEventTuples<Eo extends EventShape>(
  *
  * Delegates all storage, indexing, and conflict detection to predefined SQL
  * functions in the `dcb` schema:
- * - `conditional_append` — atomic conflict check + append
+ * - `append` — atomic conflict check + append
  * - `select_events_by_tags` — full-replay event loading
  * - `select_last_events_by_tags` — idempotent (last-event) loading
  * - `select_max_id` — current max event id
@@ -222,7 +222,7 @@ export class PostgresEventRepository<
 
   /**
    * Executes a command by loading events, computing new events via the decider,
-   * and persisting them with optimistic locking via `conditional_append`.
+   * and persisting them with optimistic locking via `append`.
    *
    * Implements idempotency circuit-break:
    * 1. Check if idempotencyKey already exists — if so, return existing events
@@ -294,7 +294,7 @@ export class PostgresEventRepository<
   /**
    * Executes a batch of commands: load once using first command's tuples,
    * process each command sequentially with accumulated event propagation,
-   * single `conditional_append` for all events.
+   * single `append` for all events.
    *
    * The single `idempotencyKey` from the first command's metadata deduplicates
    * the entire batch as one logical operation.
@@ -333,7 +333,7 @@ export class PostgresEventRepository<
         firstQueryTuples,
       );
 
-      // Collect all query tuples for the conditional_append conflict check
+      // Collect all query tuples for the append conflict check
       const allQueryTuples = [...firstQueryTuples];
 
       const accumulatedEvents: Eo[] = [];
@@ -521,8 +521,8 @@ export class PostgresEventRepository<
   }
 
   /**
-   * Persists events via `conditional_append` and enriches with EventMetadata.
-   * Returns null on conflict (NULL from conditional_append).
+   * Persists events via `append` and enriches with EventMetadata.
+   * Returns null on conflict (NULL from append).
    * Throws IdempotencyConflictError on PK violation on idempotency_keys.
    */
   private async persistEvents(
@@ -538,14 +538,14 @@ export class PostgresEventRepository<
       const escapedKey = escapeSqlString(idempotencyKey);
       const escapedKind = escapeSqlString(commandKind);
 
-      // Call conditional_append with idempotency key and command kind
+      // Call append with idempotency key and command kind
       const appendResult = await this.client.queryObject<{
-        conditional_append: unknown;
+        append: unknown;
       }>(
-        `SELECT conditional_append(${queryItemsSql}::dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb_event_tt[], '${escapedKey}', '${escapedKind}')`,
+        `SELECT append(${queryItemsSql}::dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb_event_tt[], '${escapedKey}', '${escapedKind}')`,
       );
 
-      const returnedValue = appendResult.rows[0]?.conditional_append;
+      const returnedValue = appendResult.rows[0]?.append;
 
       // NULL means optimistic locking conflict
       if (returnedValue === null || returnedValue === undefined) {

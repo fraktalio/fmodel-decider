@@ -2,7 +2,7 @@
  * Postgres repository for ChangeRestaurantMenu decider.
  *
  * Handles restaurant menu update commands by persisting RestaurantMenuChangedEvent
- * to PostgreSQL storage via `conditional_append` with optimistic locking.
+ * to PostgreSQL storage via `append` with optimistic locking.
  */
 
 import type { SqlClient } from "../../postgresEventRepository.ts";

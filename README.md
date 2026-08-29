@@ -586,7 +586,7 @@ thin:
 
 | Function                     | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
-| `conditional_append`         | Atomic conflict check + append with table-level EXCLUSIVE lock |
+| `append`                     | Atomic conflict check + append with table-level EXCLUSIVE lock |
 | `select_events_by_tags`      | Full-replay event loading by query tuples (tag containment)    |
 | `select_last_events_by_tags` | Idempotent mode — returns only the last event per query group  |
 | `select_events_by_type`      | Load events by type with optional `after_id` cursor            |
@@ -599,7 +599,7 @@ PostgreSQL uses a different locking strategy than Deno KV:
 1. **Load** events via `select_events_by_tags` (or `select_last_events_by_tags`
    in idempotent mode) and record the max `id` as `after_id`
 2. **Compute** new events via the decider (pure domain logic)
-3. **Persist** via `conditional_append(query_items, after_id, new_events)`:
+3. **Persist** via `append(query_items, after_id, new_events)`:
    - Acquires a table-level `EXCLUSIVE` lock (with 5s timeout)
    - Checks for conflicting events with matching tags inserted after `after_id`
    - If no conflicts: appends events, returns the new max id
@@ -673,13 +673,13 @@ export const placeOrderPostgresRepository = (client: SqlClient) =>
 
 Both backends produce `EventMetadata` but map different underlying concepts:
 
-| Concept            | Deno KV                 | PostgreSQL                           |
-| ------------------ | ----------------------- | ------------------------------------ |
-| Event ID           | ULID string             | `bigserial` (returned as string)     |
-| Timestamp          | `Date.now()` at persist | `created_at` column (millis)         |
-| Versionstamp       | KV versionstamp         | Event ID as string                   |
-| Optimistic locking | KV versionstamp checks  | `conditional_append` with `after_id` |
-| Atomicity          | KV atomic operations    | Table-level EXCLUSIVE lock           |
+| Concept            | Deno KV                 | PostgreSQL                       |
+| ------------------ | ----------------------- | -------------------------------- |
+| Event ID           | ULID string             | `bigserial` (returned as string) |
+| Timestamp          | `Date.now()` at persist | `created_at` column (millis)     |
+| Versionstamp       | KV versionstamp         | Event ID as string               |
+| Optimistic locking | KV versionstamp checks  | `append` with `after_id`         |
+| Atomicity          | KV atomic operations    | Table-level EXCLUSIVE lock       |
 
 ### Event Serialization
 

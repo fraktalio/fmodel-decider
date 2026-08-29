@@ -150,10 +150,7 @@ $$;
 -- 5. Append functions
 -- ------------------------------------------------------------
 
--- The unconditional insert loop lives inline here rather than as its own
--- function so there's no separate callable object that could bypass the
--- EXCLUSIVE lock below.
-CREATE OR REPLACE FUNCTION conditional_append(
+CREATE OR REPLACE FUNCTION append(
     query_items     dcb_query_item_tt[],
     after_id        bigint,
     new_events      dcb_event_tt[],
@@ -191,14 +188,14 @@ BEGIN
 
     -- Insert into idempotency_keys table (PK rejects duplicates)
     INSERT INTO idempotency_keys (idempotency_key, command_kind)
-    VALUES (conditional_append.idempotency_key, conditional_append.command_kind);
+    VALUES (append.idempotency_key, append.command_kind);
 
     max_id := 0;
 
     FOREACH event_record IN ARRAY new_events
     LOOP
         INSERT INTO events (type, data, tags, idempotency_key)
-        VALUES (event_record.type, event_record.data, event_record.tags, conditional_append.idempotency_key)
+        VALUES (event_record.type, event_record.data, event_record.tags, append.idempotency_key)
         RETURNING id INTO inserted_id;
 
         max_id := GREATEST(max_id, inserted_id);

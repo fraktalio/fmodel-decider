@@ -5,7 +5,7 @@
  * but targets the PostgreSQL backend via createRestaurantPostgresRepository.
  *
  * Tests verify:
- * - Event persistence to PostgreSQL via conditional_append
+ * - Event persistence to PostgreSQL via append
  * - Domain error propagation (RestaurantAlreadyExistsError)
  *
  * Requires Docker daemon for testcontainers.
