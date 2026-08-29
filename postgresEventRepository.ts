@@ -103,13 +103,13 @@ function toHex(bytes: Uint8Array): string {
  * Converts `QueryTuple[]` into the SQL literal representation of `dcb_query_item_tt[]`.
  *
  * Each `QueryTuple` `[...tags, eventType]` maps to a `dcb_query_item_tt`:
- * - `types`: single-element text array containing the last element (event type)
+ * - `type`: the last element (event type)
  * - `tags`: text array of all preceding elements
  *
  * @example
  * ```
  * mapQueryTuplesToSql([["restaurantId:r1", "RestaurantCreatedEvent"]])
- * // → "ARRAY[ROW(ARRAY['RestaurantCreatedEvent'],ARRAY['restaurantId:r1'])::dcb_query_item_tt]"
+ * // → "ARRAY[ROW('RestaurantCreatedEvent',ARRAY['restaurantId:r1'])::dcb_query_item_tt]"
  * ```
  */
 export function mapQueryTuplesToSql<Ei extends EventShape>(
@@ -118,11 +118,11 @@ export function mapQueryTuplesToSql<Ei extends EventShape>(
   const items = queryTuples.map((tuple) => {
     const eventType = tuple[tuple.length - 1] as string;
     const tags = tuple.slice(0, -1) as string[];
-    const typesLiteral = `ARRAY['${escapeSqlString(eventType)}']`;
+    const typeLiteral = `'${escapeSqlString(eventType)}'`;
     const tagsLiteral = tags.length === 0
       ? "ARRAY[]::text[]"
       : `ARRAY[${tags.map((t) => `'${escapeSqlString(t)}'`).join(",")}]`;
-    return `ROW(${typesLiteral},${tagsLiteral})::dcb_query_item_tt`;
+    return `ROW(${typeLiteral},${tagsLiteral})::dcb_query_item_tt`;
   });
   return `ARRAY[${items.join(",")}]`;
 }

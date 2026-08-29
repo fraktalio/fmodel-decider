@@ -619,7 +619,7 @@ Two custom PostgreSQL types define the wire format between TypeScript and SQL:
 CREATE TYPE dcb_event_tt AS (type text, data bytea, tags text[]);
 
 -- Query item for tag-based event loading
-CREATE TYPE dcb_query_item_tt AS (types text[], tags text[]);
+CREATE TYPE dcb_query_item_tt AS (type text, tags text[]);
 ```
 
 ### Tuple-Based Query Pattern
@@ -637,9 +637,9 @@ converts these into `dcb_query_item_tt[]` arrays for the SQL functions:
 
 // Becomes SQL:
 // ARRAY[
-//   ROW(ARRAY['RestaurantCreatedEvent'], ARRAY['restaurantId:r1'])::dcb_query_item_tt,
-//   ROW(ARRAY['RestaurantMenuChangedEvent'], ARRAY['restaurantId:r1'])::dcb_query_item_tt,
-//   ROW(ARRAY['RestaurantOrderPlacedEvent'], ARRAY['orderId:o1'])::dcb_query_item_tt
+//   ROW('RestaurantCreatedEvent', ARRAY['restaurantId:r1'])::dcb_query_item_tt,
+//   ROW('RestaurantMenuChangedEvent', ARRAY['restaurantId:r1'])::dcb_query_item_tt,
+//   ROW('RestaurantOrderPlacedEvent', ARRAY['orderId:o1'])::dcb_query_item_tt
 // ]
 ```
 

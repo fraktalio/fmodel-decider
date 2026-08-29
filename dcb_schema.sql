@@ -13,8 +13,8 @@ CREATE TYPE dcb_event_tt AS (
 );
 
 CREATE TYPE dcb_query_item_tt AS (
-    types text[],
-    tags  text[]
+    type text,
+    tags text[]
 );
 
 -- ------------------------------------------------------------
@@ -92,8 +92,8 @@ $$;
 -- 4.3 Select events by DCB query (tag containment, GIN-index-friendly)
 --
 -- An event matches a query item when its tags are a superset of the query
--- item's tags (`e.tags @> qi.tags`) and, if the query item restricts types,
--- the event's type is one of them.
+-- item's tags (`e.tags @> qi.tags`) and, if the query item restricts the type,
+-- the event's type matches it.
 CREATE OR REPLACE FUNCTION select_events_by_tags(
     query_items dcb_query_item_tt[],
     after_id    bigint DEFAULT 0,
@@ -111,9 +111,7 @@ AS $$
            SELECT 1
              FROM unnest(query_items) qi
             WHERE e.tags @> qi.tags
-              AND (array_length(qi.types, 1) IS NULL
-                   OR array_length(qi.types, 1) = 0
-                   OR e.type = ANY(qi.types))
+              AND (qi.type IS NULL OR e.type = qi.type)
        )
      ORDER BY e.id ASC
      LIMIT COALESCE(limit_count, 9223372036854775807);
@@ -139,9 +137,7 @@ AS $$
         SELECT DISTINCT ON (qi.ordinality) e.id
           FROM query_items_cte qi
           JOIN events e ON e.tags @> qi.tags
-         WHERE array_length(qi.types, 1) IS NULL
-            OR array_length(qi.types, 1) = 0
-            OR e.type = ANY(qi.types)
+         WHERE qi.type IS NULL OR e.type = qi.type
          ORDER BY qi.ordinality, e.id DESC
     )
     SELECT *
@@ -184,9 +180,7 @@ BEGIN
                SELECT 1
                  FROM unnest(query_items) qi
                 WHERE e.tags @> qi.tags
-                  AND (array_length(qi.types, 1) IS NULL
-                       OR array_length(qi.types, 1) = 0
-                       OR e.type = ANY(qi.types))
+                  AND (qi.type IS NULL OR e.type = qi.type)
            )
     )
     INTO conflict_exists;
