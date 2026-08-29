@@ -587,7 +587,6 @@ thin:
 | Function                     | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
 | `conditional_append`         | Atomic conflict check + append with table-level EXCLUSIVE lock |
-| `unconditional_append`       | Internal helper — inserts events                               |
 | `select_events_by_tags`      | Full-replay event loading by query tuples (tag containment)    |
 | `select_last_events_by_tags` | Idempotent mode — returns only the last event per query group  |
 | `select_events_by_type`      | Load events by type with optional `after_id` cursor            |
@@ -603,7 +602,7 @@ PostgreSQL uses a different locking strategy than Deno KV:
 3. **Persist** via `conditional_append(query_items, after_id, new_events)`:
    - Acquires a table-level `EXCLUSIVE` lock (with 5s timeout)
    - Checks for conflicting events with matching tags inserted after `after_id`
-   - If no conflicts: appends events + tag index rows, returns the new max id
+   - If no conflicts: appends events, returns the new max id
    - If conflicts: returns `NULL` (TypeScript layer retries)
 4. **Retry** on conflict (configurable, default: 10 attempts)
 

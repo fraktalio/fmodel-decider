@@ -154,38 +154,9 @@ $$;
 -- 5. Append functions
 -- ------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION unconditional_append(
-    new_events      dcb_event_tt[],
-    idempotency_key TEXT,
-    command_kind    TEXT
-)
-RETURNS bigint
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    max_id       bigint;
-    event_record dcb_event_tt;
-    inserted_id  bigint;
-BEGIN
-    -- Insert into idempotency_keys table (PK rejects duplicates)
-    INSERT INTO idempotency_keys (idempotency_key, command_kind)
-    VALUES (unconditional_append.idempotency_key, unconditional_append.command_kind);
-
-    max_id := 0;
-
-    FOREACH event_record IN ARRAY new_events
-    LOOP
-        INSERT INTO events (type, data, tags, idempotency_key)
-        VALUES (event_record.type, event_record.data, event_record.tags, unconditional_append.idempotency_key)
-        RETURNING id INTO inserted_id;
-
-        max_id := GREATEST(max_id, inserted_id);
-    END LOOP;
-
-    RETURN max_id;
-END;
-$$;
-
+-- The unconditional insert loop lives inline here rather than as its own
+-- function so there's no separate callable object that could bypass the
+-- EXCLUSIVE lock below.
 CREATE OR REPLACE FUNCTION conditional_append(
     query_items     dcb_query_item_tt[],
     after_id        bigint,
@@ -198,6 +169,9 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     conflict_exists boolean;
+    max_id          bigint;
+    event_record    dcb_event_tt;
+    inserted_id     bigint;
 BEGIN
     SET LOCAL lock_timeout = '5s';
     LOCK TABLE events IN EXCLUSIVE MODE;
@@ -217,18 +191,25 @@ BEGIN
     )
     INTO conflict_exists;
 
-    IF NOT conflict_exists THEN
-        RETURN unconditional_append(new_events, conditional_append.idempotency_key, conditional_append.command_kind);
+    IF conflict_exists THEN
+        RETURN NULL;
     END IF;
 
-    RETURN NULL;
+    -- Insert into idempotency_keys table (PK rejects duplicates)
+    INSERT INTO idempotency_keys (idempotency_key, command_kind)
+    VALUES (conditional_append.idempotency_key, conditional_append.command_kind);
+
+    max_id := 0;
+
+    FOREACH event_record IN ARRAY new_events
+    LOOP
+        INSERT INTO events (type, data, tags, idempotency_key)
+        VALUES (event_record.type, event_record.data, event_record.tags, conditional_append.idempotency_key)
+        RETURNING id INTO inserted_id;
+
+        max_id := GREATEST(max_id, inserted_id);
+    END LOOP;
+
+    RETURN max_id;
 END;
 $$;
-
--- ------------------------------------------------------------
--- 6. Access control
--- ------------------------------------------------------------
-
--- unconditional_append is an internal helper called only by conditional_append.
--- Revoke public access so external callers cannot bypass the EXCLUSIVE lock.
-REVOKE ALL ON FUNCTION unconditional_append(dcb_event_tt[], TEXT, TEXT) FROM PUBLIC;
