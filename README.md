@@ -572,27 +572,26 @@ implementation. Defined in `dcb_schema.sql` and implemented in
 ### Schema Architecture
 
 ```
-dcb.events      — append-only event log (bigserial id, type, data bytea, tags text[])
-dcb.event_tags  — tag index for query-by-tag (tag text, main_id bigint → events.id)
+events — append-only event log (bigserial id, type, data bytea, tags text[])
 ```
 
-Events are stored once in `dcb.events`. The `dcb.event_tags` table provides a
-secondary index for tag-based queries — each event's tags are denormalized into
-individual rows for efficient joins.
+Events are stored in `events`. Tag-based queries use PostgreSQL's array
+containment operator (`tags @> query_tags`) directly against the `tags` column,
+backed by a GIN index — no separate tag-index table to keep in sync.
 
 ### SQL Functions
 
 The schema delegates all logic to SQL functions, keeping the TypeScript layer
 thin:
 
-| Function                         | Purpose                                                        |
-| -------------------------------- | -------------------------------------------------------------- |
-| `dcb.conditional_append`         | Atomic conflict check + append with table-level EXCLUSIVE lock |
-| `dcb.unconditional_append`       | Internal helper — inserts events + tag index rows              |
-| `dcb.select_events_by_tags`      | Full-replay event loading by query tuples                      |
-| `dcb.select_last_events_by_tags` | Idempotent mode — returns only the last event per query group  |
-| `dcb.select_events_by_type`      | Load events by type with optional `after_id` cursor            |
-| `dcb.select_max_id`              | Current max event id (for optimistic locking baseline)         |
+| Function                     | Purpose                                                        |
+| ---------------------------- | -------------------------------------------------------------- |
+| `conditional_append`         | Atomic conflict check + append with table-level EXCLUSIVE lock |
+| `unconditional_append`       | Internal helper — inserts events                               |
+| `select_events_by_tags`      | Full-replay event loading by query tuples (tag containment)    |
+| `select_last_events_by_tags` | Idempotent mode — returns only the last event per query group  |
+| `select_events_by_type`      | Load events by type with optional `after_id` cursor            |
+| `select_max_id`              | Current max event id (for optimistic locking baseline)         |
 
 ### Optimistic Locking
 
@@ -618,10 +617,10 @@ Two custom PostgreSQL types define the wire format between TypeScript and SQL:
 
 ```sql
 -- Event payload for append operations
-CREATE TYPE dcb.dcb_event_tt AS (type text, data bytea, tags text[]);
+CREATE TYPE dcb_event_tt AS (type text, data bytea, tags text[]);
 
 -- Query item for tag-based event loading
-CREATE TYPE dcb.dcb_query_item_tt AS (types text[], tags text[]);
+CREATE TYPE dcb_query_item_tt AS (types text[], tags text[]);
 ```
 
 ### Tuple-Based Query Pattern
@@ -639,9 +638,9 @@ converts these into `dcb_query_item_tt[]` arrays for the SQL functions:
 
 // Becomes SQL:
 // ARRAY[
-//   ROW(ARRAY['RestaurantCreatedEvent'], ARRAY['restaurantId:r1'])::dcb.dcb_query_item_tt,
-//   ROW(ARRAY['RestaurantMenuChangedEvent'], ARRAY['restaurantId:r1'])::dcb.dcb_query_item_tt,
-//   ROW(ARRAY['RestaurantOrderPlacedEvent'], ARRAY['orderId:o1'])::dcb.dcb_query_item_tt
+//   ROW(ARRAY['RestaurantCreatedEvent'], ARRAY['restaurantId:r1'])::dcb_query_item_tt,
+//   ROW(ARRAY['RestaurantMenuChangedEvent'], ARRAY['restaurantId:r1'])::dcb_query_item_tt,
+//   ROW(ARRAY['RestaurantOrderPlacedEvent'], ARRAY['orderId:o1'])::dcb_query_item_tt
 // ]
 ```
 
@@ -785,7 +784,7 @@ Both backends prevent duplicate persistence under concurrent first-executions:
 | Backend    | Mechanism                                                 |
 | ---------- | --------------------------------------------------------- |
 | Deno KV    | Atomic check-and-set on `events_by_idempotency_key` entry |
-| PostgreSQL | `dcb.idempotency_keys` table with PRIMARY KEY constraint  |
+| PostgreSQL | `idempotency_keys` table with PRIMARY KEY constraint      |
 
 If two concurrent executions bypass the application-level check, one wins the
 write and the other gets a constraint violation. The repository catches this

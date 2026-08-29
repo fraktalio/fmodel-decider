@@ -109,7 +109,7 @@ function toHex(bytes: Uint8Array): string {
  * @example
  * ```
  * mapQueryTuplesToSql([["restaurantId:r1", "RestaurantCreatedEvent"]])
- * // → "ARRAY[ROW(ARRAY['RestaurantCreatedEvent'],ARRAY['restaurantId:r1'])::dcb.dcb_query_item_tt]"
+ * // → "ARRAY[ROW(ARRAY['RestaurantCreatedEvent'],ARRAY['restaurantId:r1'])::dcb_query_item_tt]"
  * ```
  */
 export function mapQueryTuplesToSql<Ei extends EventShape>(
@@ -122,7 +122,7 @@ export function mapQueryTuplesToSql<Ei extends EventShape>(
     const tagsLiteral = tags.length === 0
       ? "ARRAY[]::text[]"
       : `ARRAY[${tags.map((t) => `'${escapeSqlString(t)}'`).join(",")}]`;
-    return `ROW(${typesLiteral},${tagsLiteral})::dcb.dcb_query_item_tt`;
+    return `ROW(${typesLiteral},${tagsLiteral})::dcb_query_item_tt`;
   });
   return `ARRAY[${items.join(",")}]`;
 }
@@ -149,7 +149,7 @@ export function extractTags<Eo extends EventShape>(event: Eo): string[] {
 /**
  * Converts output events into the SQL literal representation of `dcb_event_tt[]`.
  *
- * Each event maps to `ROW(type, data, tags)::dcb.dcb_event_tt` where:
+ * Each event maps to `ROW(type, data, tags)::dcb_event_tt` where:
  * - `type` is `event.kind`
  * - `data` is the serialized bytea as a hex-encoded literal (`'\x...'`)
  * - `tags` is the extracted tag array
@@ -167,7 +167,7 @@ export function buildEventTuples<Eo extends EventShape>(
       : `ARRAY[${tags.map((t) => `'${escapeSqlString(t)}'`).join(",")}]`;
     return `ROW('${
       escapeSqlString(event.kind)
-    }',${hexData},${tagsLiteral})::dcb.dcb_event_tt`;
+    }',${hexData},${tagsLiteral})::dcb_event_tt`;
   });
   return `ARRAY[${items.join(",")}]`;
 }
@@ -181,10 +181,10 @@ export function buildEventTuples<Eo extends EventShape>(
  *
  * Delegates all storage, indexing, and conflict detection to predefined SQL
  * functions in the `dcb` schema:
- * - `dcb.conditional_append` — atomic conflict check + append
- * - `dcb.select_events_by_tags` — full-replay event loading
- * - `dcb.select_last_events_by_tags` — idempotent (last-event) loading
- * - `dcb.select_max_id` — current max event id
+ * - `conditional_append` — atomic conflict check + append
+ * - `select_events_by_tags` — full-replay event loading
+ * - `select_last_events_by_tags` — idempotent (last-event) loading
+ * - `select_max_id` — current max event id
  *
  * Optimistic locking uses an integer `after_id` (the max event id at load time)
  * instead of Deno KV versionstamps, and all atomicity is handled server-side.
@@ -426,7 +426,7 @@ export class PostgresEventRepository<
           data: Uint8Array;
           created_at: Date;
         }>(
-          `SELECT e.id, e.type, e.data, e.created_at FROM dcb.select_last_events_by_tags(${queryItemsSql}::dcb.dcb_query_item_tt[]) AS e ORDER BY e.id ASC`,
+          `SELECT e.id, e.type, e.data, e.created_at FROM select_last_events_by_tags(${queryItemsSql}::dcb_query_item_tt[]) AS e ORDER BY e.id ASC`,
         );
         rows = result.rows;
       } else {
@@ -436,7 +436,7 @@ export class PostgresEventRepository<
           data: Uint8Array;
           created_at: Date;
         }>(
-          `SELECT e.id, e.type, e.data, e.created_at FROM dcb.select_events_by_tags(${queryItemsSql}::dcb.dcb_query_item_tt[], 0, NULL) AS e ORDER BY e.id ASC`,
+          `SELECT e.id, e.type, e.data, e.created_at FROM select_events_by_tags(${queryItemsSql}::dcb_query_item_tt[], 0, NULL) AS e ORDER BY e.id ASC`,
         );
         rows = result.rows;
       }
@@ -449,7 +449,7 @@ export class PostgresEventRepository<
         const maxIdResult = await this.client.queryObject<{
           select_max_id: bigint;
         }>(
-          `SELECT dcb.select_max_id()`,
+          `SELECT select_max_id()`,
         );
         afterId = maxIdResult.rows[0].select_max_id ?? BigInt(0);
       }
@@ -466,7 +466,7 @@ export class PostgresEventRepository<
   /**
    * Loads events by idempotency key for circuit-break detection.
    *
-   * Queries `dcb.events` for all events with the given idempotency key.
+   * Queries `events` for all events with the given idempotency key.
    * If events exist, deserializes and returns them with full EventMetadata.
    * If no events exist, returns an empty array.
    *
@@ -485,7 +485,7 @@ export class PostgresEventRepository<
       const keyResult = await this.client.queryObject<{
         command_kind: string;
       }>(
-        `SELECT command_kind FROM dcb.idempotency_keys WHERE idempotency_key = '${escapedKey}'`,
+        `SELECT command_kind FROM idempotency_keys WHERE idempotency_key = '${escapedKey}'`,
       );
 
       if (keyResult.rows.length === 0) {
@@ -500,7 +500,7 @@ export class PostgresEventRepository<
         data: Uint8Array;
         created_at: Date;
       }>(
-        `SELECT id, type, data, created_at FROM dcb.events WHERE idempotency_key = '${escapedKey}' ORDER BY id ASC`,
+        `SELECT id, type, data, created_at FROM events WHERE idempotency_key = '${escapedKey}' ORDER BY id ASC`,
       );
 
       const events = result.rows.map((row) => {
@@ -523,7 +523,7 @@ export class PostgresEventRepository<
   /**
    * Persists events via `conditional_append` and enriches with EventMetadata.
    * Returns null on conflict (NULL from conditional_append).
-   * Throws IdempotencyConflictError on PK violation on dcb.idempotency_keys.
+   * Throws IdempotencyConflictError on PK violation on idempotency_keys.
    */
   private async persistEvents(
     events: readonly Eo[],
@@ -542,7 +542,7 @@ export class PostgresEventRepository<
       const appendResult = await this.client.queryObject<{
         conditional_append: unknown;
       }>(
-        `SELECT dcb.conditional_append(${queryItemsSql}::dcb.dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb.dcb_event_tt[], '${escapedKey}', '${escapedKind}')`,
+        `SELECT conditional_append(${queryItemsSql}::dcb_query_item_tt[], ${afterId}::bigint, ${eventTuplesSql}::dcb_event_tt[], '${escapedKey}', '${escapedKind}')`,
       );
 
       const returnedValue = appendResult.rows[0]?.conditional_append;
@@ -557,7 +557,7 @@ export class PostgresEventRepository<
         id: bigint;
         created_at: Date;
       }>(
-        `SELECT id, created_at FROM dcb.events WHERE id > ${afterId} ORDER BY id ASC`,
+        `SELECT id, created_at FROM events WHERE id > ${afterId} ORDER BY id ASC`,
       );
 
       const metadataRows = metadataResult.rows;
@@ -574,7 +574,7 @@ export class PostgresEventRepository<
         };
       });
     } catch (error) {
-      // Check for PK violation on dcb.idempotency_keys (unique_violation = 23505)
+      // Check for PK violation on idempotency_keys (unique_violation = 23505)
       const pgError = error as { code?: string; message?: string };
       if (
         pgError.code === "23505" ||
@@ -633,7 +633,7 @@ export class PostgresEventLoader<Ei extends EventShape>
           data: Uint8Array;
           created_at: Date;
         }>(
-          `SELECT e.id, e.type, e.data, e.created_at FROM dcb.select_last_events_by_tags(${queryItemsSql}::dcb.dcb_query_item_tt[]) AS e ORDER BY e.id ASC`,
+          `SELECT e.id, e.type, e.data, e.created_at FROM select_last_events_by_tags(${queryItemsSql}::dcb_query_item_tt[]) AS e ORDER BY e.id ASC`,
         );
         rows = result.rows;
       } else {
@@ -643,7 +643,7 @@ export class PostgresEventLoader<Ei extends EventShape>
           data: Uint8Array;
           created_at: Date;
         }>(
-          `SELECT e.id, e.type, e.data, e.created_at FROM dcb.select_events_by_tags(${queryItemsSql}::dcb.dcb_query_item_tt[], 0, NULL) AS e ORDER BY e.id ASC`,
+          `SELECT e.id, e.type, e.data, e.created_at FROM select_events_by_tags(${queryItemsSql}::dcb_query_item_tt[], 0, NULL) AS e ORDER BY e.id ASC`,
         );
         rows = result.rows;
       }

@@ -5,7 +5,7 @@
  * but targets the PostgreSQL backend via changeRestaurantMenuPostgresRepository.
  *
  * Tests verify:
- * - Event persistence to PostgreSQL via dcb.conditional_append
+ * - Event persistence to PostgreSQL via conditional_append
  * - Domain error propagation (RestaurantNotFoundError)
  * - Sequential menu updates
  *

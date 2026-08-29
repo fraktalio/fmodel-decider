@@ -2,7 +2,7 @@
  * Postgres repository for PlaceOrder decider.
  *
  * Handles order placement commands by persisting RestaurantOrderPlacedEvent
- * to PostgreSQL storage via `dcb.conditional_append` with optimistic locking.
+ * to PostgreSQL storage via `conditional_append` with optimistic locking.
  *
  * This repository spans multiple entities (Restaurant and Order) and loads
  * events related to both the restaurant state and existing orders.

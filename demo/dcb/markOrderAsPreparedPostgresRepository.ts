@@ -2,7 +2,7 @@
  * Postgres repository for MarkOrderAsPrepared decider.
  *
  * Handles order preparation commands by persisting OrderPreparedEvent
- * to PostgreSQL storage via `dcb.conditional_append` with optimistic locking.
+ * to PostgreSQL storage via `conditional_append` with optimistic locking.
  *
  * This repository queries events by order ID to check if the order exists
  * and whether it has already been prepared.

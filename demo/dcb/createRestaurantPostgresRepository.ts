@@ -2,7 +2,7 @@
  * Postgres repository for CreateRestaurant decider.
  *
  * Handles restaurant creation commands by persisting RestaurantCreatedEvent
- * to PostgreSQL storage via `dcb.conditional_append` with optimistic locking.
+ * to PostgreSQL storage via `conditional_append` with optimistic locking.
  */
 
 import type { SqlClient } from "../../postgresEventRepository.ts";
